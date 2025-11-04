@@ -307,7 +307,7 @@ def main():
                 hover_data=['Commit Hash', 'Date', 'Files Changed'],
                 labels={'Total Lines': 'Total Lines Changed'}
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
 
             # Detailed table
             st.subheader("Detailed Information")
@@ -316,7 +316,7 @@ def main():
                 'Lines Added', 'Lines Deleted', 'Total Lines',
                 'Files Changed', 'Message'
             ]]
-            st.dataframe(display_df, use_container_width=True, height=400)
+            st.dataframe(display_df, width='stretch', height=400)
 
     # Top PR Approvers Page
     elif page == "Top PR Approvers":
@@ -339,11 +339,11 @@ def main():
                 color_continuous_scale='Blues'
             )
             fig.update_layout(yaxis={'categoryorder': 'total ascending'})
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
 
             # Detailed table
             st.subheader("Detailed Information")
-            st.dataframe(df, use_container_width=True, height=400)
+            st.dataframe(df, width='stretch', height=400)
 
     # Detailed Commits View
     elif page == "Detailed Commits View":
@@ -416,7 +416,7 @@ def main():
                 'Files Changed', 'Message'
             ]]
 
-            st.dataframe(display_df, use_container_width=True, height=500)
+            st.dataframe(display_df, width='stretch', height=500)
 
             # Download button
             csv = display_df.to_csv(index=False)
@@ -499,7 +499,7 @@ def main():
                 'Commits', 'Approvals'
             ]]
 
-            st.dataframe(display_df, use_container_width=True, height=500)
+            st.dataframe(display_df, width='stretch', height=500)
 
             # Download button
             csv = display_df.to_csv(index=False)

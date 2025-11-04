@@ -116,14 +116,20 @@ class GitHistoryCLI:
             click.echo("Repository already exists in database, updating data...")
 
         # Clone repository
-        click.echo(f"Cloning repository...")
+        click.echo(f"Cloning repository from {repo_info['clone_url']}...")
+        click.echo("Note: Large repositories may take several minutes to clone...")
         try:
             repo_path = self.analyzer.clone_repository(
                 repo_info['clone_url'],
                 f"{repo_info['project_key']}_{repo_info['slug_name']}"
             )
+            click.echo(f"[OK] Repository cloned successfully")
+        except KeyboardInterrupt:
+            click.echo("\n[CANCELLED] Clone operation cancelled by user", err=True)
+            return 0, 0, 0
         except Exception as e:
-            click.echo(f"Error cloning repository: {e}", err=True)
+            click.echo(f"[ERROR] Failed to clone repository: {e}", err=True)
+            click.echo("Tip: Very large repositories (like Linux kernel) may timeout or fail. Use smaller repos for testing.", err=True)
             return 0, 0, 0
 
         commits_count = 0

@@ -200,9 +200,18 @@ For private repositories, provide authentication:
 - **Password**: Personal access token (recommended) or password
 
 **GitHub Personal Access Token:**
-1. Go to GitHub Settings ’ Developer settings ’ Personal access tokens
+1. Go to GitHub Settings ï¿½ Developer settings ï¿½ Personal access tokens
 2. Generate new token with `repo` scope
 3. Use token as password in `.env` file
+
+## Performance and Repository Size
+
+âš ï¸ **Important**: Very large repositories (> 10 GB, e.g., Linux kernel) may take hours to clone and process, or may fail entirely.
+
+For best results:
+- Start with small repositories (< 100 MB)
+- Use the provided `sample_repositories.csv` for testing
+- See [PERFORMANCE_TIPS.md](PERFORMANCE_TIPS.md) for detailed guidance
 
 ## Troubleshooting
 
@@ -210,6 +219,7 @@ For private repositories, provide authentication:
 - Ensure Git credentials are correct in `.env`
 - Check if repositories use 'master' or 'main' branch (tool handles both)
 - Verify network connectivity and repository URLs
+- **Large repositories**: May timeout or fail. Use smaller repos or split into batches
 
 ### Database Connection Issues
 - **SQLite**: Check file permissions for database file

@@ -15,6 +15,7 @@ A comprehensive Python application for analyzing Git repository history, extract
 
 ### 2. Streamlit Dashboard (dashboard.py)
 - **Overview**: Summary statistics of all analyzed repositories
+- **Authors Analytics**: Comprehensive author statistics (commits, lines changed, PRs, approvals) with visualizations
 - **Top 10 Commits**: Commits with the most lines changed, with visualizations
 - **Top PR Approvers**: Most active PR reviewers
 - **Detailed Commits View**: Searchable, filterable, and sortable commit history
@@ -120,6 +121,22 @@ The dashboard will open in your default web browser at `http://localhost:8501`
 - Number of unique authors
 - Total repositories analyzed
 - Total lines of code changed
+
+#### Authors Analytics Page
+- **Comprehensive author statistics** including:
+  - Total commits per author
+  - Lines added, deleted, and total changed
+  - Files modified count
+  - Number of repositories contributed to
+  - Pull requests created
+  - Pull requests approved/reviewed
+- **Visualizations**:
+  - Top 10 contributors by commits (bar chart)
+  - Top 10 contributors by lines changed (grouped bar chart)
+- **Key insights**: Most active author, most lines changed, top PR reviewer
+- **Sortable table** by any metric
+- **CSV export** for further analysis
+- See [AUTHORS_ANALYTICS_GUIDE.md](AUTHORS_ANALYTICS_GUIDE.md) for detailed usage
 
 #### Top 10 Commits Page
 - Bar chart showing commits with most lines changed

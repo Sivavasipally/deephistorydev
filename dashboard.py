@@ -249,6 +249,85 @@ class GitHistoryDashboard:
         finally:
             session.close()
 
+    def get_author_statistics(self):
+        """Get comprehensive statistics for each author.
+
+        Returns:
+            DataFrame with author statistics including commits, lines, PRs, and approvals
+        """
+        session = get_session(self.engine)
+        try:
+            # Get commit statistics per author
+            commit_stats = session.query(
+                Commit.author_name,
+                Commit.author_email,
+                func.count(Commit.id).label('total_commits'),
+                func.sum(Commit.lines_added).label('total_lines_added'),
+                func.sum(Commit.lines_deleted).label('total_lines_deleted'),
+                func.sum(Commit.files_changed).label('total_files_changed'),
+                func.count(func.distinct(Commit.repository_id)).label('repositories_count')
+            ).group_by(
+                Commit.author_name,
+                Commit.author_email
+            ).subquery()
+
+            # Get PR creation statistics per author
+            pr_created_stats = session.query(
+                PullRequest.author_email,
+                func.count(PullRequest.id).label('total_prs_created')
+            ).group_by(
+                PullRequest.author_email
+            ).subquery()
+
+            # Get PR approval statistics per author
+            pr_approval_stats = session.query(
+                PRApproval.approver_email,
+                func.count(PRApproval.id).label('total_prs_approved')
+            ).group_by(
+                PRApproval.approver_email
+            ).subquery()
+
+            # Combine all statistics
+            query = session.query(
+                commit_stats.c.author_name,
+                commit_stats.c.author_email,
+                commit_stats.c.total_commits,
+                commit_stats.c.total_lines_added,
+                commit_stats.c.total_lines_deleted,
+                (commit_stats.c.total_lines_added + commit_stats.c.total_lines_deleted).label('total_lines_changed'),
+                commit_stats.c.total_files_changed,
+                commit_stats.c.repositories_count,
+                func.coalesce(pr_created_stats.c.total_prs_created, 0).label('total_prs_created'),
+                func.coalesce(pr_approval_stats.c.total_prs_approved, 0).label('total_prs_approved')
+            ).outerjoin(
+                pr_created_stats,
+                commit_stats.c.author_email == pr_created_stats.c.author_email
+            ).outerjoin(
+                pr_approval_stats,
+                commit_stats.c.author_email == pr_approval_stats.c.approver_email
+            ).order_by(
+                desc('total_commits')
+            )
+
+            results = query.all()
+
+            data = [{
+                'Author Name': r.author_name,
+                'Email': r.author_email,
+                'Total Commits': r.total_commits,
+                'Lines Added': r.total_lines_added or 0,
+                'Lines Deleted': r.total_lines_deleted or 0,
+                'Total Lines Changed': r.total_lines_changed or 0,
+                'Files Changed': r.total_files_changed or 0,
+                'Repositories': r.repositories_count,
+                'PRs Created': r.total_prs_created,
+                'PRs Approved': r.total_prs_approved
+            } for r in results]
+
+            return pd.DataFrame(data)
+        finally:
+            session.close()
+
 
 def main():
     """Main dashboard application."""
@@ -266,7 +345,7 @@ def main():
     st.sidebar.title("Navigation")
     page = st.sidebar.radio(
         "Select View",
-        ["Overview", "Top 10 Commits", "Top PR Approvers", "Detailed Commits View", "Detailed PRs View"]
+        ["Overview", "Authors Analytics", "Top 10 Commits", "Top PR Approvers", "Detailed Commits View", "Detailed PRs View"]
     )
 
     # Overview Page
@@ -287,6 +366,117 @@ def main():
 
         st.markdown("---")
         st.info("Use the sidebar to navigate to different views.")
+
+    # Authors Analytics Page
+    elif page == "Authors Analytics":
+        st.header("👨‍💻 Authors Analytics")
+        st.markdown("Comprehensive statistics for all contributors")
+
+        df = dashboard.get_author_statistics()
+
+        if df.empty:
+            st.warning("No author data available.")
+        else:
+            # Summary metrics
+            st.subheader("Summary")
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Total Authors", len(df))
+            with col2:
+                st.metric("Total Commits", f"{df['Total Commits'].sum():,}")
+            with col3:
+                st.metric("Total Lines Changed", f"{df['Total Lines Changed'].sum():,}")
+            with col4:
+                st.metric("Total PRs", f"{df['PRs Created'].sum() + df['PRs Approved'].sum():,.0f}")
+
+            st.markdown("---")
+
+            # Top contributors by commits
+            st.subheader("📊 Top Contributors by Commits")
+            top_by_commits = df.nlargest(10, 'Total Commits')
+            fig = px.bar(
+                top_by_commits,
+                x='Author Name',
+                y='Total Commits',
+                title='Top 10 Contributors by Number of Commits',
+                labels={'Total Commits': 'Number of Commits'},
+                color='Total Commits',
+                color_continuous_scale='Viridis'
+            )
+            st.plotly_chart(fig, width='stretch')
+
+            # Top contributors by lines changed
+            st.subheader("📈 Top Contributors by Lines Changed")
+            top_by_lines = df.nlargest(10, 'Total Lines Changed')
+            fig2 = px.bar(
+                top_by_lines,
+                x='Author Name',
+                y=['Lines Added', 'Lines Deleted'],
+                title='Top 10 Contributors by Lines Changed',
+                labels={'value': 'Lines', 'variable': 'Type'},
+                barmode='group',
+                color_discrete_map={'Lines Added': '#2ecc71', 'Lines Deleted': '#e74c3c'}
+            )
+            st.plotly_chart(fig2, width='stretch')
+
+            # Comprehensive statistics table
+            st.subheader("📋 Detailed Author Statistics")
+
+            # Add sorting options
+            col1, col2 = st.columns(2)
+            with col1:
+                sort_by = st.selectbox(
+                    "Sort by",
+                    ['Total Commits', 'Total Lines Changed', 'Lines Added', 'Lines Deleted',
+                     'Files Changed', 'PRs Created', 'PRs Approved', 'Repositories']
+                )
+            with col2:
+                sort_order = st.radio("Order", ["Descending", "Ascending"], horizontal=True)
+
+            # Sort dataframe
+            sorted_df = df.sort_values(by=sort_by, ascending=(sort_order == "Ascending"))
+
+            # Display table
+            st.dataframe(sorted_df, width='stretch', height=500)
+
+            # Download button
+            csv = sorted_df.to_csv(index=False)
+            st.download_button(
+                label="Download Author Statistics as CSV",
+                data=csv,
+                file_name=f"author_statistics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv"
+            )
+
+            # Additional insights
+            st.markdown("---")
+            st.subheader("💡 Insights")
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                st.metric(
+                    "Most Active Author",
+                    df.iloc[0]['Author Name'] if not df.empty else "N/A",
+                    f"{df.iloc[0]['Total Commits']:,} commits" if not df.empty else ""
+                )
+
+            with col2:
+                top_lines_author = df.nlargest(1, 'Total Lines Changed')
+                if not top_lines_author.empty:
+                    st.metric(
+                        "Most Lines Changed",
+                        top_lines_author.iloc[0]['Author Name'],
+                        f"{top_lines_author.iloc[0]['Total Lines Changed']:,.0f} lines"
+                    )
+
+            with col3:
+                top_pr_reviewer = df.nlargest(1, 'PRs Approved')
+                if not top_pr_reviewer.empty and top_pr_reviewer.iloc[0]['PRs Approved'] > 0:
+                    st.metric(
+                        "Top PR Reviewer",
+                        top_pr_reviewer.iloc[0]['Author Name'],
+                        f"{top_pr_reviewer.iloc[0]['PRs Approved']:.0f} approvals"
+                    )
 
     # Top 10 Commits Page
     elif page == "Top 10 Commits":

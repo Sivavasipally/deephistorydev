@@ -1,0 +1,515 @@
+"""Streamlit dashboard for Git history analysis."""
+
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+from sqlalchemy import func, desc
+from datetime import datetime
+
+from config import Config
+from models import (
+    get_engine, get_session,
+    Repository, Commit, PullRequest, PRApproval
+)
+
+
+class GitHistoryDashboard:
+    """Dashboard for visualizing Git history data."""
+
+    def __init__(self):
+        """Initialize dashboard."""
+        self.config = Config()
+        self.db_config = self.config.get_db_config()
+        self.engine = get_engine(self.db_config)
+
+    def get_top_commits_by_lines(self, limit=10):
+        """Get top commits by lines changed.
+
+        Args:
+            limit: Number of top commits to return
+
+        Returns:
+            DataFrame with top commits
+        """
+        session = get_session(self.engine)
+        try:
+            query = session.query(
+                Commit.commit_hash,
+                Commit.author_name,
+                Commit.author_email,
+                Commit.commit_date,
+                Commit.message,
+                Commit.lines_added,
+                Commit.lines_deleted,
+                (Commit.lines_added + Commit.lines_deleted).label('total_lines'),
+                Commit.files_changed,
+                Repository.project_key,
+                Repository.slug_name
+            ).join(
+                Repository, Commit.repository_id == Repository.id
+            ).order_by(
+                desc('total_lines')
+            ).limit(limit)
+
+            results = query.all()
+
+            data = [{
+                'Commit Hash': r.commit_hash[:8],
+                'Full Hash': r.commit_hash,
+                'Author': r.author_name,
+                'Email': r.author_email,
+                'Date': r.commit_date,
+                'Message': r.message[:100] + '...' if len(r.message) > 100 else r.message,
+                'Lines Added': r.lines_added,
+                'Lines Deleted': r.lines_deleted,
+                'Total Lines': r.total_lines,
+                'Files Changed': r.files_changed,
+                'Repository': f"{r.project_key}/{r.slug_name}"
+            } for r in results]
+
+            return pd.DataFrame(data)
+        finally:
+            session.close()
+
+    def get_top_pr_approvers(self, limit=10):
+        """Get top PR approvers.
+
+        Args:
+            limit: Number of top approvers to return
+
+        Returns:
+            DataFrame with top approvers
+        """
+        session = get_session(self.engine)
+        try:
+            query = session.query(
+                PRApproval.approver_name,
+                PRApproval.approver_email,
+                func.count(PRApproval.id).label('approvals_count'),
+                func.count(func.distinct(PullRequest.repository_id)).label('repositories_count')
+            ).join(
+                PullRequest, PRApproval.pull_request_id == PullRequest.id
+            ).group_by(
+                PRApproval.approver_name,
+                PRApproval.approver_email
+            ).order_by(
+                desc('approvals_count')
+            ).limit(limit)
+
+            results = query.all()
+
+            data = [{
+                'Approver Name': r.approver_name,
+                'Email': r.approver_email,
+                'Total Approvals': r.approvals_count,
+                'Repositories': r.repositories_count
+            } for r in results]
+
+            return pd.DataFrame(data)
+        finally:
+            session.close()
+
+    def get_all_commits(self):
+        """Get all commits for detailed view.
+
+        Returns:
+            DataFrame with all commits
+        """
+        session = get_session(self.engine)
+        try:
+            query = session.query(
+                Commit.commit_hash,
+                Commit.author_name,
+                Commit.author_email,
+                Commit.committer_name,
+                Commit.commit_date,
+                Commit.message,
+                Commit.lines_added,
+                Commit.lines_deleted,
+                (Commit.lines_added + Commit.lines_deleted).label('total_lines'),
+                Commit.files_changed,
+                Commit.branch,
+                Repository.project_key,
+                Repository.slug_name
+            ).join(
+                Repository, Commit.repository_id == Repository.id
+            ).order_by(
+                desc(Commit.commit_date)
+            )
+
+            results = query.all()
+
+            data = [{
+                'Commit Hash': r.commit_hash[:8],
+                'Full Hash': r.commit_hash,
+                'Author': r.author_name,
+                'Author Email': r.author_email,
+                'Committer': r.committer_name,
+                'Date': r.commit_date,
+                'Message': r.message,
+                'Lines Added': r.lines_added,
+                'Lines Deleted': r.lines_deleted,
+                'Total Lines': r.total_lines,
+                'Files Changed': r.files_changed,
+                'Branch': r.branch,
+                'Project': r.project_key,
+                'Repository': r.slug_name,
+                'Full Repo Name': f"{r.project_key}/{r.slug_name}"
+            } for r in results]
+
+            return pd.DataFrame(data)
+        finally:
+            session.close()
+
+    def get_all_pull_requests(self):
+        """Get all pull requests for detailed view.
+
+        Returns:
+            DataFrame with all pull requests
+        """
+        session = get_session(self.engine)
+        try:
+            query = session.query(
+                PullRequest.pr_number,
+                PullRequest.title,
+                PullRequest.description,
+                PullRequest.author_name,
+                PullRequest.author_email,
+                PullRequest.created_date,
+                PullRequest.merged_date,
+                PullRequest.state,
+                PullRequest.source_branch,
+                PullRequest.target_branch,
+                PullRequest.lines_added,
+                PullRequest.lines_deleted,
+                (PullRequest.lines_added + PullRequest.lines_deleted).label('total_lines'),
+                PullRequest.commits_count,
+                func.count(PRApproval.id).label('approvals_count'),
+                Repository.project_key,
+                Repository.slug_name
+            ).join(
+                Repository, PullRequest.repository_id == Repository.id
+            ).outerjoin(
+                PRApproval, PullRequest.id == PRApproval.pull_request_id
+            ).group_by(
+                PullRequest.id
+            ).order_by(
+                desc(PullRequest.created_date)
+            )
+
+            results = query.all()
+
+            data = [{
+                'PR Number': r.pr_number,
+                'Title': r.title,
+                'Description': r.description[:200] + '...' if len(r.description) > 200 else r.description,
+                'Author': r.author_name,
+                'Author Email': r.author_email,
+                'Created Date': r.created_date,
+                'Merged Date': r.merged_date,
+                'State': r.state,
+                'Source Branch': r.source_branch,
+                'Target Branch': r.target_branch,
+                'Lines Added': r.lines_added,
+                'Lines Deleted': r.lines_deleted,
+                'Total Lines': r.total_lines,
+                'Commits': r.commits_count,
+                'Approvals': r.approvals_count,
+                'Project': r.project_key,
+                'Repository': r.slug_name,
+                'Full Repo Name': f"{r.project_key}/{r.slug_name}"
+            } for r in results]
+
+            return pd.DataFrame(data)
+        finally:
+            session.close()
+
+    def get_commit_stats(self):
+        """Get overall commit statistics.
+
+        Returns:
+            Dictionary with statistics
+        """
+        session = get_session(self.engine)
+        try:
+            total_commits = session.query(func.count(Commit.id)).scalar()
+            total_authors = session.query(func.count(func.distinct(Commit.author_email))).scalar()
+            total_repositories = session.query(func.count(Repository.id)).scalar()
+            total_lines = session.query(
+                func.sum(Commit.lines_added + Commit.lines_deleted)
+            ).scalar() or 0
+
+            return {
+                'total_commits': total_commits,
+                'total_authors': total_authors,
+                'total_repositories': total_repositories,
+                'total_lines': total_lines
+            }
+        finally:
+            session.close()
+
+
+def main():
+    """Main dashboard application."""
+    st.set_page_config(
+        page_title="Git History Dashboard",
+        page_icon="📊",
+        layout="wide"
+    )
+
+    st.title("📊 Git History Analysis Dashboard")
+
+    dashboard = GitHistoryDashboard()
+
+    # Sidebar
+    st.sidebar.title("Navigation")
+    page = st.sidebar.radio(
+        "Select View",
+        ["Overview", "Top 10 Commits", "Top PR Approvers", "Detailed Commits View", "Detailed PRs View"]
+    )
+
+    # Overview Page
+    if page == "Overview":
+        st.header("Overview")
+
+        stats = dashboard.get_commit_stats()
+
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total Commits", f"{stats['total_commits']:,}")
+        with col2:
+            st.metric("Total Authors", f"{stats['total_authors']:,}")
+        with col3:
+            st.metric("Total Repositories", f"{stats['total_repositories']:,}")
+        with col4:
+            st.metric("Total Lines Changed", f"{stats['total_lines']:,}")
+
+        st.markdown("---")
+        st.info("Use the sidebar to navigate to different views.")
+
+    # Top 10 Commits Page
+    elif page == "Top 10 Commits":
+        st.header("🏆 Top 10 Commits by Lines Changed")
+
+        df = dashboard.get_top_commits_by_lines(10)
+
+        if df.empty:
+            st.warning("No commit data available.")
+        else:
+            # Bar chart
+            fig = px.bar(
+                df,
+                x='Author',
+                y='Total Lines',
+                color='Repository',
+                title='Top 10 Commits by Total Lines Changed',
+                hover_data=['Commit Hash', 'Date', 'Files Changed'],
+                labels={'Total Lines': 'Total Lines Changed'}
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+            # Detailed table
+            st.subheader("Detailed Information")
+            display_df = df[[
+                'Commit Hash', 'Author', 'Date', 'Repository',
+                'Lines Added', 'Lines Deleted', 'Total Lines',
+                'Files Changed', 'Message'
+            ]]
+            st.dataframe(display_df, use_container_width=True, height=400)
+
+    # Top PR Approvers Page
+    elif page == "Top PR Approvers":
+        st.header("👥 Top PR Approvers")
+
+        df = dashboard.get_top_pr_approvers(10)
+
+        if df.empty:
+            st.warning("No PR approval data available.")
+        else:
+            # Horizontal bar chart
+            fig = px.bar(
+                df,
+                y='Approver Name',
+                x='Total Approvals',
+                orientation='h',
+                title='Top 10 PR Approvers',
+                labels={'Total Approvals': 'Number of Approvals'},
+                color='Total Approvals',
+                color_continuous_scale='Blues'
+            )
+            fig.update_layout(yaxis={'categoryorder': 'total ascending'})
+            st.plotly_chart(fig, use_container_width=True)
+
+            # Detailed table
+            st.subheader("Detailed Information")
+            st.dataframe(df, use_container_width=True, height=400)
+
+    # Detailed Commits View
+    elif page == "Detailed Commits View":
+        st.header("📝 Detailed Commits View")
+
+        df = dashboard.get_all_commits()
+
+        if df.empty:
+            st.warning("No commit data available.")
+        else:
+            # Filters
+            st.subheader("Filters")
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                authors = ['All'] + sorted(df['Author'].unique().tolist())
+                selected_author = st.selectbox("Author", authors)
+
+            with col2:
+                repos = ['All'] + sorted(df['Full Repo Name'].unique().tolist())
+                selected_repo = st.selectbox("Repository", repos)
+
+            with col3:
+                branches = ['All'] + sorted(df['Branch'].unique().tolist())
+                selected_branch = st.selectbox("Branch", branches)
+
+            # Date range filter
+            col1, col2 = st.columns(2)
+            with col1:
+                min_date = df['Date'].min()
+                start_date = st.date_input("Start Date", min_date)
+            with col2:
+                max_date = df['Date'].max()
+                end_date = st.date_input("End Date", max_date)
+
+            # Apply filters
+            filtered_df = df.copy()
+            if selected_author != 'All':
+                filtered_df = filtered_df[filtered_df['Author'] == selected_author]
+            if selected_repo != 'All':
+                filtered_df = filtered_df[filtered_df['Full Repo Name'] == selected_repo]
+            if selected_branch != 'All':
+                filtered_df = filtered_df[filtered_df['Branch'] == selected_branch]
+
+            filtered_df = filtered_df[
+                (filtered_df['Date'].dt.date >= start_date) &
+                (filtered_df['Date'].dt.date <= end_date)
+            ]
+
+            # Sorting
+            st.subheader("Sorting")
+            sort_columns = ['Date', 'Total Lines', 'Lines Added', 'Lines Deleted', 'Files Changed']
+            col1, col2 = st.columns(2)
+            with col1:
+                sort_by = st.selectbox("Sort by", sort_columns)
+            with col2:
+                sort_order = st.radio("Order", ["Descending", "Ascending"])
+
+            filtered_df = filtered_df.sort_values(
+                by=sort_by,
+                ascending=(sort_order == "Ascending")
+            )
+
+            # Display results
+            st.subheader(f"Results ({len(filtered_df)} commits)")
+
+            display_df = filtered_df[[
+                'Commit Hash', 'Author', 'Date', 'Full Repo Name',
+                'Branch', 'Lines Added', 'Lines Deleted', 'Total Lines',
+                'Files Changed', 'Message'
+            ]]
+
+            st.dataframe(display_df, use_container_width=True, height=500)
+
+            # Download button
+            csv = display_df.to_csv(index=False)
+            st.download_button(
+                label="Download as CSV",
+                data=csv,
+                file_name=f"commits_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv"
+            )
+
+    # Detailed PRs View
+    elif page == "Detailed PRs View":
+        st.header("🔀 Detailed Pull Requests View")
+
+        df = dashboard.get_all_pull_requests()
+
+        if df.empty:
+            st.warning("No pull request data available.")
+        else:
+            # Filters
+            st.subheader("Filters")
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                authors = ['All'] + sorted(df['Author'].unique().tolist())
+                selected_author = st.selectbox("Author", authors)
+
+            with col2:
+                repos = ['All'] + sorted(df['Full Repo Name'].unique().tolist())
+                selected_repo = st.selectbox("Repository", repos)
+
+            with col3:
+                states = ['All'] + sorted(df['State'].unique().tolist())
+                selected_state = st.selectbox("State", states)
+
+            # Date range filter
+            col1, col2 = st.columns(2)
+            with col1:
+                min_date = df['Created Date'].min()
+                start_date = st.date_input("Start Date", min_date)
+            with col2:
+                max_date = df['Created Date'].max()
+                end_date = st.date_input("End Date", max_date)
+
+            # Apply filters
+            filtered_df = df.copy()
+            if selected_author != 'All':
+                filtered_df = filtered_df[filtered_df['Author'] == selected_author]
+            if selected_repo != 'All':
+                filtered_df = filtered_df[filtered_df['Full Repo Name'] == selected_repo]
+            if selected_state != 'All':
+                filtered_df = filtered_df[filtered_df['State'] == selected_state]
+
+            filtered_df = filtered_df[
+                (filtered_df['Created Date'].dt.date >= start_date) &
+                (filtered_df['Created Date'].dt.date <= end_date)
+            ]
+
+            # Sorting
+            st.subheader("Sorting")
+            sort_columns = ['Created Date', 'Total Lines', 'Lines Added', 'Lines Deleted', 'Approvals', 'Commits']
+            col1, col2 = st.columns(2)
+            with col1:
+                sort_by = st.selectbox("Sort by", sort_columns)
+            with col2:
+                sort_order = st.radio("Order", ["Descending", "Ascending"])
+
+            filtered_df = filtered_df.sort_values(
+                by=sort_by,
+                ascending=(sort_order == "Ascending")
+            )
+
+            # Display results
+            st.subheader(f"Results ({len(filtered_df)} pull requests)")
+
+            display_df = filtered_df[[
+                'PR Number', 'Title', 'Author', 'Created Date', 'State',
+                'Full Repo Name', 'Source Branch', 'Target Branch',
+                'Lines Added', 'Lines Deleted', 'Total Lines',
+                'Commits', 'Approvals'
+            ]]
+
+            st.dataframe(display_df, use_container_width=True, height=500)
+
+            # Download button
+            csv = display_df.to_csv(index=False)
+            st.download_button(
+                label="Download as CSV",
+                data=csv,
+                file_name=f"pull_requests_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv"
+            )
+
+
+if __name__ == '__main__':
+    main()

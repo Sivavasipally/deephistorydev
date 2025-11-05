@@ -69,7 +69,11 @@ GIT_PASSWORD=your_git_password_or_token
 CLONE_DIR=./repositories
 ```
 
-**Note**: No API configuration needed! The tool uses GitPython to analyze Git history directly. See [GITPYTHON_ANALYSIS_GUIDE.md](GITPYTHON_ANALYSIS_GUIDE.md) for details.
+**Notes**:
+- No API configuration needed! The tool uses GitPython to analyze Git history directly.
+- **Special characters in passwords** (like @, #, $, etc.) are automatically handled via URL encoding.
+- See [GITPYTHON_ANALYSIS_GUIDE.md](GITPYTHON_ANALYSIS_GUIDE.md) for analysis details.
+- See [CREDENTIAL_HANDLING.md](CREDENTIAL_HANDLING.md) for password special character handling.
 
 ## Usage
 

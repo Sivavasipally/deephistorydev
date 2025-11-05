@@ -7,7 +7,7 @@ import gc
 from pathlib import Path
 from git import Repo, GitCommandError
 from datetime import datetime
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import urlparse, urlunparse, quote
 from models import Repository, Commit, PullRequest, PRApproval
 
 
@@ -29,13 +29,29 @@ class GitAnalyzer:
         self.git_password = git_password
 
     def _add_credentials_to_url(self, url):
-        """Add credentials to clone URL if provided."""
+        """Add credentials to clone URL if provided.
+
+        Properly encodes username and password to handle special characters.
+
+        Args:
+            url: Clone URL
+
+        Returns:
+            URL with encoded credentials
+        """
         if not self.git_username or not self.git_password:
             return url
 
         parsed = urlparse(url)
-        # Add credentials to netloc
-        netloc_with_auth = f"{self.git_username}:{self.git_password}@{parsed.netloc}"
+
+        # URL-encode username and password to handle special characters
+        # safe='' means encode everything that needs encoding
+        encoded_username = quote(self.git_username, safe='')
+        encoded_password = quote(self.git_password, safe='')
+
+        # Add encoded credentials to netloc
+        netloc_with_auth = f"{encoded_username}:{encoded_password}@{parsed.netloc}"
+
         # Reconstruct URL with credentials
         authenticated_url = urlunparse((
             parsed.scheme,

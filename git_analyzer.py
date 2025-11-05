@@ -229,6 +229,7 @@ class GitAnalyzer:
             processed_prs = set()  # Track processed PR numbers to avoid duplicates
             merge_commit_count = 0
             pr_match_count = 0
+            unmatched_merge_commits = []  # Track merge commits that didn't match
 
             for commit in commits:
                 commit_message = commit.message.strip()
@@ -239,6 +240,7 @@ class GitAnalyzer:
 
                 # Check all commits (both merge and non-merge) for PR patterns
                 # This handles both traditional merges and squash-merges
+                matched = False
                 for pattern, platform in pr_patterns:
                     match = re.search(pattern, commit_message, re.IGNORECASE)
                     if match:
@@ -250,6 +252,7 @@ class GitAnalyzer:
 
                         processed_prs.add(pr_number)
                         pr_match_count += 1
+                        matched = True
                         stats = self.get_commit_stats(commit, repo)
 
                         # Extract PR title
@@ -283,10 +286,27 @@ class GitAnalyzer:
                         prs_data.append(pr_data)
                         break  # Found a match, no need to try other patterns
 
+                # Track unmatched merge commits for debugging
+                if is_merge and not matched:
+                    # Store first 100 chars of message for debugging
+                    unmatched_merge_commits.append(commit_message[:100])
+
             # Debug information
             print(f"  Total commits: {len(commits)}")
             print(f"  Merge commits: {merge_commit_count}")
             print(f"  PRs detected: {pr_match_count}")
+
+            # If we have merge commits but no PRs detected, show sample messages
+            if merge_commit_count > 0 and pr_match_count == 0:
+                print("\n  [WARNING] Merge commits found but no PR patterns matched!")
+                print("  Sample merge commit messages (first 100 chars):")
+                for i, msg in enumerate(unmatched_merge_commits[:3], 1):
+                    print(f"    {i}. {msg}")
+                print("\n  This may indicate:")
+                print("    - PR numbers not included in commit messages")
+                print("    - Different commit message format")
+                print("    - Manual merges without PR references")
+                print("  Run with --no-cleanup and use diagnose_repo.py for details")
 
         finally:
             # Close the repo to release file handles

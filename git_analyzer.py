@@ -305,8 +305,7 @@ class GitAnalyzer:
                             'target_branch': target_branch,
                             'lines_added': stats['lines_added'],
                             'lines_deleted': stats['lines_deleted'],
-                            'commits_count': commit_count,
-                            'platform': platform
+                            'commits_count': commit_count
                         }
                         prs_data.append(pr_data)
                         break  # Found a match, no need to try other patterns

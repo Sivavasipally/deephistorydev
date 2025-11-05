@@ -86,12 +86,13 @@ class GitHistoryCLI:
 
         return repositories
 
-    def process_repository(self, repo_info, session):
+    def process_repository(self, repo_info, session, cleanup=True):
         """Process a single repository.
 
         Args:
             repo_info: Repository information dictionary
             session: Database session
+            cleanup: Whether to cleanup the cloned repository after processing
 
         Returns:
             Tuple of (commits_count, prs_count, approvals_count)
@@ -201,9 +202,12 @@ class GitHistoryCLI:
             click.echo(f"Error processing repository: {e}", err=True)
             session.rollback()
         finally:
-            # Cleanup cloned repository
-            click.echo("Cleaning up...")
-            self.analyzer.cleanup_repository(repo_path)
+            # Cleanup cloned repository if requested
+            if cleanup:
+                click.echo("Cleaning up...")
+                self.analyzer.cleanup_repository(repo_path)
+            else:
+                click.echo(f"[KEPT] Repository retained at: {repo_path}")
 
         return commits_count, prs_count, approvals_count
 
@@ -242,7 +246,7 @@ class GitHistoryCLI:
 
         try:
             for repo_info in repositories:
-                commits, prs, approvals = self.process_repository(repo_info, session)
+                commits, prs, approvals = self.process_repository(repo_info, session, cleanup)
                 total_commits += commits
                 total_prs += prs
                 total_approvals += approvals

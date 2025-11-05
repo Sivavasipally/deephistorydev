@@ -1,4 +1,4 @@
-"""Git repository analysis and data extraction using GitPython."""
+"""Git repository analysis and data extraction using GitPython and Bitbucket API."""
 
 import os
 import re
@@ -9,6 +9,7 @@ from git import Repo, GitCommandError
 from datetime import datetime
 from urllib.parse import urlparse, urlunparse, quote
 from models import Repository, Commit, PullRequest, PRApproval
+from bitbucket_api import BitbucketAPIClient
 
 
 class GitAnalyzer:
@@ -21,12 +22,26 @@ class GitAnalyzer:
             clone_dir: Directory to clone repositories into
             git_username: Git username for authentication
             git_password: Git password or token for authentication
-            bitbucket_config: Not used - kept for backward compatibility
+            bitbucket_config: Dict with Bitbucket API config (url, username, password)
         """
         self.clone_dir = Path(clone_dir)
         self.clone_dir.mkdir(parents=True, exist_ok=True)
         self.git_username = git_username
         self.git_password = git_password
+        self.bitbucket_config = bitbucket_config
+
+        # Initialize Bitbucket API client if config provided
+        self.bitbucket_api = None
+        if bitbucket_config:
+            try:
+                self.bitbucket_api = BitbucketAPIClient(
+                    base_url=bitbucket_config.get('url'),
+                    username=bitbucket_config.get('username'),
+                    password=bitbucket_config.get('password')
+                )
+            except Exception as e:
+                print(f"Warning: Could not initialize Bitbucket API client: {e}")
+                print("Will fall back to GitPython-based extraction")
 
     def _add_credentials_to_url(self, url):
         """Add credentials to clone URL if provided.
@@ -168,8 +183,23 @@ class GitAnalyzer:
 
         return commits_data
 
+    def _is_bitbucket_url(self, url):
+        """Check if URL is a Bitbucket URL.
+
+        Args:
+            url: Clone URL
+
+        Returns:
+            True if Bitbucket URL
+        """
+        if not url:
+            return False
+        return 'bitbucket' in url.lower()
+
     def extract_pull_requests(self, repo_path, clone_url=None):
-        """Extract pull request information from Git history using GitPython.
+        """Extract pull request information.
+
+        Uses Bitbucket API if available and URL is Bitbucket, otherwise falls back to GitPython.
 
         Supports multiple PR patterns:
         - GitHub: "Merge pull request #123"
@@ -183,6 +213,22 @@ class GitAnalyzer:
         Returns:
             List of pull request dictionaries
         """
+        # Try Bitbucket API first if available
+        if self.bitbucket_api and clone_url and self._is_bitbucket_url(clone_url):
+            try:
+                print("  Using Bitbucket API for PR extraction...")
+                project_key, repo_slug = self.bitbucket_api.extract_project_and_repo(clone_url)
+                prs_data, approvals_dict = self.bitbucket_api.get_all_prs_with_approvals(project_key, repo_slug)
+                print(f"  PRs extracted via API: {len(prs_data)}")
+                # Store approvals in a way CLI can access them
+                self._api_approvals = approvals_dict
+                return prs_data
+            except Exception as e:
+                print(f"  API extraction failed ({e}), falling back to GitPython...")
+                self._api_approvals = None
+
+        # Fall back to GitPython-based extraction
+        print("  Using GitPython for PR extraction...")
         repo = Repo(repo_path)
         prs_data = []
 
@@ -394,7 +440,9 @@ class GitAnalyzer:
         return 1  # Default to 1 if we can't determine
 
     def extract_pr_approvals(self, repo_path, pr_data, clone_url=None):
-        """Extract PR approval information from Git commit messages using GitPython.
+        """Extract PR approval information.
+
+        Uses API approvals if available, otherwise extracts from Git commit messages.
 
         Looks for approval patterns in commit messages:
         - "Reviewed-by: Name <email>"
@@ -411,6 +459,13 @@ class GitAnalyzer:
         Returns:
             List of approval dictionaries
         """
+        # If we have API approvals from previous API call, return them
+        if hasattr(self, '_api_approvals') and self._api_approvals is not None:
+            pr_number = pr_data.get('pr_number')
+            if pr_number in self._api_approvals:
+                return self._api_approvals[pr_number]
+
+        # Fall back to GitPython-based extraction
         approvals = []
         pr_description = pr_data.get('description', '')
 

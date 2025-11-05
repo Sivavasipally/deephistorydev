@@ -197,7 +197,13 @@ class GitAnalyzer:
             # Generic pattern: PR #123 or pr#123 (case insensitive)
             (r'(?:PR|pr|Pr|pR)\s*[:#]?\s*(\d+)', 'generic'),
             # Bitbucket squash-merge pattern: "branch-name: commit message (pull request #123)"
-            (r'\(pull request #(\d+)\)', 'bitbucket-squash')
+            (r'\(pull request #(\d+)\)', 'bitbucket-squash'),
+            # Branch-based patterns (extract ticket/PR number from branch name)
+            # Pattern: feature/PROJ-12345 or feature/CG-25002
+            (r'into\s+(?:feature|bugfix|hotfix)[/\-]([A-Z]+-\d+)', 'branch-ticket'),
+            (r'from\s+(?:feature|bugfix|hotfix)[/\-]([A-Z]+-\d+)', 'branch-ticket'),
+            # Pattern: Merge branch 'feature-123' or similar
+            (r'Merge branch.*?(?:feature|bugfix|hotfix)[/\-]?(\d{3,})', 'branch-number')
         ]
 
         try:
@@ -244,7 +250,22 @@ class GitAnalyzer:
                 for pattern, platform in pr_patterns:
                     match = re.search(pattern, commit_message, re.IGNORECASE)
                     if match:
-                        pr_number = int(match.group(1))
+                        pr_identifier = match.group(1)
+
+                        # Convert to consistent format
+                        # For numeric PRs, convert to int
+                        # For alphanumeric (Jira tickets), keep as string
+                        if pr_identifier.isdigit():
+                            pr_number = int(pr_identifier)
+                        else:
+                            # For Jira tickets like "CG-25002", use the numeric part as PR number
+                            # and store full ticket in title
+                            numeric_part = re.search(r'(\d+)$', pr_identifier)
+                            if numeric_part:
+                                pr_number = int(numeric_part.group(1))
+                            else:
+                                # Skip if we can't extract a number
+                                continue
 
                         # Skip if already processed
                         if pr_number in processed_prs:
@@ -258,6 +279,10 @@ class GitAnalyzer:
                         # Extract PR title
                         title_lines = commit_message.split('\n')
                         title = title_lines[0] if title_lines else 'No title'
+
+                        # If we extracted from a Jira ticket, prepend it to the title
+                        if not pr_identifier.isdigit():
+                            title = f"[{pr_identifier}] {title}"
 
                         # Try to extract branch names from commit message
                         source_branch, target_branch = self._extract_branch_names(

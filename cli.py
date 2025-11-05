@@ -24,16 +24,18 @@ class GitHistoryCLI:
         self.db_config = self.config.get_db_config()
         self.engine = get_engine(self.db_config)
         self.credentials = self.config.get_git_credentials()
+        self.bitbucket_config = self.config.get_bitbucket_config()
         self.clone_dir = self.config.get_clone_dir()
 
         # Initialize database
         init_database(self.engine)
 
-        # Initialize Git analyzer
+        # Initialize Git analyzer with Bitbucket support
         self.analyzer = GitAnalyzer(
             self.clone_dir,
             self.credentials['username'],
-            self.credentials['password']
+            self.credentials['password'],
+            self.bitbucket_config
         )
 
     def read_csv(self, csv_path):
@@ -158,9 +160,9 @@ class GitHistoryCLI:
             session.commit()
             click.echo(f"[OK] Saved {commits_count} new commits")
 
-            # Extract pull requests
+            # Extract pull requests (passing clone URL for API detection)
             click.echo("Extracting pull requests...")
-            prs_data = self.analyzer.extract_pull_requests(repo_path)
+            prs_data = self.analyzer.extract_pull_requests(repo_path, repo_info['clone_url'])
 
             for pr_data in tqdm(prs_data, desc="Saving PRs", unit="PR"):
                 # Check if PR already exists
@@ -177,8 +179,10 @@ class GitHistoryCLI:
                     session.add(pr)
                     session.flush()  # Get the PR id
 
-                    # Extract approvals
-                    approvals_data = self.analyzer.extract_pr_approvals(repo_path, pr_data)
+                    # Extract approvals (passing clone URL for API detection)
+                    approvals_data = self.analyzer.extract_pr_approvals(
+                        repo_path, pr_data, repo_info['clone_url']
+                    )
                     for approval_data in approvals_data:
                         approval = PRApproval(
                             pull_request_id=pr.id,

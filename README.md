@@ -8,7 +8,10 @@ A comprehensive Python application for analyzing Git repository history, extract
 - Read repository information from CSV files
 - Clone repositories with full commit history
 - Extract detailed commit information (author, date, lines changed, files modified)
-- Extract pull request data from merge commits
+- **GitPython-Based Analysis**: Extract PRs and approvals from Git commit history
+- **Multi-Platform Support**: Works with Bitbucket, GitHub, GitLab, and others
+- Intelligent pattern matching for PR detection across platforms
+- Approval extraction from Git commit trailers and messages
 - Store data in SQLite or MariaDB database
 - Progress bars and status updates
 - Automatic cleanup of cloned repositories
@@ -58,13 +61,15 @@ MARIADB_USER=root
 MARIADB_PASSWORD=your_password
 MARIADB_DATABASE=git_history
 
-# Git Credentials
+# Git Credentials (for cloning private repositories)
 GIT_USERNAME=your_git_username
 GIT_PASSWORD=your_git_password_or_token
 
 # Clone Directory
 CLONE_DIR=./repositories
 ```
+
+**Note**: No API configuration needed! The tool uses GitPython to analyze Git history directly. See [GITPYTHON_ANALYSIS_GUIDE.md](GITPYTHON_ANALYSIS_GUIDE.md) for details.
 
 ## Usage
 

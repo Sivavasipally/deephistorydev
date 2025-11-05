@@ -28,6 +28,11 @@ class Config:
     GIT_USERNAME = os.getenv('GIT_USERNAME', '')
     GIT_PASSWORD = os.getenv('GIT_PASSWORD', '')
 
+    # Bitbucket configuration
+    BITBUCKET_URL = os.getenv('BITBUCKET_URL', 'https://bitbucket.org')
+    BITBUCKET_USERNAME = os.getenv('BITBUCKET_USERNAME', '')
+    BITBUCKET_APP_PASSWORD = os.getenv('BITBUCKET_APP_PASSWORD', '')
+
     # Clone directory
     CLONE_DIR = os.getenv('CLONE_DIR', './repositories')
 
@@ -64,4 +69,13 @@ class Config:
         return {
             'username': cls.GIT_USERNAME,
             'password': cls.GIT_PASSWORD
+        }
+
+    @classmethod
+    def get_bitbucket_config(cls):
+        """Get Bitbucket configuration."""
+        return {
+            'url': cls.BITBUCKET_URL,
+            'username': cls.BITBUCKET_USERNAME,
+            'password': cls.BITBUCKET_APP_PASSWORD
         }

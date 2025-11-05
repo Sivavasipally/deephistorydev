@@ -194,8 +194,10 @@ class GitAnalyzer:
             (r'Merged in .+ \(pull request #(\d+)\)', 'bitbucket'),
             # Bitbucket alternate: Pull request #123: Title
             (r'Pull request #(\d+):', 'bitbucket'),
-            # Generic pattern: PR #123 or pr#123
-            (r'(?:PR|pr)\s*#(\d+)', 'generic')
+            # Generic pattern: PR #123 or pr#123 (case insensitive)
+            (r'(?:PR|pr|Pr|pR)\s*[:#]?\s*(\d+)', 'generic'),
+            # Bitbucket squash-merge pattern: "branch-name: commit message (pull request #123)"
+            (r'\(pull request #(\d+)\)', 'bitbucket-squash')
         ]
 
         try:
@@ -208,56 +210,83 @@ class GitAnalyzer:
                     commits = list(repo.iter_commits('main'))
                     default_branch = 'main'
                 except GitCommandError:
-                    commits = list(repo.iter_commits())
-                    default_branch = repo.active_branch.name if hasattr(repo, 'active_branch') else 'unknown'
+                    try:
+                        # Try to get any available branch
+                        for ref in repo.references:
+                            if 'heads' in ref.path:
+                                branch_name = ref.name.split('/')[-1]
+                                commits = list(repo.iter_commits(branch_name))
+                                default_branch = branch_name
+                                break
+                    except:
+                        commits = []
+                        default_branch = 'unknown'
+
+            if not commits:
+                print(f"Warning: No commits found in repository {repo_path}")
+                return []
 
             processed_prs = set()  # Track processed PR numbers to avoid duplicates
+            merge_commit_count = 0
+            pr_match_count = 0
 
             for commit in commits:
-                # Look for merge commits (have multiple parents)
-                if len(commit.parents) > 1:
-                    commit_message = commit.message.strip()
+                commit_message = commit.message.strip()
+                is_merge = len(commit.parents) > 1
 
-                    # Try each pattern
-                    for pattern, platform in pr_patterns:
-                        match = re.search(pattern, commit_message, re.IGNORECASE)
-                        if match:
-                            pr_number = int(match.group(1))
+                if is_merge:
+                    merge_commit_count += 1
 
-                            # Skip if already processed
-                            if pr_number in processed_prs:
-                                continue
+                # Check all commits (both merge and non-merge) for PR patterns
+                # This handles both traditional merges and squash-merges
+                for pattern, platform in pr_patterns:
+                    match = re.search(pattern, commit_message, re.IGNORECASE)
+                    if match:
+                        pr_number = int(match.group(1))
 
-                            processed_prs.add(pr_number)
-                            stats = self.get_commit_stats(commit, repo)
+                        # Skip if already processed
+                        if pr_number in processed_prs:
+                            continue
 
-                            # Extract PR title
-                            title_lines = commit_message.split('\n')
-                            title = title_lines[0] if title_lines else 'No title'
+                        processed_prs.add(pr_number)
+                        pr_match_count += 1
+                        stats = self.get_commit_stats(commit, repo)
 
-                            # Try to extract branch names from commit message
-                            source_branch, target_branch = self._extract_branch_names(
-                                commit_message, default_branch
-                            )
+                        # Extract PR title
+                        title_lines = commit_message.split('\n')
+                        title = title_lines[0] if title_lines else 'No title'
 
-                            pr_data = {
-                                'pr_number': pr_number,
-                                'title': title,
-                                'description': commit_message,
-                                'author_name': commit.author.name,
-                                'author_email': commit.author.email,
-                                'created_date': datetime.fromtimestamp(commit.authored_date),
-                                'merged_date': datetime.fromtimestamp(commit.committed_date),
-                                'state': 'merged',
-                                'source_branch': source_branch,
-                                'target_branch': target_branch,
-                                'lines_added': stats['lines_added'],
-                                'lines_deleted': stats['lines_deleted'],
-                                'commits_count': self._count_pr_commits(repo, commit),
-                                'platform': platform
-                            }
-                            prs_data.append(pr_data)
-                            break  # Found a match, no need to try other patterns
+                        # Try to extract branch names from commit message
+                        source_branch, target_branch = self._extract_branch_names(
+                            commit_message, default_branch
+                        )
+
+                        # Count commits in PR (only for merge commits)
+                        commit_count = self._count_pr_commits(repo, commit) if is_merge else 1
+
+                        pr_data = {
+                            'pr_number': pr_number,
+                            'title': title,
+                            'description': commit_message,
+                            'author_name': commit.author.name,
+                            'author_email': commit.author.email,
+                            'created_date': datetime.fromtimestamp(commit.authored_date),
+                            'merged_date': datetime.fromtimestamp(commit.committed_date),
+                            'state': 'merged',
+                            'source_branch': source_branch,
+                            'target_branch': target_branch,
+                            'lines_added': stats['lines_added'],
+                            'lines_deleted': stats['lines_deleted'],
+                            'commits_count': commit_count,
+                            'platform': platform
+                        }
+                        prs_data.append(pr_data)
+                        break  # Found a match, no need to try other patterns
+
+            # Debug information
+            print(f"  Total commits: {len(commits)}")
+            print(f"  Merge commits: {merge_commit_count}")
+            print(f"  PRs detected: {pr_match_count}")
 
         finally:
             # Close the repo to release file handles
@@ -343,38 +372,46 @@ class GitAnalyzer:
 
         # Multiple approval patterns for different platforms
         approval_patterns = [
-            # Standard Git trailer format
-            (r'Reviewed-by:\s*([^<]+?)\s*<([^>]+)>', 'reviewed-by'),
-            (r'Approved-by:\s*([^<]+?)\s*<([^>]+)>', 'approved-by'),
-            (r'Acked-by:\s*([^<]+?)\s*<([^>]+)>', 'acked-by'),
-            (r'Tested-by:\s*([^<]+?)\s*<([^>]+)>', 'tested-by'),
-            # GitHub style
-            (r'Reviewed by:\s*@?([^\s<]+)', 'github-review'),
-            # Bitbucket style
-            (r'[Aa]pproved by:\s*@?([^\s<]+)', 'bitbucket-approval'),
-            (r'[Aa]pproved by\s+([^<]+?)\s*<([^>]+)>', 'bitbucket-approval-email'),
+            # Standard Git trailer format (name and email)
+            (r'Reviewed-by:\s*([^<]+?)\s*<([^>]+)>', 'reviewed-by', True),
+            (r'Approved-by:\s*([^<]+?)\s*<([^>]+)>', 'approved-by', True),
+            (r'Acked-by:\s*([^<]+?)\s*<([^>]+)>', 'acked-by', True),
+            (r'Tested-by:\s*([^<]+?)\s*<([^>]+)>', 'tested-by', True),
+            (r'Co-authored-by:\s*([^<]+?)\s*<([^>]+)>', 'co-authored', True),
+            # Bitbucket style with email
+            (r'[Aa]pproved by\s+([^<]+?)\s*<([^>]+)>', 'bitbucket-approval', True),
+            # Username-only patterns (name only)
+            (r'Reviewed by:\s*@?([^\s,<\n]+)', 'github-review', False),
+            (r'[Aa]pproved by:\s*@?([^\s,<\n]+)', 'bitbucket-approval', False),
+            (r'Reviewed:\s*@?([^\s,<\n]+)', 'generic-review', False),
+            (r'Approved:\s*@?([^\s,<\n]+)', 'generic-approval', False),
         ]
 
         # Extract approvals from PR description/commit message
-        for pattern, approval_type in approval_patterns:
+        for pattern, approval_type, has_email in approval_patterns:
             matches = re.findall(pattern, pr_description, re.MULTILINE | re.IGNORECASE)
 
             for match in matches:
-                if isinstance(match, tuple):
-                    if len(match) >= 2:
-                        # Pattern with name and email
-                        approver_name = match[0].strip()
-                        approver_email = match[1].strip()
-                    else:
-                        # Pattern with username only
-                        approver_name = match[0].strip()
-                        approver_email = f"{approver_name}@git"
+                if has_email and isinstance(match, tuple) and len(match) >= 2:
+                    # Pattern with name and email
+                    approver_name = match[0].strip()
+                    approver_email = match[1].strip()
                 else:
                     # Single match (username)
-                    approver_name = match.strip()
+                    if isinstance(match, tuple):
+                        approver_name = match[0].strip()
+                    else:
+                        approver_name = match.strip()
                     approver_email = f"{approver_name}@git"
 
-                # Avoid duplicates
+                # Clean up approver name (remove extra whitespace)
+                approver_name = ' '.join(approver_name.split())
+
+                # Skip empty names
+                if not approver_name:
+                    continue
+
+                # Avoid duplicates (check by email)
                 if not any(a['approver_email'] == approver_email for a in approvals):
                     approvals.append({
                         'approver_name': approver_name,
@@ -392,31 +429,44 @@ class GitAnalyzer:
                 merge_date = pr_data.get('merged_date')
                 if merge_date:
                     # Get commits around the merge time
-                    all_commits = list(repo.iter_commits(max_count=100))
+                    all_commits = list(repo.iter_commits(max_count=200))
                     for commit in all_commits:
                         commit_date = datetime.fromtimestamp(commit.committed_date)
                         # Look at commits within a week of merge
                         if abs((commit_date - merge_date).days) <= 7:
                             commit_msg = commit.message.strip()
                             # Check for approval patterns in this commit
-                            for pattern, approval_type in approval_patterns:
+                            for pattern, approval_type, has_email in approval_patterns:
                                 matches = re.findall(pattern, commit_msg, re.MULTILINE | re.IGNORECASE)
                                 for match in matches:
-                                    if isinstance(match, tuple) and len(match) >= 2:
+                                    if has_email and isinstance(match, tuple) and len(match) >= 2:
                                         approver_name = match[0].strip()
                                         approver_email = match[1].strip()
+                                    else:
+                                        if isinstance(match, tuple):
+                                            approver_name = match[0].strip()
+                                        else:
+                                            approver_name = match.strip()
+                                        approver_email = f"{approver_name}@git"
 
-                                        # Avoid duplicates
-                                        if not any(a['approver_email'] == approver_email for a in approvals):
-                                            approvals.append({
-                                                'approver_name': approver_name,
-                                                'approver_email': approver_email,
-                                                'approval_date': commit_date,
-                                                'approval_type': approval_type
-                                            })
+                                    # Clean up approver name
+                                    approver_name = ' '.join(approver_name.split())
+
+                                    # Skip empty names
+                                    if not approver_name:
+                                        continue
+
+                                    # Avoid duplicates
+                                    if not any(a['approver_email'] == approver_email for a in approvals):
+                                        approvals.append({
+                                            'approver_name': approver_name,
+                                            'approver_email': approver_email,
+                                            'approval_date': commit_date,
+                                            'approval_type': approval_type
+                                        })
             finally:
                 repo.close()
-        except Exception:
+        except Exception as e:
             pass  # If we can't access repo, just use what we have
 
         return approvals

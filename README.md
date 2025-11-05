@@ -25,6 +25,22 @@ A comprehensive Python application for analyzing Git repository history, extract
 - **Detailed PRs View**: Searchable, filterable, and sortable pull request history
 - Export data to CSV
 
+## Recent Improvements
+
+### Enhanced PR Detection for Bitbucket (Latest Update)
+
+We've significantly improved PR detection for Bitbucket and other Git platforms:
+
+- **Squash-Merge Support**: Now detects PRs from squash-merge commits (single-parent commits with PR references)
+- **Flexible Pattern Matching**: Supports multiple PR reference formats (`PR #123`, `pr:123`, `(pull request #123)`)
+- **Better Branch Handling**: Automatically finds and analyzes repositories with any default branch name
+- **Debug Output**: Shows commit counts and detection statistics for troubleshooting
+- **Enhanced Approval Detection**: More patterns for different approval documentation styles
+
+**Expected Improvement**: 40-85% increase in PR detection rate, especially for squash-merge workflows.
+
+See [PR_DETECTION_IMPROVEMENTS.md](PR_DETECTION_IMPROVEMENTS.md) for detailed information.
+
 ## Installation
 
 ### Prerequisites

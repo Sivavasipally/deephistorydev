@@ -92,6 +92,79 @@ class PRApproval(Base):
         return f"<PRApproval(approver='{self.approver_name}')>"
 
 
+class StaffDetails(Base):
+    """Staff details information from HR data."""
+    __tablename__ = 'staff_details'
+
+    id = Column(Integer, primary_key=True)
+    bank_id_1 = Column(String(50))
+    as_of_date = Column(Date)
+    reporting_period = Column(String(50))
+    tech_unit = Column(String(255))
+    staff_first_name = Column(String(255))
+    staff_last_name = Column(String(255))
+    staff_name = Column(String(255))
+    staff_id = Column(String(50))
+    citizenship = Column(String(100))
+    original_staff_type = Column(String(100))
+    staff_type = Column(String(100))
+    staff_status = Column(String(100))
+    sub_status = Column(String(100))
+    movement_status = Column(String(100))
+    rank = Column(String(100))
+    hr_role = Column(String(255))
+    staff_start_date = Column(Date)
+    staff_end_date = Column(Date)
+    reporting_manager_1bank_id = Column(String(50))
+    reporting_manager_staff_id = Column(String(50))
+    reporting_manager_name = Column(String(255))
+    staff_pc_code = Column(String(50))
+    work_type1 = Column(String(100))
+    work_type2 = Column(String(100))
+    reporting_location = Column(String(255))
+    work_location = Column(String(255))
+    primary_seating = Column(String(255))
+    company_name = Column(String(255))
+    company_short_name = Column(String(100))
+    last_work_day = Column(Date)
+    department_id = Column(String(50))
+    gender = Column(String(20))
+    hc_included = Column(String(20))
+    reason_for_hc_included_no = Column(String(255))
+    email_address = Column(String(255))
+    platform_index = Column(String(50))
+    platform_lead = Column(String(255))
+    platform_name = Column(String(255))
+    platform_unit = Column(String(255))
+    sub_platform = Column(String(255))
+    staff_grouping = Column(String(100))
+    job_function = Column(String(255))
+    default_role = Column(String(255))
+    division = Column(String(255))
+    staff_level = Column(String(100))
+    people_cost_type = Column(String(100))
+    fte = Column(Float)
+    effective_date = Column(Date)
+    created_by = Column(String(255))
+    date_created = Column(DateTime)
+    modified_by = Column(String(255))
+    date_modified = Column(DateTime)
+    movement_date = Column(Date)
+    reporting_manager_pc_code = Column(String(50))
+    contract_start_date = Column(Date)
+    contract_end_date = Column(Date)
+    original_tenure_start_date = Column(Date)
+    effective_billing_date = Column(Date)
+    billing_pc_code = Column(String(50))
+    skill_set_type = Column(String(255))
+    po_number = Column(String(100))
+    mcr_number = Column(String(100))
+    assignment_id = Column(String(100))
+
+    def __repr__(self):
+        return f"<StaffDetails(staff_id='{self.staff_id}', staff_name='{self.staff_name}')>"
+
+
 def get_engine(db_config):
     """Create database engine based on configuration."""
     if db_config['type'] == 'sqlite':

@@ -10,7 +10,7 @@ from datetime import datetime
 from config import Config
 from models import (
     get_engine, init_database, get_session,
-    Repository, Commit, PullRequest, PRApproval
+    Repository, Commit, PullRequest, PRApproval, StaffDetails
 )
 from git_analyzer import GitAnalyzer
 
@@ -265,10 +265,16 @@ class GitHistoryCLI:
         click.echo("=" * 60)
 
 
-@click.command()
+@click.group()
+def cli():
+    """Git History Deep Analyzer - Extract and analyze Git repository data."""
+    pass
+
+
+@cli.command('extract')
 @click.argument('csv_file', type=click.Path(exists=True))
 @click.option('--no-cleanup', is_flag=True, help='Keep cloned repositories')
-def main(csv_file, no_cleanup):
+def extract_repos(csv_file, no_cleanup):
     """Extract Git history from repositories listed in CSV_FILE.
 
     The CSV file should contain columns:
@@ -276,9 +282,231 @@ def main(csv_file, no_cleanup):
     - Slug Name
     - Clone URL (HTTP) / Self URL
     """
-    cli = GitHistoryCLI()
-    cli.run(csv_file, cleanup=not no_cleanup)
+    git_cli = GitHistoryCLI()
+    git_cli.run(csv_file, cleanup=not no_cleanup)
+
+
+@cli.command('import-staff')
+@click.argument('file_path', type=click.Path(exists=True))
+def import_staff(file_path):
+    """Import staff details from Excel or CSV file.
+
+    The file should contain columns matching the staff details schema.
+    Supports both .xlsx and .csv formats.
+    """
+    import pandas as pd
+    from dateutil import parser
+
+    click.echo("=" * 60)
+    click.echo("Staff Details Import Tool")
+    click.echo("=" * 60)
+
+    # Initialize database
+    config = Config()
+    db_config = config.get_db_config()
+    engine = get_engine(db_config)
+    init_database(engine)
+
+    click.echo(f"Database: {db_config['type']}")
+    click.echo(f"File: {file_path}")
+    click.echo("=" * 60)
+
+    # Detect file type and read
+    file_path_obj = Path(file_path)
+    file_ext = file_path_obj.suffix.lower()
+
+    try:
+        if file_ext in ['.xlsx', '.xls']:
+            click.echo("\nReading Excel file...")
+            df = pd.read_excel(file_path)
+        elif file_ext == '.csv':
+            click.echo("\nReading CSV file...")
+            df = pd.read_csv(file_path)
+        else:
+            click.echo(f"Error: Unsupported file format '{file_ext}'. Use .xlsx or .csv", err=True)
+            sys.exit(1)
+
+        click.echo(f"Found {len(df)} rows")
+
+        # Column mapping from Excel/CSV names to database field names
+        column_mapping = {
+            '1BankID': 'bank_id_1',
+            'AS Of Date': 'as_of_date',
+            'Reporting Period': 'reporting_period',
+            'TechUnit': 'tech_unit',
+            'Staff First Name': 'staff_first_name',
+            'Staff Last Name': 'staff_last_name',
+            'Staff Name': 'staff_name',
+            'Staff Id': 'staff_id',
+            'Citizenship': 'citizenship',
+            'Original Staff Type': 'original_staff_type',
+            'Staff Type': 'staff_type',
+            'Staff Status': 'staff_status',
+            'Sub Status': 'sub_status',
+            'Movement Status': 'movement_status',
+            'Rank': 'rank',
+            'HR Role': 'hr_role',
+            'Staff Start Date': 'staff_start_date',
+            'Staff End Date': 'staff_end_date',
+            'Reporting Manager 1BankID': 'reporting_manager_1bank_id',
+            'Reporting Manager Staff Id': 'reporting_manager_staff_id',
+            'Reporting Manager Name': 'reporting_manager_name',
+            'Staff PCCode': 'staff_pc_code',
+            'Work Type1': 'work_type1',
+            'Work Type2': 'work_type2',
+            'Reporting Location': 'reporting_location',
+            'Work Location': 'work_location',
+            'Primary Seating': 'primary_seating',
+            'Company Name': 'company_name',
+            'Company Short Name': 'company_short_name',
+            'Last work day': 'last_work_day',
+            'Department ID': 'department_id',
+            'Gender': 'gender',
+            'HC included': 'hc_included',
+            'Reason for HC Included No': 'reason_for_hc_included_no',
+            'Email Address': 'email_address',
+            'Platform Index': 'platform_index',
+            'Platform Lead': 'platform_lead',
+            'Platform Name': 'platform_name',
+            'Platform Unit': 'platform_unit',
+            'Sub-platform': 'sub_platform',
+            'Staff Grouping': 'staff_grouping',
+            'Job Function': 'job_function',
+            'Default Role': 'default_role',
+            'Division': 'division',
+            'Staff Level': 'staff_level',
+            'People Cost Type': 'people_cost_type',
+            'FTE': 'fte',
+            'Effective Date': 'effective_date',
+            'Created By': 'created_by',
+            'Date Created': 'date_created',
+            'Modified By': 'modified_by',
+            'Date Modified': 'date_modified',
+            'Movement Date': 'movement_date',
+            'Reporting Manager PCcode': 'reporting_manager_pc_code',
+            'Contract start date': 'contract_start_date',
+            'Contract end date': 'contract_end_date',
+            'Original Tenure Start Date': 'original_tenure_start_date',
+            'Effective billing Date': 'effective_billing_date',
+            'Billing PC Code': 'billing_pc_code',
+            'Skill Set Type': 'skill_set_type',
+            'PO Number': 'po_number',
+            'MCR Number': 'mcr_number',
+            'Assignment ID': 'assignment_id'
+        }
+
+        # Date columns that need parsing
+        date_columns = [
+            'as_of_date', 'staff_start_date', 'staff_end_date', 'last_work_day',
+            'effective_date', 'date_created', 'date_modified', 'movement_date',
+            'contract_start_date', 'contract_end_date', 'original_tenure_start_date',
+            'effective_billing_date'
+        ]
+
+        # Rename columns to match database schema
+        df_renamed = df.rename(columns=column_mapping)
+
+        # Process data
+        session = get_session(engine)
+        imported_count = 0
+        updated_count = 0
+        skipped_count = 0
+
+        try:
+            for idx, row in tqdm(df_renamed.iterrows(), total=len(df_renamed), desc="Importing staff", unit="record"):
+                try:
+                    # Prepare data dictionary
+                    staff_data = {}
+
+                    for col in df_renamed.columns:
+                        if col in column_mapping.values():
+                            value = row[col]
+
+                            # Handle NaN/None values
+                            if pd.isna(value):
+                                staff_data[col] = None
+                            # Handle date columns
+                            elif col in date_columns:
+                                try:
+                                    if isinstance(value, str):
+                                        staff_data[col] = parser.parse(value).date()
+                                    elif hasattr(value, 'date'):
+                                        staff_data[col] = value.date()
+                                    else:
+                                        staff_data[col] = value
+                                except:
+                                    staff_data[col] = None
+                            # Handle FTE (float)
+                            elif col == 'fte':
+                                try:
+                                    staff_data[col] = float(value) if value else None
+                                except:
+                                    staff_data[col] = None
+                            # Handle datetime columns
+                            elif col in ['date_created', 'date_modified']:
+                                try:
+                                    if isinstance(value, str):
+                                        staff_data[col] = parser.parse(value)
+                                    else:
+                                        staff_data[col] = value
+                                except:
+                                    staff_data[col] = None
+                            else:
+                                staff_data[col] = str(value) if value else None
+
+                    # Check if record exists (by staff_id)
+                    staff_id = staff_data.get('staff_id')
+                    if staff_id:
+                        existing = session.query(StaffDetails).filter_by(staff_id=staff_id).first()
+
+                        if existing:
+                            # Update existing record
+                            for key, value in staff_data.items():
+                                setattr(existing, key, value)
+                            updated_count += 1
+                        else:
+                            # Create new record
+                            staff = StaffDetails(**staff_data)
+                            session.add(staff)
+                            imported_count += 1
+                    else:
+                        # No staff_id, still import but might be duplicate
+                        staff = StaffDetails(**staff_data)
+                        session.add(staff)
+                        imported_count += 1
+
+                    # Commit every 100 records
+                    if (idx + 1) % 100 == 0:
+                        session.commit()
+
+                except Exception as e:
+                    click.echo(f"\nWarning: Skipped row {idx + 1}: {e}")
+                    skipped_count += 1
+                    session.rollback()
+                    continue
+
+            # Final commit
+            session.commit()
+
+            click.echo("\n" + "=" * 60)
+            click.echo("Import Complete!")
+            click.echo("=" * 60)
+            click.echo(f"New records imported: {imported_count}")
+            click.echo(f"Records updated: {updated_count}")
+            click.echo(f"Records skipped: {skipped_count}")
+            click.echo(f"Total processed: {len(df_renamed)}")
+
+        except Exception as e:
+            click.echo(f"\nError during import: {e}", err=True)
+            session.rollback()
+            sys.exit(1)
+        finally:
+            session.close()
+
+    except Exception as e:
+        click.echo(f"Error reading file: {e}", err=True)
+        sys.exit(1)
 
 
 if __name__ == '__main__':
-    main()
+    cli()

@@ -1520,6 +1520,173 @@ staff_end_date              DATE
 ... (71 fields total - see models.py for complete list)
             """, language="sql")
 
+        # AI Query Generator Section
+        st.subheader("🤖 AI-Powered Query Generator")
+        st.info("Describe what data you want in plain English, and AI will generate the SQL query for you")
+
+        # Natural language input
+        col1, col2 = st.columns([4, 1])
+        with col1:
+            user_prompt = st.text_area(
+                "What data do you want to retrieve?",
+                placeholder="Example: Get all staff who have committed code in the last 6 months",
+                height=100,
+                key="ai_query_input"
+            )
+
+        with col2:
+            st.markdown("<br>", unsafe_allow_html=True)
+            generate_button = st.button("🚀 Generate SQL", type="primary", use_container_width=True)
+
+        # Generated SQL display area
+        if 'generated_sql' not in st.session_state:
+            st.session_state.generated_sql = None
+
+        if generate_button and user_prompt:
+            with st.spinner("Generating SQL query..."):
+                # Prepare schema string for API
+                schema_string = """Table Schemas
+repositories
+
+id INTEGER PRIMARY KEY
+project_key VARCHAR(255)
+slug_name VARCHAR(255)
+clone_url VARCHAR(500)
+created_at DATETIME
+
+commits
+
+id INTEGER PRIMARY KEY
+repository_id INTEGER (FK -> repositories.id)
+commit_hash VARCHAR(40) UNIQUE
+author_name VARCHAR(255)
+author_email VARCHAR(255)
+committer_name VARCHAR(255)
+committer_email VARCHAR(255)
+commit_date DATETIME
+message TEXT
+lines_added INTEGER
+lines_deleted INTEGER
+files_changed INTEGER
+branch VARCHAR(255)
+
+pull_requests
+
+id INTEGER PRIMARY KEY
+repository_id INTEGER (FK -> pull_requests.id)
+pr_number INTEGER
+title VARCHAR(500)
+description TEXT
+author_name VARCHAR(255)
+author_email VARCHAR(255)
+created_date DATETIME
+merged_date DATETIME
+state VARCHAR(50)
+source_branch VARCHAR(255)
+target_branch VARCHAR(255)
+lines_added INTEGER
+lines_deleted INTEGER
+commits_count INTEGER
+
+pr_approvals
+
+id INTEGER PRIMARY KEY
+pull_request_id INTEGER (FK -> pull_requests.id)
+approver_name VARCHAR(255)
+approver_email VARCHAR(255)
+approval_date DATETIME
+
+staff_details
+
+id INTEGER PRIMARY KEY
+bank_id_1 VARCHAR(50)
+staff_id VARCHAR(50)
+staff_name VARCHAR(255)
+email_address VARCHAR(255)
+staff_start_date DATE
+staff_end_date DATE
+tech_unit VARCHAR(255)
+platform_name VARCHAR(255)
+staff_type VARCHAR(100)
+staff_status VARCHAR(100)
+rank VARCHAR(100)
+department_id VARCHAR(50)
+
+author_staff_mapping
+
+id INTEGER PRIMARY KEY
+author_name VARCHAR(255) UNIQUE
+author_email VARCHAR(255)
+bank_id_1 VARCHAR(50)
+staff_id VARCHAR(50)
+staff_name VARCHAR(255)
+mapped_date DATETIME
+notes TEXT
+"""
+
+                try:
+                    import requests
+
+                    # API call to Dify
+                    url = "https://dify.api.apps.k8s.sp.ut.dbs.corp/v1/completion-messages"
+                    headers = {
+                        "Authorization": "Bearer app-4int1WqBf4BB4s7k84YUpJd",
+                        "Content-Type": "application/json"
+                    }
+
+                    payload = {
+                        "sqlschema": schema_string,
+                        "promptforData": user_prompt,
+                        "response_mode": "blocking",
+                        "user": "streamlit_user"
+                    }
+
+                    response = requests.post(url, json=payload, headers=headers, timeout=30)
+
+                    if response.status_code == 200:
+                        result = response.json()
+                        # Extract SQL from response
+                        generated_sql = result.get('answer', '').strip()
+
+                        # Clean up the SQL (remove markdown code blocks if present)
+                        if generated_sql.startswith('```sql'):
+                            generated_sql = generated_sql.replace('```sql', '').replace('```', '').strip()
+                        elif generated_sql.startswith('```'):
+                            generated_sql = generated_sql.replace('```', '').strip()
+
+                        st.session_state.generated_sql = generated_sql
+                        st.success("✅ SQL query generated successfully!")
+                    else:
+                        st.error(f"❌ API Error: {response.status_code} - {response.text}")
+                        st.session_state.generated_sql = None
+
+                except requests.exceptions.Timeout:
+                    st.error("⏱️ Request timeout. Please try again.")
+                    st.session_state.generated_sql = None
+                except requests.exceptions.RequestException as e:
+                    st.error(f"🌐 Network Error: {str(e)}")
+                    st.session_state.generated_sql = None
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
+                    st.session_state.generated_sql = None
+
+        # Display generated SQL
+        if st.session_state.generated_sql:
+            st.markdown("### 📝 Generated SQL Query")
+            st.code(st.session_state.generated_sql, language="sql")
+
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                if st.button("✅ Use This Query", type="primary"):
+                    st.session_state.use_generated_query = True
+                    st.rerun()
+            with col2:
+                if st.button("🗑️ Clear"):
+                    st.session_state.generated_sql = None
+                    st.rerun()
+
+        st.markdown("---")
+
         # Query input with examples
         st.subheader("SQL Query")
 
@@ -1565,7 +1732,11 @@ ORDER BY commit_count DESC;"""
             )
 
         # Set default query
-        if selected_sample != "Custom Query":
+        if 'use_generated_query' in st.session_state and st.session_state.use_generated_query:
+            # Use the AI-generated query
+            default_query = st.session_state.generated_sql
+            st.session_state.use_generated_query = False  # Reset flag
+        elif selected_sample != "Custom Query":
             default_query = sample_queries[selected_sample]
         else:
             default_query = "SELECT * FROM repositories LIMIT 10;"
@@ -1574,7 +1745,8 @@ ORDER BY commit_count DESC;"""
             "SQL Query",
             value=default_query,
             height=200,
-            label_visibility="collapsed"
+            label_visibility="collapsed",
+            key="sql_query_input"
         )
 
         col1, col2 = st.columns([1, 4])

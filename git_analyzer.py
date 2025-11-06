@@ -515,8 +515,7 @@ class GitAnalyzer:
                     approvals.append({
                         'approver_name': approver_name,
                         'approver_email': approver_email,
-                        'approval_date': pr_data.get('merged_date'),
-                        'approval_type': approval_type
+                        'approval_date': pr_data.get('merged_date')
                     })
 
         # Also check for approvals in PR commits (if we can find them)
@@ -560,8 +559,7 @@ class GitAnalyzer:
                                         approvals.append({
                                             'approver_name': approver_name,
                                             'approver_email': approver_email,
-                                            'approval_date': commit_date,
-                                            'approval_type': approval_type
+                                            'approval_date': commit_date
                                         })
             finally:
                 repo.close()

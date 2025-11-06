@@ -269,8 +269,7 @@ class BitbucketAPIClient:
                 approvals.append({
                     'approver_name': user.get('displayName', ''),
                     'approver_email': user.get('emailAddress', ''),
-                    'approval_date': approval_date,
-                    'approval_type': 'approved'
+                    'approval_date': approval_date
                 })
 
             # Also check for REVIEWED action
@@ -281,8 +280,7 @@ class BitbucketAPIClient:
                 approvals.append({
                     'approver_name': user.get('displayName', ''),
                     'approver_email': user.get('emailAddress', ''),
-                    'approval_date': approval_date,
-                    'approval_type': 'reviewed'
+                    'approval_date': approval_date
                 })
 
         return approvals

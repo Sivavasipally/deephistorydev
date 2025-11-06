@@ -251,13 +251,36 @@ This is automatic and safe. You'll still get data, just less complete.
 
 ## Security
 
+### SSL Certificate Verification
+
+**Default Setting**: SSL verification is **disabled** (`verify=False`)
+
+**Why?** Many internal Bitbucket servers use self-signed certificates, which would cause SSL verification errors.
+
+**Behavior**:
+- SSL warnings are automatically suppressed
+- Connections still use HTTPS encryption
+- Only certificate validation is disabled
+
+**To Enable SSL Verification** (if you have valid certificates):
+
+Modify `git_analyzer.py`:
+```python
+self.bitbucket_api = BitbucketAPIClient(
+    base_url=bitbucket_config.get('url'),
+    username=bitbucket_config.get('username'),
+    password=bitbucket_config.get('password'),
+    verify_ssl=True  # Add this parameter
+)
+```
+
 ### Best Practices
 
 1. **Never commit `.env` file** - It contains credentials
 2. **Use app passwords** - Don't use your main password
 3. **Limit token scope** - Only `READ` permissions needed
 4. **Rotate tokens regularly** - Change every 90 days
-5. **Use HTTPS** - Always use secure connections
+5. **Use HTTPS** - Always use secure connections (encryption still works with verify=False)
 
 ### Token Permissions Required
 

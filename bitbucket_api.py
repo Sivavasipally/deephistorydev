@@ -12,23 +12,31 @@ import time
 class BitbucketAPIClient:
     """Client for Bitbucket Server/Data Center REST API v1.0."""
 
-    def __init__(self, base_url: str, username: str, password: str):
+    def __init__(self, base_url: str, username: str, password: str, verify_ssl: bool = False):
         """Initialize Bitbucket API client.
 
         Args:
             base_url: Bitbucket server URL (e.g., https://bitbucket.sgp.dbs.com:8443)
             username: Bitbucket username
             password: Bitbucket password or app password
+            verify_ssl: Whether to verify SSL certificates (default: False for self-signed certs)
         """
         self.base_url = base_url.rstrip('/')
         self.auth = HTTPBasicAuth(username, password)
         self.session = requests.Session()
         self.session.auth = self.auth
+        self.session.verify = verify_ssl  # Disable SSL verification for self-signed certificates
+
         # Set headers for API v1.0
         self.session.headers.update({
             'Content-Type': 'application/json',
             'Accept': 'application/json'
         })
+
+        # Suppress SSL warnings when verify=False
+        if not verify_ssl:
+            import urllib3
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     def _make_request(self, method: str, endpoint: str, params: Optional[Dict] = None, retry_count: int = 3) -> Dict:
         """Make HTTP request to Bitbucket API with retry logic.
@@ -230,7 +238,6 @@ class BitbucketAPIClient:
             'author_name': pr.get('author', {}).get('user', {}).get('displayName', ''),
             'author_email': pr.get('author', {}).get('user', {}).get('emailAddress', ''),
             'created_date': self._parse_timestamp(pr.get('createdDate')),
-            'updated_date': self._parse_timestamp(pr.get('updatedDate')),
             'merged_date': self._parse_timestamp(pr.get('closedDate')) if pr.get('state') == 'MERGED' else None,
             'state': pr.get('state', '').lower(),
             'source_branch': pr.get('fromRef', {}).get('displayId', ''),

@@ -9,8 +9,8 @@ from datetime import datetime
 
 from config import Config
 from models import (
-    get_engine, get_session,
-    Repository, Commit, PullRequest, PRApproval, StaffDetails
+    get_engine, get_session, init_database,
+    Repository, Commit, PullRequest, PRApproval, StaffDetails, AuthorStaffMapping
 )
 
 
@@ -425,9 +425,185 @@ class GitHistoryDashboard:
                 'commits': session.query(Commit).count(),
                 'pull_requests': session.query(PullRequest).count(),
                 'pr_approvals': session.query(PRApproval).count(),
-                'staff_details': session.query(StaffDetails).count()
+                'staff_details': session.query(StaffDetails).count(),
+                'author_staff_mapping': session.query(AuthorStaffMapping).count()
             }
             return table_info
+        finally:
+            session.close()
+
+    def get_distinct_authors(self):
+        """Get distinct author names and emails from commits.
+
+        Returns:
+            DataFrame with author names and emails
+        """
+        session = get_session(self.engine)
+        try:
+            query = session.query(
+                Commit.author_name,
+                Commit.author_email,
+                func.count(Commit.id).label('commit_count')
+            ).group_by(
+                Commit.author_name,
+                Commit.author_email
+            ).order_by(
+                Commit.author_name
+            )
+
+            results = query.all()
+            data = [{
+                'Author Name': r.author_name,
+                'Email': r.author_email,
+                'Commits': r.commit_count
+            } for r in results]
+
+            return pd.DataFrame(data)
+        finally:
+            session.close()
+
+    def get_staff_list(self):
+        """Get list of staff from staff_details.
+
+        Returns:
+            DataFrame with staff information
+        """
+        session = get_session(self.engine)
+        try:
+            query = session.query(
+                StaffDetails.bank_id_1,
+                StaffDetails.staff_id,
+                StaffDetails.staff_name,
+                StaffDetails.email_address,
+                StaffDetails.tech_unit
+            ).filter(
+                StaffDetails.bank_id_1.isnot(None)
+            ).order_by(
+                StaffDetails.staff_name
+            )
+
+            results = query.all()
+            data = [{
+                'Bank ID': r.bank_id_1,
+                'Staff ID': r.staff_id,
+                'Staff Name': r.staff_name,
+                'Email': r.email_address,
+                'Tech Unit': r.tech_unit
+            } for r in results]
+
+            return pd.DataFrame(data)
+        finally:
+            session.close()
+
+    def get_existing_mappings(self):
+        """Get existing author-staff mappings.
+
+        Returns:
+            DataFrame with existing mappings
+        """
+        session = get_session(self.engine)
+        try:
+            query = session.query(
+                AuthorStaffMapping.author_name,
+                AuthorStaffMapping.author_email,
+                AuthorStaffMapping.bank_id_1,
+                AuthorStaffMapping.staff_id,
+                AuthorStaffMapping.staff_name,
+                AuthorStaffMapping.mapped_date,
+                AuthorStaffMapping.notes
+            ).order_by(
+                AuthorStaffMapping.author_name
+            )
+
+            results = query.all()
+            data = [{
+                'Author Name': r.author_name,
+                'Author Email': r.author_email,
+                'Bank ID': r.bank_id_1,
+                'Staff ID': r.staff_id,
+                'Staff Name': r.staff_name,
+                'Mapped Date': r.mapped_date,
+                'Notes': r.notes
+            } for r in results]
+
+            return pd.DataFrame(data)
+        finally:
+            session.close()
+
+    def save_author_staff_mapping(self, author_name, author_email, bank_id_1, staff_id, staff_name, notes=''):
+        """Save author-staff mapping to database.
+
+        Args:
+            author_name: Author name from commits
+            author_email: Author email
+            bank_id_1: Bank ID from staff details
+            staff_id: Staff ID
+            staff_name: Staff name
+            notes: Optional notes
+
+        Returns:
+            Tuple of (success: bool, message: str)
+        """
+        session = get_session(self.engine)
+        try:
+            # Check if mapping already exists
+            existing = session.query(AuthorStaffMapping).filter_by(
+                author_name=author_name
+            ).first()
+
+            if existing:
+                # Update existing mapping
+                existing.author_email = author_email
+                existing.bank_id_1 = bank_id_1
+                existing.staff_id = staff_id
+                existing.staff_name = staff_name
+                existing.mapped_date = datetime.utcnow()
+                existing.notes = notes
+                session.commit()
+                return True, f"Updated mapping for {author_name}"
+            else:
+                # Create new mapping
+                mapping = AuthorStaffMapping(
+                    author_name=author_name,
+                    author_email=author_email,
+                    bank_id_1=bank_id_1,
+                    staff_id=staff_id,
+                    staff_name=staff_name,
+                    notes=notes
+                )
+                session.add(mapping)
+                session.commit()
+                return True, f"Created mapping for {author_name}"
+        except Exception as e:
+            session.rollback()
+            return False, f"Error: {str(e)}"
+        finally:
+            session.close()
+
+    def delete_author_staff_mapping(self, author_name):
+        """Delete author-staff mapping.
+
+        Args:
+            author_name: Author name to delete mapping for
+
+        Returns:
+            Tuple of (success: bool, message: str)
+        """
+        session = get_session(self.engine)
+        try:
+            mapping = session.query(AuthorStaffMapping).filter_by(
+                author_name=author_name
+            ).first()
+
+            if mapping:
+                session.delete(mapping)
+                session.commit()
+                return True, f"Deleted mapping for {author_name}"
+            else:
+                return False, f"No mapping found for {author_name}"
+        except Exception as e:
+            session.rollback()
+            return False, f"Error: {str(e)}"
         finally:
             session.close()
 
@@ -448,7 +624,7 @@ def main():
     st.sidebar.title("Navigation")
     page = st.sidebar.radio(
         "Select View",
-        ["Overview", "Authors Analytics", "Top 10 Commits", "Top PR Approvers", "Detailed Commits View", "Detailed PRs View", "Table Viewer", "SQL Executor"]
+        ["Overview", "Authors Analytics", "Top 10 Commits", "Top PR Approvers", "Detailed Commits View", "Detailed PRs View", "Author-Staff Mapping", "Table Viewer", "SQL Executor"]
     )
 
     # Overview Page
@@ -860,6 +1036,313 @@ def main():
                 file_name=f"pull_requests_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                 mime="text/csv"
             )
+
+    # Author-Staff Mapping Page
+    elif page == "Author-Staff Mapping":
+        st.header("👥 Author-Staff Mapping")
+        st.markdown("Map commit authors to staff members from staff details")
+
+        # Ensure database tables exist
+        init_database(dashboard.engine)
+
+        # Create tabs for different sections
+        tab1, tab2, tab3 = st.tabs(["Create Mapping", "View Mappings", "Bulk Operations"])
+
+        with tab1:
+            st.subheader("🔗 Create New Mapping")
+
+            # Get authors and staff data
+            authors_df = dashboard.get_distinct_authors()
+            staff_df = dashboard.get_staff_list()
+            existing_mappings_df = dashboard.get_existing_mappings()
+
+            if authors_df.empty:
+                st.warning("No commit authors found. Please extract commits first.")
+            elif staff_df.empty:
+                st.warning("No staff details found. Please import staff details first using CLI: `python cli.py import-staff staff_data.xlsx`")
+            else:
+                # Filter out already mapped authors
+                if not existing_mappings_df.empty:
+                    mapped_authors = existing_mappings_df['Author Name'].tolist()
+                    unmapped_authors_df = authors_df[~authors_df['Author Name'].isin(mapped_authors)]
+                else:
+                    unmapped_authors_df = authors_df
+
+                # Two-column layout
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.markdown("### 📝 Select Author")
+                    st.info(f"Total Authors: {len(authors_df)} | Unmapped: {len(unmapped_authors_df)}")
+
+                    # Author selection
+                    if not unmapped_authors_df.empty:
+                        selected_author = st.selectbox(
+                            "Author Name",
+                            options=unmapped_authors_df['Author Name'].tolist(),
+                            format_func=lambda x: f"{x} ({unmapped_authors_df[unmapped_authors_df['Author Name']==x]['Commits'].iloc[0]} commits)"
+                        )
+
+                        # Show author details
+                        author_row = unmapped_authors_df[unmapped_authors_df['Author Name'] == selected_author].iloc[0]
+                        st.text_input("Author Email", value=author_row['Email'], disabled=True)
+                        st.metric("Total Commits", f"{author_row['Commits']:,}")
+                    else:
+                        st.success("All authors have been mapped!")
+                        selected_author = None
+
+                with col2:
+                    st.markdown("### 👤 Select Staff Member")
+                    st.info(f"Total Staff: {len(staff_df)}")
+
+                    if selected_author:
+                        # Staff selection with search
+                        search_term = st.text_input("🔍 Search Staff (by name or email)", "")
+
+                        if search_term:
+                            filtered_staff = staff_df[
+                                staff_df['Staff Name'].str.contains(search_term, case=False, na=False) |
+                                staff_df['Email'].str.contains(search_term, case=False, na=False)
+                            ]
+                        else:
+                            filtered_staff = staff_df
+
+                        if not filtered_staff.empty:
+                            selected_staff_idx = st.selectbox(
+                                "Staff Member",
+                                options=range(len(filtered_staff)),
+                                format_func=lambda x: f"{filtered_staff.iloc[x]['Staff Name']} ({filtered_staff.iloc[x]['Bank ID']})"
+                            )
+
+                            staff_row = filtered_staff.iloc[selected_staff_idx]
+
+                            # Show staff details
+                            st.text_input("Bank ID", value=staff_row['Bank ID'], disabled=True, key="bank_id_display")
+                            st.text_input("Staff ID", value=staff_row['Staff ID'], disabled=True)
+                            st.text_input("Staff Email", value=staff_row['Email'], disabled=True)
+                            st.text_input("Tech Unit", value=staff_row['Tech Unit'], disabled=True)
+                        else:
+                            st.warning("No staff found matching search criteria")
+                            staff_row = None
+                    else:
+                        staff_row = None
+
+                # Mapping section
+                if selected_author and staff_row is not None:
+                    st.markdown("---")
+                    st.subheader("💾 Save Mapping")
+
+                    col1, col2 = st.columns([3, 1])
+                    with col1:
+                        notes = st.text_area(
+                            "Notes (optional)",
+                            placeholder="Add any notes about this mapping...",
+                            height=100
+                        )
+
+                    with col2:
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        if st.button("✅ Save Mapping", type="primary", use_container_width=True):
+                            success, message = dashboard.save_author_staff_mapping(
+                                author_name=selected_author,
+                                author_email=author_row['Email'],
+                                bank_id_1=staff_row['Bank ID'],
+                                staff_id=staff_row['Staff ID'],
+                                staff_name=staff_row['Staff Name'],
+                                notes=notes
+                            )
+
+                            if success:
+                                st.success(message)
+                                st.balloons()
+                                st.rerun()
+                            else:
+                                st.error(message)
+
+        with tab2:
+            st.subheader("📊 Existing Mappings")
+
+            existing_mappings_df = dashboard.get_existing_mappings()
+
+            if existing_mappings_df.empty:
+                st.info("No mappings created yet. Use the 'Create Mapping' tab to get started.")
+            else:
+                # Summary metrics
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Total Mappings", len(existing_mappings_df))
+                with col2:
+                    authors_count = dashboard.get_distinct_authors().shape[0]
+                    mapped_pct = (len(existing_mappings_df) / authors_count * 100) if authors_count > 0 else 0
+                    st.metric("Mapping Coverage", f"{mapped_pct:.1f}%")
+                with col3:
+                    recent_mapping = existing_mappings_df['Mapped Date'].max()
+                    if pd.notna(recent_mapping):
+                        st.metric("Last Mapping", recent_mapping.strftime('%Y-%m-%d'))
+
+                st.markdown("---")
+
+                # Display mappings table
+                display_df = existing_mappings_df[[
+                    'Author Name', 'Author Email', 'Bank ID', 'Staff ID',
+                    'Staff Name', 'Mapped Date', 'Notes'
+                ]]
+
+                st.dataframe(display_df, width='stretch', height=400)
+
+                # Delete mapping functionality
+                st.markdown("---")
+                st.subheader("🗑️ Delete Mapping")
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    delete_author = st.selectbox(
+                        "Select author mapping to delete",
+                        options=existing_mappings_df['Author Name'].tolist()
+                    )
+                with col2:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if st.button("🗑️ Delete", type="secondary", use_container_width=True):
+                        success, message = dashboard.delete_author_staff_mapping(delete_author)
+                        if success:
+                            st.success(message)
+                            st.rerun()
+                        else:
+                            st.error(message)
+
+                # Export mappings
+                st.markdown("---")
+                csv = display_df.to_csv(index=False)
+                st.download_button(
+                    label="📥 Download Mappings as CSV",
+                    data=csv,
+                    file_name=f"author_staff_mappings_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv"
+                )
+
+        with tab3:
+            st.subheader("⚡ Bulk Operations")
+
+            st.markdown("### Auto-Match by Email")
+            st.info("Automatically map authors to staff members when emails match")
+
+            authors_df = dashboard.get_distinct_authors()
+            staff_df = dashboard.get_staff_list()
+            existing_mappings_df = dashboard.get_existing_mappings()
+
+            if not authors_df.empty and not staff_df.empty:
+                # Find potential matches
+                potential_matches = []
+
+                # Filter unmapped authors
+                if not existing_mappings_df.empty:
+                    mapped_authors = existing_mappings_df['Author Name'].tolist()
+                    unmapped_authors = authors_df[~authors_df['Author Name'].isin(mapped_authors)]
+                else:
+                    unmapped_authors = authors_df
+
+                for _, author in unmapped_authors.iterrows():
+                    author_email = str(author['Email']).lower().strip()
+                    matching_staff = staff_df[staff_df['Email'].str.lower().str.strip() == author_email]
+
+                    if not matching_staff.empty:
+                        staff_match = matching_staff.iloc[0]
+                        potential_matches.append({
+                            'Author Name': author['Author Name'],
+                            'Author Email': author['Email'],
+                            'Staff Name': staff_match['Staff Name'],
+                            'Bank ID': staff_match['Bank ID'],
+                            'Staff ID': staff_match['Staff ID'],
+                            'Match Type': 'Email Match'
+                        })
+
+                if potential_matches:
+                    matches_df = pd.DataFrame(potential_matches)
+                    st.success(f"Found {len(potential_matches)} potential email matches")
+                    st.dataframe(matches_df, width='stretch')
+
+                    if st.button("✅ Apply All Email Matches", type="primary"):
+                        success_count = 0
+                        error_count = 0
+
+                        progress_bar = st.progress(0)
+                        status_text = st.empty()
+
+                        for idx, match in enumerate(potential_matches):
+                            status_text.text(f"Processing {idx+1}/{len(potential_matches)}: {match['Author Name']}")
+
+                            success, message = dashboard.save_author_staff_mapping(
+                                author_name=match['Author Name'],
+                                author_email=match['Author Email'],
+                                bank_id_1=match['Bank ID'],
+                                staff_id=match['Staff ID'],
+                                staff_name=match['Staff Name'],
+                                notes='Auto-matched by email'
+                            )
+
+                            if success:
+                                success_count += 1
+                            else:
+                                error_count += 1
+
+                            progress_bar.progress((idx + 1) / len(potential_matches))
+
+                        status_text.empty()
+                        progress_bar.empty()
+
+                        if success_count > 0:
+                            st.success(f"✅ Successfully created {success_count} mappings")
+                            if error_count > 0:
+                                st.warning(f"⚠️ {error_count} mappings failed")
+                            st.balloons()
+                            st.rerun()
+                        else:
+                            st.error("No mappings could be created")
+                else:
+                    st.info("No email matches found. All unmapped authors have emails that don't match staff records.")
+            else:
+                st.warning("Need both commit authors and staff details to perform bulk operations")
+
+            # Manual bulk upload
+            st.markdown("---")
+            st.markdown("### 📤 Upload Mappings from CSV")
+            st.info("Upload a CSV file with columns: Author Name, Author Email, Bank ID, Staff ID, Staff Name, Notes")
+
+            uploaded_file = st.file_uploader("Choose CSV file", type=['csv'])
+            if uploaded_file:
+                try:
+                    upload_df = pd.read_csv(uploaded_file)
+                    required_cols = ['Author Name', 'Bank ID', 'Staff ID', 'Staff Name']
+
+                    if all(col in upload_df.columns for col in required_cols):
+                        st.dataframe(upload_df.head(), width='stretch')
+
+                        if st.button("📥 Import Mappings", type="primary"):
+                            success_count = 0
+                            error_count = 0
+
+                            progress_bar = st.progress(0)
+                            for idx, row in upload_df.iterrows():
+                                success, _ = dashboard.save_author_staff_mapping(
+                                    author_name=row['Author Name'],
+                                    author_email=row.get('Author Email', ''),
+                                    bank_id_1=row['Bank ID'],
+                                    staff_id=row['Staff ID'],
+                                    staff_name=row['Staff Name'],
+                                    notes=row.get('Notes', '')
+                                )
+                                if success:
+                                    success_count += 1
+                                else:
+                                    error_count += 1
+                                progress_bar.progress((idx + 1) / len(upload_df))
+
+                            progress_bar.empty()
+                            st.success(f"Imported {success_count} mappings ({error_count} errors)")
+                            st.rerun()
+                    else:
+                        st.error(f"CSV must have columns: {', '.join(required_cols)}")
+                except Exception as e:
+                    st.error(f"Error reading CSV: {e}")
 
     # Table Viewer Page
     elif page == "Table Viewer":

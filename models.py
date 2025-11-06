@@ -165,6 +165,23 @@ class StaffDetails(Base):
         return f"<StaffDetails(staff_id='{self.staff_id}', staff_name='{self.staff_name}')>"
 
 
+class AuthorStaffMapping(Base):
+    """Mapping between commit authors and staff details."""
+    __tablename__ = 'author_staff_mapping'
+
+    id = Column(Integer, primary_key=True)
+    author_name = Column(String(255), nullable=False, unique=True)
+    author_email = Column(String(255))
+    bank_id_1 = Column(String(50))
+    staff_id = Column(String(50))
+    staff_name = Column(String(255))
+    mapped_date = Column(DateTime, default=datetime.utcnow)
+    notes = Column(Text)
+
+    def __repr__(self):
+        return f"<AuthorStaffMapping(author='{self.author_name}', bank_id='{self.bank_id_1}')>"
+
+
 def get_engine(db_config):
     """Create database engine based on configuration."""
     if db_config['type'] == 'sqlite':

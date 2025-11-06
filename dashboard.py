@@ -1626,6 +1626,10 @@ notes TEXT
 
                 try:
                     import requests
+                    import urllib3
+
+                    # Suppress SSL warnings for self-signed certificates
+                    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
                     # API call to Dify
                     url = "https://dify.api.apps.k8s.sp.ut.dbs.corp/v1/completion-messages"
@@ -1641,7 +1645,7 @@ notes TEXT
                         "user": "streamlit_user"
                     }
 
-                    response = requests.post(url, json=payload, headers=headers, timeout=30)
+                    response = requests.post(url, json=payload, headers=headers, timeout=30, verify=False)
 
                     if response.status_code == 200:
                         result = response.json()

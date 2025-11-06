@@ -394,6 +394,13 @@ ORDER BY total_commits DESC;
 - Only schema is shared, not actual data
 - Queries reviewed before execution
 
+### SSL Configuration
+- **SSL Verification**: Disabled (`verify=False`) for internal API
+- **Reason**: Corporate API may use self-signed certificates
+- **SSL Warnings**: Automatically suppressed via urllib3
+- **Encryption**: HTTPS connection still encrypted, only certificate validation disabled
+- **Security**: Safe for internal corporate network use
+
 ### Safe Execution
 - AI generates SELECT queries by default
 - Destructive operations (DELETE, UPDATE) flagged

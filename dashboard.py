@@ -10,7 +10,7 @@ from datetime import datetime
 from config import Config
 from models import (
     get_engine, get_session,
-    Repository, Commit, PullRequest, PRApproval
+    Repository, Commit, PullRequest, PRApproval, StaffDetails
 )
 
 
@@ -249,16 +249,20 @@ class GitHistoryDashboard:
         finally:
             session.close()
 
-    def get_author_statistics(self):
+    def get_author_statistics(self, start_date=None, end_date=None):
         """Get comprehensive statistics for each author.
+
+        Args:
+            start_date: Optional start date for filtering (datetime or date object)
+            end_date: Optional end date for filtering (datetime or date object)
 
         Returns:
             DataFrame with author statistics including commits, lines, PRs, and approvals
         """
         session = get_session(self.engine)
         try:
-            # Get commit statistics per author
-            commit_stats = session.query(
+            # Get commit statistics per author with optional date filtering
+            commit_query = session.query(
                 Commit.author_name,
                 Commit.author_email,
                 func.count(Commit.id).label('total_commits'),
@@ -266,24 +270,48 @@ class GitHistoryDashboard:
                 func.sum(Commit.lines_deleted).label('total_lines_deleted'),
                 func.sum(Commit.files_changed).label('total_files_changed'),
                 func.count(func.distinct(Commit.repository_id)).label('repositories_count')
-            ).group_by(
+            )
+
+            # Apply date filters to commits
+            if start_date:
+                commit_query = commit_query.filter(Commit.commit_date >= start_date)
+            if end_date:
+                commit_query = commit_query.filter(Commit.commit_date <= end_date)
+
+            commit_stats = commit_query.group_by(
                 Commit.author_name,
                 Commit.author_email
             ).subquery()
 
-            # Get PR creation statistics per author
-            pr_created_stats = session.query(
+            # Get PR creation statistics per author with optional date filtering
+            pr_created_query = session.query(
                 PullRequest.author_email,
                 func.count(PullRequest.id).label('total_prs_created')
-            ).group_by(
+            )
+
+            # Apply date filters to PRs
+            if start_date:
+                pr_created_query = pr_created_query.filter(PullRequest.created_date >= start_date)
+            if end_date:
+                pr_created_query = pr_created_query.filter(PullRequest.created_date <= end_date)
+
+            pr_created_stats = pr_created_query.group_by(
                 PullRequest.author_email
             ).subquery()
 
-            # Get PR approval statistics per author
-            pr_approval_stats = session.query(
+            # Get PR approval statistics per author with optional date filtering
+            pr_approval_query = session.query(
                 PRApproval.approver_email,
                 func.count(PRApproval.id).label('total_prs_approved')
-            ).group_by(
+            )
+
+            # Apply date filters to approvals
+            if start_date:
+                pr_approval_query = pr_approval_query.filter(PRApproval.approval_date >= start_date)
+            if end_date:
+                pr_approval_query = pr_approval_query.filter(PRApproval.approval_date <= end_date)
+
+            pr_approval_stats = pr_approval_query.group_by(
                 PRApproval.approver_email
             ).subquery()
 
@@ -329,6 +357,81 @@ class GitHistoryDashboard:
             session.close()
 
 
+    def get_table_data(self, table_name, limit=1000):
+        """Get data from a specific table.
+
+        Args:
+            table_name: Name of the table to query
+            limit: Maximum number of rows to return
+
+        Returns:
+            DataFrame with table data
+        """
+        session = get_session(self.engine)
+        try:
+            # Map table names to models
+            table_models = {
+                'repositories': Repository,
+                'commits': Commit,
+                'pull_requests': PullRequest,
+                'pr_approvals': PRApproval,
+                'staff_details': StaffDetails
+            }
+
+            if table_name not in table_models:
+                return pd.DataFrame()
+
+            model = table_models[table_name]
+            query = session.query(model).limit(limit)
+
+            # Convert to DataFrame
+            data = []
+            for row in query:
+                row_dict = {}
+                for column in row.__table__.columns:
+                    row_dict[column.name] = getattr(row, column.name)
+                data.append(row_dict)
+
+            return pd.DataFrame(data)
+        finally:
+            session.close()
+
+    def execute_sql_query(self, sql_query):
+        """Execute a SQL query and return results.
+
+        Args:
+            sql_query: SQL query string
+
+        Returns:
+            Tuple of (DataFrame with results, error message if any)
+        """
+        try:
+            # Execute query and return as DataFrame
+            df = pd.read_sql_query(sql_query, self.engine)
+            return df, None
+        except Exception as e:
+            return pd.DataFrame(), str(e)
+
+    def get_table_info(self):
+        """Get information about all tables.
+
+        Returns:
+            Dictionary with table names and row counts
+        """
+        session = get_session(self.engine)
+        try:
+            table_info = {
+                'repositories': session.query(Repository).count(),
+                'commits': session.query(Commit).count(),
+                'pull_requests': session.query(PullRequest).count(),
+                'pr_approvals': session.query(PRApproval).count(),
+                'staff_details': session.query(StaffDetails).count()
+            }
+            return table_info
+        finally:
+            session.close()
+
+
 def main():
     """Main dashboard application."""
     st.set_page_config(
@@ -345,7 +448,7 @@ def main():
     st.sidebar.title("Navigation")
     page = st.sidebar.radio(
         "Select View",
-        ["Overview", "Authors Analytics", "Top 10 Commits", "Top PR Approvers", "Detailed Commits View", "Detailed PRs View"]
+        ["Overview", "Authors Analytics", "Top 10 Commits", "Top PR Approvers", "Detailed Commits View", "Detailed PRs View", "Table Viewer", "SQL Executor"]
     )
 
     # Overview Page
@@ -372,10 +475,68 @@ def main():
         st.header("👨‍💻 Authors Analytics")
         st.markdown("Comprehensive statistics for all contributors")
 
-        df = dashboard.get_author_statistics()
+        # Date range filter
+        st.subheader("📅 Date Range Filter")
+        col1, col2, col3 = st.columns([2, 2, 1])
+
+        # Get min and max dates from commits
+        session = get_session(dashboard.engine)
+        try:
+            min_commit_date = session.query(func.min(Commit.commit_date)).scalar()
+            max_commit_date = session.query(func.max(Commit.commit_date)).scalar()
+        finally:
+            session.close()
+
+        # Set default dates
+        if min_commit_date and max_commit_date:
+            default_start = min_commit_date.date() if hasattr(min_commit_date, 'date') else min_commit_date
+            default_end = max_commit_date.date() if hasattr(max_commit_date, 'date') else max_commit_date
+        else:
+            # Fallback if no commits exist
+            from datetime import date, timedelta
+            default_end = date.today()
+            default_start = default_end - timedelta(days=365)
+
+        with col1:
+            start_date = st.date_input(
+                "Start Date",
+                value=default_start,
+                min_value=default_start,
+                max_value=default_end
+            )
+
+        with col2:
+            end_date = st.date_input(
+                "End Date",
+                value=default_end,
+                min_value=default_start,
+                max_value=default_end
+            )
+
+        with col3:
+            st.markdown("<br>", unsafe_allow_html=True)  # Spacing
+            if st.button("🔄 Reset Dates"):
+                start_date = default_start
+                end_date = default_end
+                st.rerun()
+
+        # Show selected date range info
+        if start_date and end_date:
+            date_diff = (end_date - start_date).days
+            st.info(f"📊 Analyzing data from **{start_date}** to **{end_date}** ({date_diff} days)")
+
+        st.markdown("---")
+
+        # Convert dates to datetime for query
+        from datetime import datetime as dt
+        start_datetime = dt.combine(start_date, dt.min.time()) if start_date else None
+        end_datetime = dt.combine(end_date, dt.max.time()) if end_date else None
+
+        # Get author statistics with date filter
+        df = dashboard.get_author_statistics(start_date=start_datetime, end_date=end_datetime)
 
         if df.empty:
-            st.warning("No author data available.")
+            st.warning("No author data available for the selected date range.")
         else:
             # Summary metrics
             st.subheader("Summary")
@@ -699,6 +860,283 @@ def main():
                 file_name=f"pull_requests_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                 mime="text/csv"
             )
+
+    # Table Viewer Page
+    elif page == "Table Viewer":
+        st.header("📋 Database Table Viewer")
+        st.markdown("Browse all database tables and export data")
+
+        # Get table information
+        table_info = dashboard.get_table_info()
+
+        # Display table overview
+        st.subheader("Tables Overview")
+        overview_data = []
+        for table_name, row_count in table_info.items():
+            overview_data.append({
+                'Table Name': table_name,
+                'Row Count': f"{row_count:,}"
+            })
+        overview_df = pd.DataFrame(overview_data)
+        st.dataframe(overview_df, width='stretch', hide_index=True)
+
+        st.markdown("---")
+
+        # Table selection
+        st.subheader("View Table Data")
+        col1, col2 = st.columns([3, 1])
+
+        with col1:
+            selected_table = st.selectbox(
+                "Select Table",
+                list(table_info.keys()),
+                format_func=lambda x: f"{x} ({table_info[x]:,} rows)"
+            )
+
+        with col2:
+            row_limit = st.number_input(
+                "Limit Rows",
+                min_value=10,
+                max_value=10000,
+                value=1000,
+                step=100
+            )
+
+        if st.button("Load Table Data", type="primary"):
+            with st.spinner(f"Loading data from {selected_table}..."):
+                df = dashboard.get_table_data(selected_table, limit=row_limit)
+
+                if df.empty:
+                    st.warning(f"No data found in table '{selected_table}'")
+                else:
+                    st.success(f"Loaded {len(df):,} rows from {selected_table}")
+
+                    # Display data
+                    st.dataframe(df, width='stretch', height=500)
+
+                    # Table statistics
+                    st.subheader("Table Statistics")
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Total Rows", f"{len(df):,}")
+                    with col2:
+                        st.metric("Total Columns", len(df.columns))
+                    with col3:
+                        memory_usage = df.memory_usage(deep=True).sum() / 1024 / 1024
+                        st.metric("Memory Usage", f"{memory_usage:.2f} MB")
+
+                    # Column information
+                    with st.expander("Column Information"):
+                        col_info = []
+                        for col in df.columns:
+                            col_info.append({
+                                'Column Name': col,
+                                'Data Type': str(df[col].dtype),
+                                'Non-Null Count': f"{df[col].count():,}",
+                                'Null Count': f"{df[col].isnull().sum():,}"
+                            })
+                        col_info_df = pd.DataFrame(col_info)
+                        st.dataframe(col_info_df, width='stretch', hide_index=True)
+
+                    # Download button
+                    csv = df.to_csv(index=False)
+                    st.download_button(
+                        label="Download Table as CSV",
+                        data=csv,
+                        file_name=f"{selected_table}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                        mime="text/csv"
+                    )
+
+    # SQL Executor Page
+    elif page == "SQL Executor":
+        st.header("⚡ SQL Query Executor")
+        st.markdown("Execute custom SQL queries against the database")
+
+        # Warning message
+        st.warning("⚠️ **Read-only queries recommended.** Use caution with UPDATE, DELETE, or INSERT statements.")
+
+        # Database info
+        with st.expander("📊 Database Schema Information"):
+            table_info = dashboard.get_table_info()
+
+            st.subheader("Available Tables")
+            for table_name, row_count in table_info.items():
+                st.markdown(f"**{table_name}** - {row_count:,} rows")
+
+            st.markdown("---")
+            st.subheader("Table Schemas")
+
+            # Repositories
+            st.markdown("**repositories**")
+            st.code("""
+id              INTEGER PRIMARY KEY
+project_key     VARCHAR(255)
+slug_name       VARCHAR(255)
+clone_url       VARCHAR(500)
+created_at      DATETIME
+            """, language="sql")
+
+            # Commits
+            st.markdown("**commits**")
+            st.code("""
+id              INTEGER PRIMARY KEY
+repository_id   INTEGER (FK -> repositories.id)
+commit_hash     VARCHAR(40) UNIQUE
+author_name     VARCHAR(255)
+author_email    VARCHAR(255)
+committer_name  VARCHAR(255)
+committer_email VARCHAR(255)
+commit_date     DATETIME
+message         TEXT
+lines_added     INTEGER
+lines_deleted   INTEGER
+files_changed   INTEGER
+branch          VARCHAR(255)
+            """, language="sql")
+
+            # Pull Requests
+            st.markdown("**pull_requests**")
+            st.code("""
+id              INTEGER PRIMARY KEY
+repository_id   INTEGER (FK -> repositories.id)
+pr_number       INTEGER
+title           VARCHAR(500)
+description     TEXT
+author_name     VARCHAR(255)
+author_email    VARCHAR(255)
+created_date    DATETIME
+merged_date     DATETIME
+state           VARCHAR(50)
+source_branch   VARCHAR(255)
+target_branch   VARCHAR(255)
+lines_added     INTEGER
+lines_deleted   INTEGER
+commits_count   INTEGER
+            """, language="sql")
+
+            # PR Approvals
+            st.markdown("**pr_approvals**")
+            st.code("""
+id              INTEGER PRIMARY KEY
+pull_request_id INTEGER (FK -> pull_requests.id)
+approver_name   VARCHAR(255)
+approver_email  VARCHAR(255)
+approval_date   DATETIME
+            """, language="sql")
+
+            # Staff Details
+            st.markdown("**staff_details**")
+            st.code("""
+id                          INTEGER PRIMARY KEY
+bank_id_1                   VARCHAR(50)
+staff_id                    VARCHAR(50)
+staff_name                  VARCHAR(255)
+email_address               VARCHAR(255)
+staff_start_date            DATE
+staff_end_date              DATE
+... (71 fields total - see models.py for complete list)
+            """, language="sql")
+
+        # Query input with examples
+        st.subheader("SQL Query")
+
+        # Sample queries
+        sample_queries = {
+            "Select All Repositories": "SELECT * FROM repositories LIMIT 10;",
+            "Top 10 Authors by Commits": """SELECT author_name, COUNT(*) as commit_count
+FROM commits
+GROUP BY author_name
+ORDER BY commit_count DESC
+LIMIT 10;""",
+            "PRs with Most Approvals": """SELECT pr.pr_number, pr.title, pr.author_name,
+       COUNT(pa.id) as approval_count
+FROM pull_requests pr
+LEFT JOIN pr_approvals pa ON pr.id = pa.pull_request_id
+GROUP BY pr.id
+ORDER BY approval_count DESC
+LIMIT 10;""",
+            "Commits by Month": """SELECT strftime('%Y-%m', commit_date) as month,
+       COUNT(*) as commits,
+       SUM(lines_added) as total_added,
+       SUM(lines_deleted) as total_deleted
+FROM commits
+GROUP BY month
+ORDER BY month DESC;""",
+            "Staff by Department": "SELECT tech_unit, COUNT(*) as staff_count FROM staff_details GROUP BY tech_unit ORDER BY staff_count DESC;",
+            "Join Commits with Repositories": """SELECT r.project_key, r.slug_name,
+       COUNT(c.id) as commit_count,
+       SUM(c.lines_added + c.lines_deleted) as total_lines_changed
+FROM repositories r
+LEFT JOIN commits c ON r.id = c.repository_id
+GROUP BY r.id
+ORDER BY commit_count DESC;"""
+        }
+
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            st.markdown("**Enter your SQL query below:**")
+        with col2:
+            selected_sample = st.selectbox(
+                "Load Sample Query",
+                ["Custom Query"] + list(sample_queries.keys())
+            )
+
+        # Set default query
+        if selected_sample != "Custom Query":
+            default_query = sample_queries[selected_sample]
+        else:
+            default_query = "SELECT * FROM repositories LIMIT 10;"
+
+        sql_query = st.text_area(
+            "SQL Query",
+            value=default_query,
+            height=200,
+            label_visibility="collapsed"
+        )
+
+        col1, col2 = st.columns([1, 4])
+        with col1:
+            execute_button = st.button("▶ Execute Query", type="primary")
+        with col2:
+            if sql_query.strip().upper().startswith(('UPDATE', 'DELETE', 'INSERT', 'DROP', 'ALTER')):
+                st.error("⚠️ Detected potentially destructive query. Use with caution!")
+
+        if execute_button:
+            if not sql_query.strip():
+                st.error("Please enter a SQL query")
+            else:
+                with st.spinner("Executing query..."):
+                    df, error = dashboard.execute_sql_query(sql_query)
+
+                    if error:
+                        st.error(f"❌ Query Error: {error}")
+                    elif df.empty:
+                        st.info("✓ Query executed successfully but returned no results")
+                    else:
+                        st.success(f"✓ Query executed successfully - {len(df):,} rows returned")
+
+                        # Display results
+                        st.subheader("Query Results")
+                        st.dataframe(df, width='stretch', height=400)
+
+                        # Result statistics
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("Rows", f"{len(df):,}")
+                        with col2:
+                            st.metric("Columns", len(df.columns))
+                        with col3:
+                            memory_usage = df.memory_usage(deep=True).sum() / 1024 / 1024
+                            st.metric("Memory", f"{memory_usage:.2f} MB")
+
+                        # Download results
+                        csv = df.to_csv(index=False)
+                        st.download_button(
+                            label="Download Results as CSV",
+                            data=csv,
+                            file_name=f"query_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                            mime="text/csv"
+                        )
 
 
 if __name__ == '__main__':

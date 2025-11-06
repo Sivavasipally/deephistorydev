@@ -188,3 +188,4 @@ repositories/
 .streamlit/
 /.claude
 /.idea
+/frontend/node_modules

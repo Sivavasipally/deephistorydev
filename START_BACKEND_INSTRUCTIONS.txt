@@ -1,0 +1,63 @@
+============================================================
+           HOW TO START THE BACKEND SERVER
+============================================================
+
+IMPORTANT: Always run from the ROOT directory!
+
+Location: D:\GenAi\deephistorydev\
+
+============================================================
+
+METHOD 1: Use the startup script (RECOMMENDED)
+--------------------------------------------------------------
+1. Open terminal in: D:\GenAi\deephistorydev
+2. Activate virtual environment:
+   venv\Scripts\activate
+3. Run:
+   python start_backend.py
+
+============================================================
+
+METHOD 2: Use uvicorn directly
+--------------------------------------------------------------
+1. Open terminal in: D:\GenAi\deephistorydev
+2. Activate virtual environment:
+   venv\Scripts\activate
+3. Run:
+   uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+
+============================================================
+
+METHOD 3: Use batch file (starts both frontend + backend)
+--------------------------------------------------------------
+1. Open terminal in: D:\GenAi\deephistorydev
+2. Run:
+   start-dev.bat
+
+============================================================
+
+WRONG WAY (will cause errors):
+--------------------------------------------------------------
+❌ cd backend
+❌ python main.py
+
+This will give: ModuleNotFoundError: No module named 'config'
+
+============================================================
+
+AFTER STARTING:
+--------------------------------------------------------------
+✅ Backend API: http://localhost:8000
+✅ API Docs: http://localhost:8000/api/docs
+✅ Health Check: http://localhost:8000/api/health
+
+============================================================
+
+TROUBLESHOOTING:
+--------------------------------------------------------------
+If you get import errors:
+1. Make sure you're in the ROOT directory (deephistorydev/)
+2. NOT in the backend/ subdirectory
+3. Use: python start_backend.py
+
+============================================================

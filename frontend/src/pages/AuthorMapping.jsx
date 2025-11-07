@@ -16,6 +16,11 @@ import {
   Progress,
   Tag,
   Divider,
+  List,
+  Checkbox,
+  Tooltip,
+  Alert,
+  Badge,
 } from 'antd'
 import {
   LinkOutlined,
@@ -26,6 +31,9 @@ import {
   UserOutlined,
   TeamOutlined,
   CheckCircleOutlined,
+  BulbOutlined,
+  SelectOutlined,
+  ClearOutlined,
 } from '@ant-design/icons'
 import { mappingsAPI, staffAPI } from '../services/api'
 import dayjs from 'dayjs'
@@ -44,6 +52,12 @@ const AuthorMapping = () => {
   const [notes, setNotes] = useState('')
   const [autoMatchLoading, setAutoMatchLoading] = useState(false)
   const [autoMatchProgress, setAutoMatchProgress] = useState(0)
+
+  // Multi-select state
+  const [selectedAuthors, setSelectedAuthors] = useState([])
+  const [bulkStaff, setBulkStaff] = useState(null)
+  const [bulkNotes, setBulkNotes] = useState('')
+  const [searchAuthor, setSearchAuthor] = useState('')
 
   useEffect(() => {
     fetchData()
@@ -100,6 +114,86 @@ const AuthorMapping = () => {
     } catch (err) {
       message.error('Failed to delete mapping')
     }
+  }
+
+  // Calculate name similarity (simple Levenshtein distance)
+  const calculateSimilarity = (str1, str2) => {
+    const s1 = str1.toLowerCase()
+    const s2 = str2.toLowerCase()
+
+    if (s1 === s2) return 1.0
+    if (s1.includes(s2) || s2.includes(s1)) return 0.8
+
+    // Simple similarity based on word overlap
+    const words1 = s1.split(/\s+/)
+    const words2 = s2.split(/\s+/)
+    const commonWords = words1.filter(w => words2.includes(w))
+
+    if (commonWords.length > 0) {
+      return commonWords.length / Math.max(words1.length, words2.length)
+    }
+
+    return 0
+  }
+
+  // Get suggested staff for an author
+  const getSuggestedStaff = (author) => {
+    return staffList
+      .map(staff => ({
+        ...staff,
+        similarity: calculateSimilarity(author.author_name, staff.staff_name)
+      }))
+      .filter(s => s.similarity > 0.3)
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, 3)
+  }
+
+  // Handle bulk mapping
+  const handleBulkMapping = async () => {
+    if (selectedAuthors.length === 0) {
+      message.warning('Please select at least one author')
+      return
+    }
+    if (!bulkStaff) {
+      message.warning('Please select a staff member')
+      return
+    }
+
+    Modal.confirm({
+      title: 'Bulk Mapping Confirmation',
+      content: `Map ${selectedAuthors.length} author(s) to ${bulkStaff.staff_name}?`,
+      onOk: async () => {
+        setAutoMatchLoading(true)
+        setAutoMatchProgress(0)
+
+        let successCount = 0
+        for (let i = 0; i < selectedAuthors.length; i++) {
+          try {
+            const author = unmappedAuthors.find(a => a.author_name === selectedAuthors[i])
+            await mappingsAPI.createMapping({
+              author_name: author.author_name,
+              author_email: author.author_email,
+              bank_id_1: bulkStaff.bank_id_1,
+              staff_id: bulkStaff.staff_id,
+              staff_name: bulkStaff.staff_name,
+              notes: bulkNotes || 'Bulk mapped',
+            })
+            successCount++
+            setAutoMatchProgress(Math.round(((i + 1) / selectedAuthors.length) * 100))
+          } catch (err) {
+            console.error('Failed to create mapping:', err)
+          }
+        }
+
+        message.success(`Successfully mapped ${successCount} of ${selectedAuthors.length} authors!`)
+        setSelectedAuthors([])
+        setBulkStaff(null)
+        setBulkNotes('')
+        setAutoMatchLoading(false)
+        setAutoMatchProgress(0)
+        fetchData()
+      }
+    })
   }
 
   const handleAutoMatch = async () => {
@@ -432,13 +526,25 @@ const AuthorMapping = () => {
     </div>
   )
 
+  // Filter authors by search
+  const filteredUnmappedAuthors = searchAuthor
+    ? unmappedAuthors.filter(a =>
+        a.author_name?.toLowerCase().includes(searchAuthor.toLowerCase()) ||
+        a.author_email?.toLowerCase().includes(searchAuthor.toLowerCase())
+      )
+    : unmappedAuthors
+
   const bulkOperationsTab = (
     <div>
+      {/* Auto-Match by Email */}
       <Card title="⚡ Auto-Match by Email" style={{ marginBottom: 24 }}>
         <Space direction="vertical" style={{ width: '100%' }} size="large">
-          <Text>
-            Automatically map authors to staff members when their email addresses match.
-          </Text>
+          <Alert
+            message="Automatic Email Matching"
+            description="This will automatically map authors to staff members when their email addresses match exactly."
+            type="info"
+            showIcon
+          />
           {autoMatchLoading && (
             <Progress percent={autoMatchProgress} status="active" />
           )}
@@ -450,11 +556,182 @@ const AuthorMapping = () => {
             loading={autoMatchLoading}
             block
           >
-            Run Auto-Match
+            Run Auto-Match by Email
           </Button>
         </Space>
       </Card>
 
+      {/* Multi-Select Bulk Mapping */}
+      <Card title="📋 Bulk Mapping (Multi-Select)" style={{ marginBottom: 24 }}>
+        <Row gutter={[24, 24]}>
+          {/* Left: Author Selection */}
+          <Col xs={24} lg={14}>
+            <Space direction="vertical" style={{ width: '100%' }} size="middle">
+              <div>
+                <Space style={{ marginBottom: 12 }}>
+                  <Text strong>Select Authors to Map:</Text>
+                  <Badge count={selectedAuthors.length} showZero color="blue" />
+                </Space>
+                <Space style={{ marginBottom: 8, width: '100%' }}>
+                  <Input
+                    placeholder="Search authors..."
+                    value={searchAuthor}
+                    onChange={(e) => setSearchAuthor(e.target.value)}
+                    allowClear
+                    style={{ width: 300 }}
+                  />
+                  <Button
+                    size="small"
+                    icon={<SelectOutlined />}
+                    onClick={() => setSelectedAuthors(filteredUnmappedAuthors.map(a => a.author_name))}
+                  >
+                    Select All ({filteredUnmappedAuthors.length})
+                  </Button>
+                  <Button
+                    size="small"
+                    icon={<ClearOutlined />}
+                    onClick={() => setSelectedAuthors([])}
+                    disabled={selectedAuthors.length === 0}
+                  >
+                    Clear
+                  </Button>
+                </Space>
+              </div>
+
+              <div style={{ maxHeight: 400, overflowY: 'auto', border: '1px solid #f0f0f0', borderRadius: 4, padding: 8 }}>
+                <List
+                  dataSource={filteredUnmappedAuthors}
+                  renderItem={(author) => {
+                    const suggestions = getSuggestedStaff(author)
+                    const isSelected = selectedAuthors.includes(author.author_name)
+
+                    return (
+                      <List.Item
+                        style={{
+                          backgroundColor: isSelected ? '#e6f7ff' : 'transparent',
+                          padding: '12px',
+                          borderRadius: 4,
+                          marginBottom: 4,
+                          cursor: 'pointer'
+                        }}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedAuthors(prev => prev.filter(name => name !== author.author_name))
+                          } else {
+                            setSelectedAuthors(prev => [...prev, author.author_name])
+                          }
+                        }}
+                      >
+                        <List.Item.Meta
+                          avatar={
+                            <Checkbox
+                              checked={isSelected}
+                              onChange={(e) => {
+                                e.stopPropagation()
+                                if (e.target.checked) {
+                                  setSelectedAuthors(prev => [...prev, author.author_name])
+                                } else {
+                                  setSelectedAuthors(prev => prev.filter(name => name !== author.author_name))
+                                }
+                              }}
+                            />
+                          }
+                          title={
+                            <Space direction="vertical" size={0}>
+                              <Text strong>{author.author_name}</Text>
+                              <Text type="secondary" style={{ fontSize: 12 }}>{author.author_email}</Text>
+                              <Text type="secondary" style={{ fontSize: 11 }}>{author.commit_count} commits</Text>
+                            </Space>
+                          }
+                          description={
+                            suggestions.length > 0 && (
+                              <Space size={4} wrap>
+                                <Tooltip title="Suggested matches based on name similarity">
+                                  <BulbOutlined style={{ color: '#faad14' }} />
+                                </Tooltip>
+                                {suggestions.map((staff, idx) => (
+                                  <Tag
+                                    key={idx}
+                                    color={staff.similarity > 0.7 ? 'green' : staff.similarity > 0.5 ? 'orange' : 'default'}
+                                    style={{ fontSize: 11 }}
+                                  >
+                                    {staff.staff_name} ({Math.round(staff.similarity * 100)}%)
+                                  </Tag>
+                                ))}
+                              </Space>
+                            )
+                          }
+                        />
+                      </List.Item>
+                    )
+                  }}
+                />
+              </div>
+            </Space>
+          </Col>
+
+          {/* Right: Staff Selection */}
+          <Col xs={24} lg={10}>
+            <Space direction="vertical" style={{ width: '100%' }} size="middle">
+              <Text strong>Map Selected Authors To:</Text>
+              <Select
+                style={{ width: '100%' }}
+                placeholder="Select staff member"
+                showSearch
+                value={bulkStaff?.staff_name}
+                onChange={(value) => {
+                  const staff = staffList.find((s) => s.staff_name === value)
+                  setBulkStaff(staff)
+                }}
+                filterOption={(input, option) =>
+                  (option?.value?.toLowerCase() || '').includes(input.toLowerCase())
+                }
+              >
+                {staffList.map((staff) => (
+                  <Select.Option key={staff.bank_id_1} value={staff.staff_name}>
+                    {staff.staff_name} ({staff.bank_id_1})
+                  </Select.Option>
+                ))}
+              </Select>
+
+              {bulkStaff && (
+                <Card size="small" style={{ backgroundColor: '#f0f2f5' }}>
+                  <Space direction="vertical" size="small">
+                    <Text strong>Staff Details:</Text>
+                    <Text>Bank ID: {bulkStaff.bank_id_1}</Text>
+                    <Text>Email: {bulkStaff.email_address}</Text>
+                    <Text>Tech Unit: {bulkStaff.tech_unit}</Text>
+                  </Space>
+                </Card>
+              )}
+
+              <TextArea
+                placeholder="Add notes (optional)..."
+                value={bulkNotes}
+                onChange={(e) => setBulkNotes(e.target.value)}
+                rows={3}
+              />
+
+              {autoMatchLoading && (
+                <Progress percent={autoMatchProgress} status="active" />
+              )}
+
+              <Button
+                type="primary"
+                size="large"
+                icon={<SaveOutlined />}
+                onClick={handleBulkMapping}
+                disabled={selectedAuthors.length === 0 || !bulkStaff || autoMatchLoading}
+                block
+              >
+                Map {selectedAuthors.length} Author(s) to {bulkStaff?.staff_name || 'Staff'}
+              </Button>
+            </Space>
+          </Col>
+        </Row>
+      </Card>
+
+      {/* Statistics */}
       <Card title="📊 Statistics">
         <Space direction="vertical" style={{ width: '100%' }} size="middle">
           <div>
@@ -462,12 +739,22 @@ const AuthorMapping = () => {
             <Tag color="orange">{unmappedAuthors.length}</Tag>
           </div>
           <div>
+            <Text strong>Selected for Mapping: </Text>
+            <Tag color="blue">{selectedAuthors.length}</Tag>
+          </div>
+          <div>
             <Text strong>Total Staff Members: </Text>
-            <Tag color="blue">{staffList.length}</Tag>
+            <Tag color="cyan">{staffList.length}</Tag>
           </div>
           <div>
             <Text strong>Existing Mappings: </Text>
             <Tag color="green">{mappings.length}</Tag>
+          </div>
+          <div>
+            <Text strong>Mapping Progress: </Text>
+            <Tag color="purple">
+              {((mappings.length / (mappings.length + unmappedAuthors.length)) * 100).toFixed(1)}%
+            </Tag>
           </div>
         </Space>
       </Card>

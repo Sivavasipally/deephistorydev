@@ -182,8 +182,10 @@ const AuthorsAnalytics = () => {
 
   if (loading && !authors.length) {
     return (
-      <div className="loading-container">
-        <Spin size="large" tip="Loading author statistics..." />
+      <div style={{ padding: '50px', textAlign: 'center' }}>
+        <Spin size="large" tip="Loading author statistics...">
+          <div style={{ minHeight: '400px' }} />
+        </Spin>
       </div>
     )
   }

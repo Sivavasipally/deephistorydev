@@ -330,7 +330,7 @@ const SQLExecutor = () => {
           <Table
             columns={tableColumns}
             dataSource={queryResult.data}
-            rowKey={(record, index) => index}
+            rowKey={(record) => record.id || `row-${JSON.stringify(record)}`}
             scroll={{ x: 'max-content' }}
             pagination={{
               pageSize: 50,

@@ -11,7 +11,7 @@ from datetime import datetime
 from pydantic import BaseModel
 
 from config import Config
-from models import get_engine, get_session, Commit, PullRequest, PRApproval
+from models import get_engine, get_session, Commit, PullRequest, PRApproval, AuthorStaffMapping, StaffDetails
 
 router = APIRouter()
 
@@ -27,12 +27,24 @@ class AuthorStats(BaseModel):
     repositories_count: int
     prs_created: int
     prs_approved: int
+    # Staff details (when mapped)
+    staff_name: Optional[str] = None
+    bank_id: Optional[str] = None
+    rank: Optional[str] = None
+    reporting_manager_name: Optional[str] = None
+    work_location: Optional[str] = None
+    staff_type: Optional[str] = None
+    is_mapped: bool = False
 
 @router.get("/statistics", response_model=List[AuthorStats])
 async def get_author_statistics(
     start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
     end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
-    limit: int = Query(100, ge=1, le=1000, description="Maximum number of authors to return")
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of authors to return"),
+    rank: Optional[str] = Query(None, description="Filter by rank"),
+    reporting_manager: Optional[str] = Query(None, description="Filter by reporting manager"),
+    work_location: Optional[str] = Query(None, description="Filter by work location"),
+    staff_type: Optional[str] = Query(None, description="Filter by staff type")
 ):
     """
     Get comprehensive statistics for all authors.
@@ -108,7 +120,7 @@ async def get_author_statistics(
                 PRApproval.approver_email
             ).subquery()
 
-            # Combine all statistics
+            # Combine all statistics with staff details
             query = session.query(
                 commit_stats.c.author_name,
                 commit_stats.c.author_email,
@@ -119,23 +131,47 @@ async def get_author_statistics(
                 commit_stats.c.total_files_changed,
                 commit_stats.c.repositories_count,
                 func.coalesce(pr_created_stats.c.total_prs_created, 0).label('total_prs_created'),
-                func.coalesce(pr_approval_stats.c.total_prs_approved, 0).label('total_prs_approved')
+                func.coalesce(pr_approval_stats.c.total_prs_approved, 0).label('total_prs_approved'),
+                # Staff details from mapping
+                AuthorStaffMapping.staff_name,
+                StaffDetails.bank_id_1,
+                StaffDetails.rank,
+                StaffDetails.reporting_manager_name,
+                StaffDetails.work_location,
+                StaffDetails.staff_type,
+                StaffDetails.email_address
             ).outerjoin(
                 pr_created_stats,
                 commit_stats.c.author_email == pr_created_stats.c.author_email
             ).outerjoin(
                 pr_approval_stats,
                 commit_stats.c.author_email == pr_approval_stats.c.approver_email
-            ).order_by(
-                desc('total_commits')
-            ).limit(limit)
+            ).outerjoin(
+                AuthorStaffMapping,
+                commit_stats.c.author_name == AuthorStaffMapping.author_name
+            ).outerjoin(
+                StaffDetails,
+                AuthorStaffMapping.bank_id_1 == StaffDetails.bank_id_1
+            )
+
+            # Apply staff detail filters
+            if rank:
+                query = query.filter(StaffDetails.rank == rank)
+            if reporting_manager:
+                query = query.filter(StaffDetails.reporting_manager_name.ilike(f'%{reporting_manager}%'))
+            if work_location:
+                query = query.filter(StaffDetails.work_location == work_location)
+            if staff_type:
+                query = query.filter(StaffDetails.staff_type == staff_type)
+
+            query = query.order_by(desc('total_commits')).limit(limit)
 
             results = query.all()
 
             return [
                 AuthorStats(
-                    author_name=r.author_name,
-                    email=r.author_email,
+                    author_name=r.staff_name if r.staff_name else r.author_name,  # Use staff name if mapped
+                    email=r.email_address if r.email_address else r.author_email,  # Use staff email if available
                     total_commits=r.total_commits,
                     lines_added=r.total_lines_added or 0,
                     lines_deleted=r.total_lines_deleted or 0,
@@ -143,7 +179,15 @@ async def get_author_statistics(
                     files_changed=r.total_files_changed or 0,
                     repositories_count=r.repositories_count,
                     prs_created=r.total_prs_created,
-                    prs_approved=r.total_prs_approved
+                    prs_approved=r.total_prs_approved,
+                    # Staff details
+                    staff_name=r.staff_name,
+                    bank_id=r.bank_id_1,
+                    rank=r.rank,
+                    reporting_manager_name=r.reporting_manager_name,
+                    work_location=r.work_location,
+                    staff_type=r.staff_type,
+                    is_mapped=r.staff_name is not None
                 )
                 for r in results
             ]
@@ -234,3 +278,59 @@ async def get_top_contributors(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching top contributors: {str(e)}")
+
+@router.get("/filter-options")
+async def get_filter_options():
+    """
+    Get unique values for filter dropdowns.
+
+    Returns:
+        Dictionary with unique ranks, managers, locations, and staff types
+    """
+    try:
+        config = Config()
+        db_config = config.get_db_config()
+        engine = get_engine(db_config)
+        session = get_session(engine)
+
+        try:
+            # Get unique ranks
+            ranks = session.query(
+                StaffDetails.rank
+            ).distinct().filter(
+                StaffDetails.rank.isnot(None)
+            ).order_by(StaffDetails.rank).all()
+
+            # Get unique reporting managers
+            managers = session.query(
+                StaffDetails.reporting_manager_name
+            ).distinct().filter(
+                StaffDetails.reporting_manager_name.isnot(None)
+            ).order_by(StaffDetails.reporting_manager_name).all()
+
+            # Get unique work locations
+            locations = session.query(
+                StaffDetails.work_location
+            ).distinct().filter(
+                StaffDetails.work_location.isnot(None)
+            ).order_by(StaffDetails.work_location).all()
+
+            # Get unique staff types
+            staff_types = session.query(
+                StaffDetails.staff_type
+            ).distinct().filter(
+                StaffDetails.staff_type.isnot(None)
+            ).order_by(StaffDetails.staff_type).all()
+
+            return {
+                "ranks": [r[0] for r in ranks],
+                "reporting_managers": [m[0] for m in managers],
+                "work_locations": [l[0] for l in locations],
+                "staff_types": [t[0] for t in staff_types]
+            }
+
+        finally:
+            session.close()
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching filter options: {str(e)}")

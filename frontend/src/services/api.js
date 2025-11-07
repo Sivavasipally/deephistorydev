@@ -39,6 +39,7 @@ export const overviewAPI = {
 export const authorsAPI = {
   getStatistics: (params) => api.get('/authors/statistics', { params }),
   getTopContributors: (params) => api.get('/authors/top-contributors', { params }),
+  getFilterOptions: () => api.get('/authors/filter-options'),
 }
 
 // Commits API

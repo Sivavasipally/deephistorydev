@@ -19,7 +19,7 @@ import {
 
 // Import pages
 import Overview from './pages/Overview'
-import AuthorsAnalytics from './pages/AuthorsAnalytics'
+import AuthorsAnalytics from './pages/AuthorsAnalyticsEnhanced'
 import CommitsView from './pages/CommitsView'
 import PullRequestsView from './pages/PullRequestsView'
 import TopCommits from './pages/TopCommits'

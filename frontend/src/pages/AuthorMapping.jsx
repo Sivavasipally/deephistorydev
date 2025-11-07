@@ -279,7 +279,7 @@ const AuthorMapping = () => {
                   setSelectedAuthor(author)
                 }}
                 filterOption={(input, option) =>
-                  option.children.toLowerCase().includes(input.toLowerCase())
+                  (option?.value?.toLowerCase() || '').includes(input.toLowerCase())
                 }
               >
                 {unmappedAuthors.map((author) => (
@@ -321,7 +321,7 @@ const AuthorMapping = () => {
                   setSelectedStaff(staff)
                 }}
                 filterOption={(input, option) =>
-                  option.children.toLowerCase().includes(input.toLowerCase())
+                  (option?.value?.toLowerCase() || '').includes(input.toLowerCase())
                 }
               >
                 {filteredStaff.map((staff) => (

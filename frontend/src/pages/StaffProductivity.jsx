@@ -28,7 +28,7 @@ import {
   CalendarOutlined,
   TrophyOutlined,
 } from '@ant-design/icons'
-import { Line, Column, Area } from '@ant-design/charts'
+import { Line, Column, Area, Radar } from '@ant-design/charts'
 import { authorsAPI, staffAPI } from '../services/api'
 import dayjs from 'dayjs'
 
@@ -216,6 +216,37 @@ const StaffProductivity = () => {
   const totalLinesDeleted = productivityData?.timeseries.commits.reduce((sum, row) => sum + row.lines_deleted, 0) || 0
   const totalPRs = productivityData?.timeseries.prs.reduce((sum, row) => sum + row.prs_opened, 0) || 0
   const uniqueRepos = productivityData?.repository_breakdown.length || 0
+  const totalFilesChanged = productivityData?.timeseries.commits.reduce((sum, row) => sum + row.files_changed, 0) || 0
+
+  // Developer DNA Radar Chart Data - normalized scores (0-100)
+  const calculateRadarData = () => {
+    if (!productivityData) return []
+
+    // Calculate average values per period for normalization
+    const avgCommitsPerPeriod = totalCommits / (productivityData.timeseries.commits.length || 1)
+    const avgLinesPerPeriod = (totalLinesAdded + totalLinesDeleted) / (productivityData.timeseries.commits.length || 1)
+    const avgFilesPerPeriod = totalFilesChanged / (productivityData.timeseries.commits.length || 1)
+    const avgPRsPerPeriod = totalPRs / (productivityData.timeseries.prs.length || 1)
+
+    // Normalize to 0-100 scale (using reasonable max values)
+    const commitFrequency = Math.min(100, (avgCommitsPerPeriod / 10) * 100) // 10 commits per period = 100
+    const codeVolume = Math.min(100, (avgLinesPerPeriod / 500) * 100) // 500 lines per period = 100
+    const fileScope = Math.min(100, (avgFilesPerPeriod / 20) * 100) // 20 files per period = 100
+    const prActivity = Math.min(100, (avgPRsPerPeriod / 5) * 100) // 5 PRs per period = 100
+    const repoBreadth = Math.min(100, (uniqueRepos / 10) * 100) // 10 repos = 100
+    const codeChurn = Math.min(100, (totalLinesDeleted / (totalLinesAdded || 1)) * 100) // 100% deletion rate = 100
+
+    return [
+      { metric: 'Commit Frequency', value: commitFrequency },
+      { metric: 'Code Volume', value: codeVolume },
+      { metric: 'File Scope', value: fileScope },
+      { metric: 'PR Activity', value: prActivity },
+      { metric: 'Repo Breadth', value: repoBreadth },
+      { metric: 'Code Churn', value: codeChurn },
+    ]
+  }
+
+  const radarData = calculateRadarData()
 
   if (loading && !productivityData) {
     return (
@@ -349,6 +380,179 @@ const StaffProductivity = () => {
             </Row>
           </Card>
 
+          {/* AI-Powered Insights Card */}
+          <Card
+            title="🤖 AI-Powered Performance Insights"
+            style={{ marginBottom: 24, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}
+            headStyle={{ color: 'white', borderBottom: '1px solid rgba(255,255,255,0.2)' }}
+          >
+            <Space direction="vertical" size="large" style={{ width: '100%' }}>
+              {(() => {
+                // Calculate insights
+                const periods = productivityData.timeseries.commits.length
+                const avgCommits = totalCommits / periods
+                const recentCommits = productivityData.timeseries.commits.slice(-Math.min(3, periods))
+                const recentAvg = recentCommits.reduce((sum, r) => sum + r.commits, 0) / recentCommits.length
+                const trend = recentAvg > avgCommits ? 'up' : 'down'
+                const trendPercent = Math.abs(((recentAvg - avgCommits) / avgCommits) * 100).toFixed(1)
+
+                const commitConsistency = (1 - (Math.sqrt(productivityData.timeseries.commits.reduce((sum, r) => sum + Math.pow(r.commits - avgCommits, 2), 0) / periods) / avgCommits)) * 100
+
+                const archetype = radarData.reduce((max, item) => item.value > max.value ? item : max, radarData[0])
+
+                return (
+                  <>
+                    <div style={{ color: 'white' }}>
+                      <Text strong style={{ color: 'white', fontSize: 16 }}>📊 {productivityData.staff.name}'s Performance Summary</Text>
+                      <div style={{ marginTop: 12, lineHeight: '1.8' }}>
+                        <div>✅ <strong>Productivity Trend:</strong> {trend === 'up' ? '📈' : '📉'} {trendPercent}% {trend === 'up' ? 'above' : 'below'} your average in recent periods</div>
+                        <div>💪 <strong>Consistency Score:</strong> {commitConsistency.toFixed(1)}% - {commitConsistency > 70 ? 'Highly consistent' : commitConsistency > 50 ? 'Moderately consistent' : 'Variable'} contribution pattern</div>
+                        <div>🎯 <strong>Top Strength:</strong> {archetype.metric} ({archetype.value.toFixed(1)}/100)</div>
+                        <div>📦 <strong>Repository Impact:</strong> Active in {uniqueRepos} {uniqueRepos === 1 ? 'repository' : 'repositories'} - {uniqueRepos > 5 ? 'Broad cross-project contributor' : uniqueRepos > 2 ? 'Multi-project contributor' : 'Focused specialist'}</div>
+                        <div>🔄 <strong>Code Health:</strong> {((totalLinesDeleted / (totalLinesAdded || 1)) * 100).toFixed(1)}% deletion ratio - {totalLinesDeleted > totalLinesAdded * 0.3 ? 'High refactoring activity' : 'Feature-building focus'}</div>
+                      </div>
+                    </div>
+                    <Alert
+                      message="💡 AI Recommendation"
+                      description={
+                        trend === 'down'
+                          ? `Consider reviewing workload or potential blockers. Recent ${trendPercent}% decrease may indicate capacity concerns.`
+                          : `Excellent momentum! Your productivity is ${trendPercent}% above average. Maintain this sustainable pace.`
+                      }
+                      type={trend === 'down' ? 'warning' : 'success'}
+                      showIcon
+                      style={{ marginTop: 16 }}
+                    />
+                  </>
+                )
+              })()}
+            </Space>
+          </Card>
+
+          {/* Progress Rings */}
+          <Card title="🎯 Activity Rings - Daily Goals" style={{ marginBottom: 24 }}>
+            <Row gutter={[24, 24]} justify="center">
+              <Col xs={24} sm={8}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ position: 'relative', display: 'inline-block' }}>
+                    {(() => {
+                      const avgPerPeriod = totalCommits / (productivityData.timeseries.commits.length || 1)
+                      const progress = Math.min(100, (avgPerPeriod / 10) * 100)
+                      return (
+                        <svg width="120" height="120" viewBox="0 0 120 120">
+                          <circle
+                            cx="60"
+                            cy="60"
+                            r="50"
+                            fill="none"
+                            stroke="#f0f0f0"
+                            strokeWidth="10"
+                          />
+                          <circle
+                            cx="60"
+                            cy="60"
+                            r="50"
+                            fill="none"
+                            stroke="#1890ff"
+                            strokeWidth="10"
+                            strokeDasharray={`${(progress / 100) * 314.16} 314.16`}
+                            strokeLinecap="round"
+                            transform="rotate(-90 60 60)"
+                          />
+                        </svg>
+                      )
+                    })()}
+                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
+                      <Text strong style={{ fontSize: 20 }}>{Math.min(100, (totalCommits / (productivityData.timeseries.commits.length * 10)) * 100).toFixed(0)}%</Text>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 8 }}>
+                    <Text strong>Commits Ring</Text>
+                    <br />
+                    <Text type="secondary">Goal: 10/{granularity}</Text>
+                  </div>
+                </div>
+              </Col>
+              <Col xs={24} sm={8}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ position: 'relative', display: 'inline-block' }}>
+                    <svg width="120" height="120" viewBox="0 0 120 120">
+                      <circle
+                        cx="60"
+                        cy="60"
+                        r="50"
+                        fill="none"
+                        stroke="#f0f0f0"
+                        strokeWidth="10"
+                      />
+                      <circle
+                        cx="60"
+                        cy="60"
+                        r="50"
+                        fill="none"
+                        stroke="#52c41a"
+                        strokeWidth="10"
+                        strokeDasharray={`${(Math.min(100, (totalPRs / (productivityData.timeseries.prs.length * 5)) * 100) / 100) * 314.16} 314.16`}
+                        strokeLinecap="round"
+                        transform="rotate(-90 60 60)"
+                      />
+                    </svg>
+                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
+                      <Text strong style={{ fontSize: 20 }}>{Math.min(100, (totalPRs / (productivityData.timeseries.prs.length * 5)) * 100).toFixed(0)}%</Text>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 8 }}>
+                    <Text strong>PRs Ring</Text>
+                    <br />
+                    <Text type="secondary">Goal: 5/{granularity}</Text>
+                  </div>
+                </div>
+              </Col>
+              <Col xs={24} sm={8}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ position: 'relative', display: 'inline-block' }}>
+                    <svg width="120" height="120" viewBox="0 0 120 120">
+                      <circle
+                        cx="60"
+                        cy="60"
+                        r="50"
+                        fill="none"
+                        stroke="#f0f0f0"
+                        strokeWidth="10"
+                      />
+                      <circle
+                        cx="60"
+                        cy="60"
+                        r="50"
+                        fill="none"
+                        stroke="#faad14"
+                        strokeWidth="10"
+                        strokeDasharray={`${(Math.min(100, (uniqueRepos / 10) * 100) / 100) * 314.16} 314.16`}
+                        strokeLinecap="round"
+                        transform="rotate(-90 60 60)"
+                      />
+                    </svg>
+                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
+                      <Text strong style={{ fontSize: 20 }}>{Math.min(100, (uniqueRepos / 10) * 100).toFixed(0)}%</Text>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 8 }}>
+                    <Text strong>Collaboration Ring</Text>
+                    <br />
+                    <Text type="secondary">Goal: 10 repos</Text>
+                  </div>
+                </div>
+              </Col>
+            </Row>
+            <Alert
+              message="Close Your Rings Daily!"
+              description="Aim to complete all three rings each day: consistent commits, active PR participation, and broad collaboration across repositories."
+              type="info"
+              showIcon
+              style={{ marginTop: 16 }}
+            />
+          </Card>
+
           {/* Summary Statistics */}
           <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
             <Col xs={12} sm={8} md={4}>
@@ -412,6 +616,92 @@ const StaffProductivity = () => {
               </Card>
             </Col>
           </Row>
+
+          {/* Developer DNA Radar Chart */}
+          <Card title="🧬 Developer DNA - Performance Profile" style={{ marginBottom: 24 }}>
+            <Row gutter={[24, 24]}>
+              <Col xs={24} lg={12}>
+                <Radar
+                  data={radarData}
+                  xField="metric"
+                  yField="value"
+                  appendPadding={[0, 10, 0, 10]}
+                  meta={{
+                    value: {
+                      alias: 'Score',
+                      min: 0,
+                      max: 100,
+                    },
+                  }}
+                  xAxis={{
+                    line: null,
+                    tickLine: null,
+                    grid: {
+                      line: {
+                        style: {
+                          lineDash: null,
+                        },
+                      },
+                    },
+                  }}
+                  yAxis={{
+                    line: null,
+                    tickLine: null,
+                    grid: {
+                      line: {
+                        type: 'line',
+                        style: {
+                          lineDash: null,
+                        },
+                      },
+                      alternateColor: 'rgba(0, 0, 0, 0.04)',
+                    },
+                  }}
+                  point={{
+                    size: 4,
+                  }}
+                  area={{}}
+                  color="#1890ff"
+                />
+              </Col>
+              <Col xs={24} lg={12}>
+                <Title level={5}>Profile Interpretation</Title>
+                <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                  <div>
+                    <Tag color="blue">Commit Frequency</Tag>
+                    <Text>Average commits per {granularity} period</Text>
+                  </div>
+                  <div>
+                    <Tag color="green">Code Volume</Tag>
+                    <Text>Total lines changed per period</Text>
+                  </div>
+                  <div>
+                    <Tag color="cyan">File Scope</Tag>
+                    <Text>Average files modified per period</Text>
+                  </div>
+                  <div>
+                    <Tag color="purple">PR Activity</Tag>
+                    <Text>Pull requests opened per period</Text>
+                  </div>
+                  <div>
+                    <Tag color="orange">Repo Breadth</Tag>
+                    <Text>Number of repositories contributed to</Text>
+                  </div>
+                  <div>
+                    <Tag color="red">Code Churn</Tag>
+                    <Text>Ratio of deletions to additions (refactoring indicator)</Text>
+                  </div>
+                </Space>
+                <Alert
+                  message="Developer DNA Signature"
+                  description="This radar chart shows your unique productivity profile. A balanced hexagon indicates well-rounded contributions, while spikes show areas of specialization."
+                  type="info"
+                  showIcon
+                  style={{ marginTop: 16 }}
+                />
+              </Col>
+            </Row>
+          </Card>
 
           {/* Time-Series Charts */}
           <Tabs

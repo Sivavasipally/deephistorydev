@@ -29,6 +29,7 @@ import AuthorMapping from './pages/AuthorMapping'
 import TableViewer from './pages/TableViewer'
 import SQLExecutor from './pages/SQLExecutor'
 import StaffProductivity from './pages/StaffProductivity'
+import TeamComparison from './pages/TeamComparison'
 
 const { Header, Content, Sider } = Layout
 
@@ -75,6 +76,12 @@ const menuItems = [
     icon: <BarChartOutlined />,
     label: <Link to="/productivity">Staff Productivity</Link>,
     breadcrumb: 'Staff Productivity'
+  },
+  {
+    key: '/team-comparison',
+    icon: <TeamOutlined />,
+    label: <Link to="/team-comparison">Team Comparison</Link>,
+    breadcrumb: 'Team Comparison'
   },
   {
     key: '/mapping',
@@ -204,6 +211,7 @@ function App() {
             <Route path="/top-commits" element={<TopCommits />} />
             <Route path="/top-approvers" element={<TopApprovers />} />
             <Route path="/productivity" element={<StaffProductivity />} />
+            <Route path="/team-comparison" element={<TeamComparison />} />
             <Route path="/mapping" element={<AuthorMapping />} />
             <Route path="/tables" element={<TableViewer />} />
             <Route path="/sql" element={<SQLExecutor />} />

@@ -27,6 +27,7 @@ import {
   BarChartOutlined,
   CalendarOutlined,
   TrophyOutlined,
+  QuestionCircleOutlined,
 } from '@ant-design/icons'
 import { Line, Column, Area, Radar } from '@ant-design/charts'
 import { authorsAPI, staffAPI } from '../services/api'
@@ -380,168 +381,152 @@ const StaffProductivity = () => {
             </Row>
           </Card>
 
-          {/* AI-Powered Insights Card */}
-          <Card
-            title="🤖 AI-Powered Performance Insights"
-            style={{ marginBottom: 24, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}
-            headStyle={{ color: 'white', borderBottom: '1px solid rgba(255,255,255,0.2)' }}
-          >
-            <Space direction="vertical" size="large" style={{ width: '100%' }}>
-              {(() => {
-                // Calculate insights
-                const periods = productivityData.timeseries.commits.length
-                const avgCommits = totalCommits / periods
-                const recentCommits = productivityData.timeseries.commits.slice(-Math.min(3, periods))
-                const recentAvg = recentCommits.reduce((sum, r) => sum + r.commits, 0) / recentCommits.length
-                const trend = recentAvg > avgCommits ? 'up' : 'down'
-                const trendPercent = Math.abs(((recentAvg - avgCommits) / avgCommits) * 100).toFixed(1)
-
-                const commitConsistency = (1 - (Math.sqrt(productivityData.timeseries.commits.reduce((sum, r) => sum + Math.pow(r.commits - avgCommits, 2), 0) / periods) / avgCommits)) * 100
-
-                const archetype = radarData.reduce((max, item) => item.value > max.value ? item : max, radarData[0])
-
-                return (
-                  <>
-                    <div style={{ color: 'white' }}>
-                      <Text strong style={{ color: 'white', fontSize: 16 }}>📊 {productivityData.staff.name}'s Performance Summary</Text>
-                      <div style={{ marginTop: 12, lineHeight: '1.8' }}>
-                        <div>✅ <strong>Productivity Trend:</strong> {trend === 'up' ? '📈' : '📉'} {trendPercent}% {trend === 'up' ? 'above' : 'below'} your average in recent periods</div>
-                        <div>💪 <strong>Consistency Score:</strong> {commitConsistency.toFixed(1)}% - {commitConsistency > 70 ? 'Highly consistent' : commitConsistency > 50 ? 'Moderately consistent' : 'Variable'} contribution pattern</div>
-                        <div>🎯 <strong>Top Strength:</strong> {archetype.metric} ({archetype.value.toFixed(1)}/100)</div>
-                        <div>📦 <strong>Repository Impact:</strong> Active in {uniqueRepos} {uniqueRepos === 1 ? 'repository' : 'repositories'} - {uniqueRepos > 5 ? 'Broad cross-project contributor' : uniqueRepos > 2 ? 'Multi-project contributor' : 'Focused specialist'}</div>
-                        <div>🔄 <strong>Code Health:</strong> {((totalLinesDeleted / (totalLinesAdded || 1)) * 100).toFixed(1)}% deletion ratio - {totalLinesDeleted > totalLinesAdded * 0.3 ? 'High refactoring activity' : 'Feature-building focus'}</div>
-                      </div>
-                    </div>
-                    <Alert
-                      message="💡 AI Recommendation"
-                      description={
-                        trend === 'down'
-                          ? `Consider reviewing workload or potential blockers. Recent ${trendPercent}% decrease may indicate capacity concerns.`
-                          : `Excellent momentum! Your productivity is ${trendPercent}% above average. Maintain this sustainable pace.`
-                      }
-                      type={trend === 'down' ? 'warning' : 'success'}
-                      showIcon
-                      style={{ marginTop: 16 }}
-                    />
-                  </>
-                )
-              })()}
-            </Space>
-          </Card>
-
           {/* Progress Rings */}
           <Card title="🎯 Activity Rings - Daily Goals" style={{ marginBottom: 24 }}>
             <Row gutter={[24, 24]} justify="center">
               <Col xs={24} sm={8}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ position: 'relative', display: 'inline-block' }}>
-                    {(() => {
-                      const avgPerPeriod = totalCommits / (productivityData.timeseries.commits.length || 1)
-                      const progress = Math.min(100, (avgPerPeriod / 10) * 100)
-                      return (
-                        <svg width="120" height="120" viewBox="0 0 120 120">
-                          <circle
-                            cx="60"
-                            cy="60"
-                            r="50"
-                            fill="none"
-                            stroke="#f0f0f0"
-                            strokeWidth="10"
-                          />
-                          <circle
-                            cx="60"
-                            cy="60"
-                            r="50"
-                            fill="none"
-                            stroke="#1890ff"
-                            strokeWidth="10"
-                            strokeDasharray={`${(progress / 100) * 314.16} 314.16`}
-                            strokeLinecap="round"
-                            transform="rotate(-90 60 60)"
-                          />
-                        </svg>
-                      )
-                    })()}
-                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
-                      <Text strong style={{ fontSize: 20 }}>{Math.min(100, (totalCommits / (productivityData.timeseries.commits.length * 10)) * 100).toFixed(0)}%</Text>
+                <Tooltip
+                  title={
+                    <div>
+                      <strong>Commits Ring</strong>
+                      <div>Track your commit activity goal. Each period should aim for 10 commits to achieve 100% completion.</div>
+                      <div style={{ marginTop: 4 }}>Current: {(totalCommits / (productivityData.timeseries.commits.length || 1)).toFixed(1)} commits/{granularity}</div>
+                    </div>
+                  }
+                  placement="top"
+                >
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ position: 'relative', display: 'inline-block' }}>
+                      {(() => {
+                        const avgPerPeriod = totalCommits / (productivityData.timeseries.commits.length || 1)
+                        const progress = Math.min(100, (avgPerPeriod / 10) * 100)
+                        return (
+                          <svg width="120" height="120" viewBox="0 0 120 120">
+                            <circle
+                              cx="60"
+                              cy="60"
+                              r="50"
+                              fill="none"
+                              stroke="#f0f0f0"
+                              strokeWidth="10"
+                            />
+                            <circle
+                              cx="60"
+                              cy="60"
+                              r="50"
+                              fill="none"
+                              stroke="#1890ff"
+                              strokeWidth="10"
+                              strokeDasharray={`${(progress / 100) * 314.16} 314.16`}
+                              strokeLinecap="round"
+                              transform="rotate(-90 60 60)"
+                            />
+                          </svg>
+                        )
+                      })()}
+                      <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
+                        <Text strong style={{ fontSize: 20 }}>{Math.min(100, (totalCommits / (productivityData.timeseries.commits.length * 10)) * 100).toFixed(0)}%</Text>
+                      </div>
+                    </div>
+                    <div style={{ marginTop: 8 }}>
+                      <Text strong>Commits Ring</Text>
+                      <br />
+                      <Text type="secondary">Goal: 10/{granularity}</Text>
                     </div>
                   </div>
-                  <div style={{ marginTop: 8 }}>
-                    <Text strong>Commits Ring</Text>
-                    <br />
-                    <Text type="secondary">Goal: 10/{granularity}</Text>
-                  </div>
-                </div>
+                </Tooltip>
               </Col>
               <Col xs={24} sm={8}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ position: 'relative', display: 'inline-block' }}>
-                    <svg width="120" height="120" viewBox="0 0 120 120">
-                      <circle
-                        cx="60"
-                        cy="60"
-                        r="50"
-                        fill="none"
-                        stroke="#f0f0f0"
-                        strokeWidth="10"
-                      />
-                      <circle
-                        cx="60"
-                        cy="60"
-                        r="50"
-                        fill="none"
-                        stroke="#52c41a"
-                        strokeWidth="10"
-                        strokeDasharray={`${(Math.min(100, (totalPRs / (productivityData.timeseries.prs.length * 5)) * 100) / 100) * 314.16} 314.16`}
-                        strokeLinecap="round"
-                        transform="rotate(-90 60 60)"
-                      />
-                    </svg>
-                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
-                      <Text strong style={{ fontSize: 20 }}>{Math.min(100, (totalPRs / (productivityData.timeseries.prs.length * 5)) * 100).toFixed(0)}%</Text>
+                <Tooltip
+                  title={
+                    <div>
+                      <strong>Pull Requests Ring</strong>
+                      <div>Track your PR collaboration goal. Creating and participating in 5 PRs per period shows active code review involvement.</div>
+                      <div style={{ marginTop: 4 }}>Current: {(totalPRs / (productivityData.timeseries.prs.length || 1)).toFixed(1)} PRs/{granularity}</div>
+                    </div>
+                  }
+                  placement="top"
+                >
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ position: 'relative', display: 'inline-block' }}>
+                      <svg width="120" height="120" viewBox="0 0 120 120">
+                        <circle
+                          cx="60"
+                          cy="60"
+                          r="50"
+                          fill="none"
+                          stroke="#f0f0f0"
+                          strokeWidth="10"
+                        />
+                        <circle
+                          cx="60"
+                          cy="60"
+                          r="50"
+                          fill="none"
+                          stroke="#52c41a"
+                          strokeWidth="10"
+                          strokeDasharray={`${(Math.min(100, (totalPRs / (productivityData.timeseries.prs.length * 5)) * 100) / 100) * 314.16} 314.16`}
+                          strokeLinecap="round"
+                          transform="rotate(-90 60 60)"
+                        />
+                      </svg>
+                      <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
+                        <Text strong style={{ fontSize: 20 }}>{Math.min(100, (totalPRs / (productivityData.timeseries.prs.length * 5)) * 100).toFixed(0)}%</Text>
+                      </div>
+                    </div>
+                    <div style={{ marginTop: 8 }}>
+                      <Text strong>PRs Ring</Text>
+                      <br />
+                      <Text type="secondary">Goal: 5/{granularity}</Text>
                     </div>
                   </div>
-                  <div style={{ marginTop: 8 }}>
-                    <Text strong>PRs Ring</Text>
-                    <br />
-                    <Text type="secondary">Goal: 5/{granularity}</Text>
-                  </div>
-                </div>
+                </Tooltip>
               </Col>
               <Col xs={24} sm={8}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ position: 'relative', display: 'inline-block' }}>
-                    <svg width="120" height="120" viewBox="0 0 120 120">
-                      <circle
-                        cx="60"
-                        cy="60"
-                        r="50"
-                        fill="none"
-                        stroke="#f0f0f0"
-                        strokeWidth="10"
-                      />
-                      <circle
-                        cx="60"
-                        cy="60"
-                        r="50"
-                        fill="none"
-                        stroke="#faad14"
-                        strokeWidth="10"
-                        strokeDasharray={`${(Math.min(100, (uniqueRepos / 10) * 100) / 100) * 314.16} 314.16`}
-                        strokeLinecap="round"
-                        transform="rotate(-90 60 60)"
-                      />
-                    </svg>
-                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
-                      <Text strong style={{ fontSize: 20 }}>{Math.min(100, (uniqueRepos / 10) * 100).toFixed(0)}%</Text>
+                <Tooltip
+                  title={
+                    <div>
+                      <strong>Collaboration Ring</strong>
+                      <div>Track your cross-repository involvement. Contributing to 10 different repositories demonstrates versatility and team collaboration.</div>
+                      <div style={{ marginTop: 4 }}>Current: {uniqueRepos} repositories</div>
+                    </div>
+                  }
+                  placement="top"
+                >
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ position: 'relative', display: 'inline-block' }}>
+                      <svg width="120" height="120" viewBox="0 0 120 120">
+                        <circle
+                          cx="60"
+                          cy="60"
+                          r="50"
+                          fill="none"
+                          stroke="#f0f0f0"
+                          strokeWidth="10"
+                        />
+                        <circle
+                          cx="60"
+                          cy="60"
+                          r="50"
+                          fill="none"
+                          stroke="#faad14"
+                          strokeWidth="10"
+                          strokeDasharray={`${(Math.min(100, (uniqueRepos / 10) * 100) / 100) * 314.16} 314.16`}
+                          strokeLinecap="round"
+                          transform="rotate(-90 60 60)"
+                        />
+                      </svg>
+                      <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
+                        <Text strong style={{ fontSize: 20 }}>{Math.min(100, (uniqueRepos / 10) * 100).toFixed(0)}%</Text>
+                      </div>
+                    </div>
+                    <div style={{ marginTop: 8 }}>
+                      <Text strong>Collaboration Ring</Text>
+                      <br />
+                      <Text type="secondary">Goal: 10 repos</Text>
                     </div>
                   </div>
-                  <div style={{ marginTop: 8 }}>
-                    <Text strong>Collaboration Ring</Text>
-                    <br />
-                    <Text type="secondary">Goal: 10 repos</Text>
-                  </div>
-                </div>
+                </Tooltip>
               </Col>
             </Row>
             <Alert
@@ -551,6 +536,131 @@ const StaffProductivity = () => {
               showIcon
               style={{ marginTop: 16 }}
             />
+          </Card>
+
+          {/* Achievement Badges */}
+          <Card title="🏆 Achievement Badges & Milestones" style={{ marginBottom: 24 }}>
+            <Row gutter={[16, 16]}>
+              {(() => {
+                const badges = []
+                const periods = productivityData.timeseries.commits.length
+                const avgCommitsPerPeriod = totalCommits / periods
+
+                // Commit Streak Badge
+                if (avgCommitsPerPeriod >= 10) {
+                  badges.push({
+                    icon: '🔥',
+                    title: 'Commit Streak Master',
+                    description: `${avgCommitsPerPeriod.toFixed(0)} avg commits per period`,
+                    color: '#ff4d4f',
+                  })
+                }
+
+                // High Volume Contributor
+                if (totalCommits >= 100) {
+                  badges.push({
+                    icon: '💯',
+                    title: 'Century Club',
+                    description: `${totalCommits} total commits`,
+                    color: '#faad14',
+                  })
+                }
+
+                // Code Volume Champion
+                if (totalLinesAdded + totalLinesDeleted >= 10000) {
+                  badges.push({
+                    icon: '📝',
+                    title: 'Code Volume Champion',
+                    description: `${((totalLinesAdded + totalLinesDeleted) / 1000).toFixed(1)}K lines changed`,
+                    color: '#52c41a',
+                  })
+                }
+
+                // PR Master
+                if (totalPRs >= 20) {
+                  badges.push({
+                    icon: '🎯',
+                    title: 'PR Master',
+                    description: `${totalPRs} pull requests opened`,
+                    color: '#722ed1',
+                  })
+                }
+
+                // Cross-Project Collaborator
+                if (uniqueRepos >= 5) {
+                  badges.push({
+                    icon: '🤝',
+                    title: 'Cross-Project Collaborator',
+                    description: `Active in ${uniqueRepos} repositories`,
+                    color: '#13c2c2',
+                  })
+                }
+
+                // Refactoring Hero
+                if (totalLinesDeleted > totalLinesAdded * 0.5) {
+                  badges.push({
+                    icon: '🧹',
+                    title: 'Refactoring Hero',
+                    description: `${((totalLinesDeleted / (totalLinesAdded || 1)) * 100).toFixed(0)}% deletion ratio`,
+                    color: '#1890ff',
+                  })
+                }
+
+                // Consistency Champion
+                const avgCommits = totalCommits / periods
+                const commitConsistency = (1 - (Math.sqrt(productivityData.timeseries.commits.reduce((sum, r) => sum + Math.pow(r.commits - avgCommits, 2), 0) / periods) / (avgCommits || 1))) * 100
+                if (commitConsistency > 70) {
+                  badges.push({
+                    icon: '⚡',
+                    title: 'Consistency Champion',
+                    description: `${commitConsistency.toFixed(0)}% consistency score`,
+                    color: '#eb2f96',
+                  })
+                }
+
+                // Quality First (if PR merge rate is high - uses actual merge data)
+                const mergeRate = productivityData.summary?.merge_rate || 0
+                if (mergeRate > 0.75 && totalPRs >= 5) {
+                  badges.push({
+                    icon: '✅',
+                    title: 'Quality First',
+                    description: `${(mergeRate * 100).toFixed(0)}% PR merge rate`,
+                    color: '#52c41a',
+                  })
+                }
+
+                return badges.length > 0 ? (
+                  badges.map((badge, index) => (
+                    <Col xs={12} sm={8} md={6} lg={4} key={index}>
+                      <Card
+                        style={{
+                          textAlign: 'center',
+                          borderColor: badge.color,
+                          borderWidth: 2,
+                          background: `linear-gradient(135deg, ${badge.color}22, ${badge.color}11)`,
+                        }}
+                      >
+                        <div style={{ fontSize: 40 }}>{badge.icon}</div>
+                        <Title level={5} style={{ marginTop: 8, marginBottom: 4, color: badge.color }}>
+                          {badge.title}
+                        </Title>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          {badge.description}
+                        </Text>
+                      </Card>
+                    </Col>
+                  ))
+                ) : (
+                  <Col span={24}>
+                    <div style={{ textAlign: 'center', padding: '20px' }}>
+                      <Text type="secondary">
+                        🌟 Keep contributing to unlock achievement badges! Reach milestones in commits, PRs, code volume, and consistency.
+                      </Text>
+                    </div>
+                  </Col>
+                )
+              })()}
+            </Row>
           </Card>
 
           {/* Summary Statistics */}
@@ -662,6 +772,28 @@ const StaffProductivity = () => {
                   }}
                   area={{}}
                   color="#1890ff"
+                  tooltip={{
+                    customContent: (title, data) => {
+                      if (!data || data.length === 0) return null
+                      const item = data[0]
+                      const metricExplanations = {
+                        'Commit Frequency': 'Average commits per period. Higher scores indicate consistent code contributions. (10+ commits/period = 100%)',
+                        'Code Volume': 'Total lines changed per period. Measures overall code output volume. (500+ lines/period = 100%)',
+                        'File Scope': 'Average files modified per period. Shows breadth of work across the codebase. (20+ files/period = 100%)',
+                        'PR Activity': 'Pull requests opened per period. Indicates collaboration and code review activity. (5+ PRs/period = 100%)',
+                        'Repo Breadth': 'Number of repositories touched. Shows cross-project involvement and versatility. (10+ repos = 100%)',
+                        'Code Churn': 'Deletion to addition ratio. High ratio indicates refactoring and code cleanup work. (100% deletions = 100%)'
+                      }
+                      const explanation = metricExplanations[item.data.metric] || ''
+                      return `
+                        <div style="padding: 12px; max-width: 300px;">
+                          <div style="font-weight: bold; font-size: 14px; margin-bottom: 8px;">${item.data.metric}</div>
+                          <div style="font-size: 20px; color: #1890ff; margin-bottom: 8px;">${item.data.value.toFixed(1)}/100</div>
+                          <div style="color: #666; font-size: 12px; line-height: 1.5;">${explanation}</div>
+                        </div>
+                      `
+                    }
+                  }}
                 />
               </Col>
               <Col xs={24} lg={12}>
@@ -735,6 +867,23 @@ const StaffProductivity = () => {
                       }}
                       tooltip={{
                         shared: true,
+                        customContent: (title, data) => {
+                          if (!data || data.length === 0) return null
+                          return `
+                            <div style="padding: 12px;">
+                              <div style="font-weight: bold; margin-bottom: 8px;">${title}</div>
+                              ${data.map(item => `
+                                <div style="margin: 4px 0;">
+                                  <span style="display: inline-block; width: 10px; height: 10px; background: ${item.color}; border-radius: 50%; margin-right: 8px;"></span>
+                                  <strong>${item.name}:</strong> ${item.value} commits
+                                </div>
+                              `).join('')}
+                              <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #f0f0f0; color: #666; font-size: 12px;">
+                                Track your commit frequency over time. Consistent patterns indicate steady productivity.
+                              </div>
+                            </div>
+                          `
+                        }
                       }}
                       animation={{
                         appear: {
@@ -781,6 +930,29 @@ const StaffProductivity = () => {
                       legend={{
                         position: 'top-right',
                       }}
+                      tooltip={{
+                        customContent: (title, data) => {
+                          if (!data || data.length === 0) return null
+                          const total = data.reduce((sum, item) => sum + item.value, 0)
+                          return `
+                            <div style="padding: 12px;">
+                              <div style="font-weight: bold; margin-bottom: 8px;">${title}</div>
+                              ${data.map(item => `
+                                <div style="margin: 4px 0;">
+                                  <span style="display: inline-block; width: 10px; height: 10px; background: ${item.color}; border-radius: 50%; margin-right: 8px;"></span>
+                                  <strong>${item.name}:</strong> ${item.value.toLocaleString()} lines
+                                </div>
+                              `).join('')}
+                              <div style="margin-top: 4px; padding-top: 4px; border-top: 1px solid #f0f0f0;">
+                                <strong>Total:</strong> ${total.toLocaleString()} lines changed
+                              </div>
+                              <div style="margin-top: 8px; color: #666; font-size: 12px;">
+                                Green shows additions, red shows deletions. High deletion ratios indicate refactoring and code cleanup.
+                              </div>
+                            </div>
+                          `
+                        }
+                      }}
                       xAxis={{
                         label: {
                           autoRotate: true,
@@ -804,6 +976,23 @@ const StaffProductivity = () => {
                       areaStyle={{
                         fill: 'l(270) 0:#ffffff 1:#1890ff',
                       }}
+                      tooltip={{
+                        customContent: (title, data) => {
+                          if (!data || data.length === 0) return null
+                          const item = data[0]
+                          return `
+                            <div style="padding: 12px;">
+                              <div style="font-weight: bold; margin-bottom: 8px;">${title}</div>
+                              <div style="margin: 4px 0;">
+                                <strong>Files Changed:</strong> ${item.value}
+                              </div>
+                              <div style="margin-top: 8px; color: #666; font-size: 12px;">
+                                Shows the breadth of your work. Higher numbers indicate wide-ranging changes across the codebase.
+                              </div>
+                            </div>
+                          `
+                        }
+                      }}
                       xAxis={{
                         label: {
                           autoRotate: true,
@@ -826,6 +1015,23 @@ const StaffProductivity = () => {
                       color="#faad14"
                       columnStyle={{
                         radius: [4, 4, 0, 0],
+                      }}
+                      tooltip={{
+                        customContent: (title, data) => {
+                          if (!data || data.length === 0) return null
+                          const item = data[0]
+                          return `
+                            <div style="padding: 12px;">
+                              <div style="font-weight: bold; margin-bottom: 8px;">${title}</div>
+                              <div style="margin: 4px 0;">
+                                <strong>Repositories:</strong> ${item.value}
+                              </div>
+                              <div style="margin-top: 8px; color: #666; font-size: 12px;">
+                                Measures cross-project collaboration. Working across multiple repositories shows versatility and team support.
+                              </div>
+                            </div>
+                          `
+                        }
                       }}
                       xAxis={{
                         label: {
@@ -862,6 +1068,27 @@ const StaffProductivity = () => {
                       point={{
                         size: 5,
                         shape: 'diamond',
+                      }}
+                      tooltip={{
+                        customContent: (title, data) => {
+                          if (!data || data.length === 0) return null
+                          const item = data[0]
+                          const mergeRate = productivityData.summary?.merge_rate || 0
+                          return `
+                            <div style="padding: 12px;">
+                              <div style="font-weight: bold; margin-bottom: 8px;">${title}</div>
+                              <div style="margin: 4px 0;">
+                                <strong>PRs Opened:</strong> ${item.value}
+                              </div>
+                              <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #f0f0f0;">
+                                <div><strong>Overall Merge Rate:</strong> ${(mergeRate * 100).toFixed(1)}%</div>
+                              </div>
+                              <div style="margin-top: 8px; color: #666; font-size: 12px;">
+                                Active PR participation demonstrates code review engagement and collaboration quality.
+                              </div>
+                            </div>
+                          `
+                        }
                       }}
                       xAxis={{
                         label: {

@@ -607,6 +607,42 @@ async def get_staff_productivity(
 
             total_commits = total_commits.scalar()
 
+            # Calculate PR merge statistics
+            total_prs_query = session.query(
+                func.count(PullRequest.id)
+            ).filter(
+                PullRequest.author_email.in_(author_emails) if author_emails else PullRequest.author_name.in_(author_names)
+            )
+
+            if start_datetime:
+                total_prs_query = total_prs_query.filter(PullRequest.created_date >= start_datetime)
+            if end_datetime:
+                total_prs_query = total_prs_query.filter(PullRequest.created_date <= end_datetime)
+            if repository_id:
+                total_prs_query = total_prs_query.filter(PullRequest.repository_id == repository_id)
+
+            total_prs = total_prs_query.scalar() or 0
+
+            # Count merged PRs
+            merged_prs_query = session.query(
+                func.count(PullRequest.id)
+            ).filter(
+                PullRequest.author_email.in_(author_emails) if author_emails else PullRequest.author_name.in_(author_names),
+                PullRequest.state == 'MERGED'
+            )
+
+            if start_datetime:
+                merged_prs_query = merged_prs_query.filter(PullRequest.created_date >= start_datetime)
+            if end_datetime:
+                merged_prs_query = merged_prs_query.filter(PullRequest.created_date <= end_datetime)
+            if repository_id:
+                merged_prs_query = merged_prs_query.filter(PullRequest.repository_id == repository_id)
+
+            merged_prs = merged_prs_query.scalar() or 0
+
+            # Calculate merge rate
+            merge_rate = (merged_prs / total_prs) if total_prs > 0 else 0
+
             return {
                 "staff": {
                     "bank_id": staff.bank_id_1,
@@ -657,6 +693,9 @@ async def get_staff_productivity(
                 ],
                 "summary": {
                     "total_commits": total_commits or 0,
+                    "total_prs": total_prs,
+                    "merged_prs": merged_prs,
+                    "merge_rate": round(merge_rate, 3),
                     "date_range": {
                         "start": start_date,
                         "end": end_date

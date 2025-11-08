@@ -16,6 +16,7 @@ import {
   Tag,
   Tooltip,
   Statistic,
+  Tabs,
 } from 'antd'
 import {
   ReloadOutlined,
@@ -24,7 +25,7 @@ import {
   RiseOutlined,
   FallOutlined,
 } from '@ant-design/icons'
-import { Scatter, Radar, Column } from '@ant-design/charts'
+import { Scatter, Radar, Column, Line } from '@ant-design/charts'
 import { authorsAPI, staffAPI } from '../services/api'
 import dayjs from 'dayjs'
 
@@ -37,11 +38,20 @@ const TeamComparison = () => {
   const [selectedStaff, setSelectedStaff] = useState([])
   const [granularity, setGranularity] = useState('monthly')
   const [dateRange, setDateRange] = useState([null, null])
+  const [filterLocation, setFilterLocation] = useState(null)
+  const [filterRank, setFilterRank] = useState(null)
+  const [filterStaffType, setFilterStaffType] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
   // Data
   const [teamData, setTeamData] = useState([])
+  const [timeSeriesData, setTimeSeriesData] = useState([])
+
+  // Filter options (derived from staffList)
+  const locationOptions = [...new Set(staffList.map(s => s.work_location).filter(Boolean))].map(loc => ({ label: loc, value: loc }))
+  const rankOptions = [...new Set(staffList.map(s => s.rank).filter(Boolean))].map(rank => ({ label: rank, value: rank }))
+  const staffTypeOptions = [...new Set(staffList.map(s => s.staff_type).filter(Boolean))].map(type => ({ label: type, value: type }))
 
   // Fetch staff list on mount
   useEffect(() => {
@@ -79,6 +89,14 @@ const TeamComparison = () => {
       )
 
       const results = await Promise.all(promises)
+
+      // Store raw timeseries data for comparison charts
+      const tsData = results.map(result => ({
+        name: result.staff.name,
+        commits: result.timeseries.commits,
+        prs: result.timeseries.prs
+      }))
+      setTimeSeriesData(tsData)
 
       // Transform data for visualizations
       const transformedData = results.map(result => {
@@ -132,8 +150,19 @@ const TeamComparison = () => {
     setSelectedStaff([])
     setDateRange([null, null])
     setGranularity('monthly')
+    setFilterLocation(null)
+    setFilterRank(null)
+    setFilterStaffType(null)
     setTeamData([])
   }
+
+  // Get filtered staff list
+  const filteredStaffList = staffList.filter(staff => {
+    if (filterLocation && staff.work_location !== filterLocation) return false
+    if (filterRank && staff.rank !== filterRank) return false
+    if (filterStaffType && staff.staff_type !== filterStaffType) return false
+    return true
+  })
 
   // Prepare Productivity Quadrant Scatter data
   const quadrantData = teamData.map(staff => ({
@@ -164,6 +193,46 @@ const TeamComparison = () => {
     { name: staff.name, metric: 'File Scope', value: Math.min(100, staff.avgFilesPerPeriod * 5) },
     { name: staff.name, metric: 'Code Churn', value: Math.min(100, staff.codeChurnRatio * 100) },
   ])
+
+  // Prepare time-series comparison data
+  const commitsComparisonData = timeSeriesData.flatMap(staff =>
+    staff.commits.map(c => ({
+      period: c.period,
+      name: staff.name,
+      commits: c.commits
+    }))
+  )
+
+  const linesChangedComparisonData = timeSeriesData.flatMap(staff =>
+    staff.commits.flatMap(c => [
+      { period: c.period, name: staff.name, type: 'Added', value: c.lines_added },
+      { period: c.period, name: staff.name, type: 'Deleted', value: c.lines_deleted }
+    ])
+  )
+
+  const filesChangedComparisonData = timeSeriesData.flatMap(staff =>
+    staff.commits.map(c => ({
+      period: c.period,
+      name: staff.name,
+      files: c.files_changed
+    }))
+  )
+
+  const reposTouchedComparisonData = timeSeriesData.flatMap(staff =>
+    staff.commits.map(c => ({
+      period: c.period,
+      name: staff.name,
+      repos: c.repos_touched
+    }))
+  )
+
+  const prActivityComparisonData = timeSeriesData.flatMap(staff =>
+    staff.prs.map(p => ({
+      period: p.period,
+      name: staff.name,
+      prs: p.prs_opened
+    }))
+  )
 
   // Table columns
   const columns = [
@@ -246,7 +315,46 @@ const TeamComparison = () => {
       {/* Filters */}
       <Card title="🔍 Filters & Configuration" style={{ marginBottom: 24 }}>
         <Row gutter={[16, 16]}>
-          <Col xs={24} md={12}>
+          <Col xs={24} md={8}>
+            <Text strong>Location:</Text>
+            <Select
+              allowClear
+              showSearch
+              placeholder="Filter by location..."
+              style={{ width: '100%', marginTop: 8 }}
+              value={filterLocation}
+              onChange={setFilterLocation}
+              options={locationOptions}
+            />
+          </Col>
+
+          <Col xs={24} md={8}>
+            <Text strong>Rank:</Text>
+            <Select
+              allowClear
+              showSearch
+              placeholder="Filter by rank..."
+              style={{ width: '100%', marginTop: 8 }}
+              value={filterRank}
+              onChange={setFilterRank}
+              options={rankOptions}
+            />
+          </Col>
+
+          <Col xs={24} md={8}>
+            <Text strong>Staff Type:</Text>
+            <Select
+              allowClear
+              showSearch
+              placeholder="Filter by staff type..."
+              style={{ width: '100%', marginTop: 8 }}
+              value={filterStaffType}
+              onChange={setFilterStaffType}
+              options={staffTypeOptions}
+            />
+          </Col>
+
+          <Col xs={24}>
             <Text strong>Team Members (Select multiple): <Text type="danger">*</Text></Text>
             <Select
               mode="multiple"
@@ -258,15 +366,15 @@ const TeamComparison = () => {
               filterOption={(input, option) =>
                 (option?.label?.toLowerCase() || '').includes(input.toLowerCase())
               }
-              options={staffList.map(s => ({
+              options={filteredStaffList.map(s => ({
                 value: s.bank_id_1,
-                label: `${s.staff_name} (${s.email_address})`,
+                label: `${s.staff_name} (${s.email_address}) - ${s.rank || 'N/A'}`,
               }))}
               maxTagCount="responsive"
             />
           </Col>
 
-          <Col xs={24} md={6}>
+          <Col xs={24} md={8}>
             <Text strong>Time Granularity:</Text>
             <Segmented
               options={[
@@ -281,7 +389,7 @@ const TeamComparison = () => {
             />
           </Col>
 
-          <Col xs={24} md={6}>
+          <Col xs={24} md={16}>
             <Text strong>Date Range:</Text>
             <RangePicker
               value={dateRange}
@@ -310,7 +418,7 @@ const TeamComparison = () => {
         <>
           {/* Team Overview Stats */}
           <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-            <Col xs={12} md={6}>
+            <Col xs={12} sm={8} md={6} lg={4}>
               <Card>
                 <Statistic
                   title="Team Members"
@@ -320,7 +428,7 @@ const TeamComparison = () => {
                 />
               </Card>
             </Col>
-            <Col xs={12} md={6}>
+            <Col xs={12} sm={8} md={6} lg={4}>
               <Card>
                 <Statistic
                   title="Stars"
@@ -331,21 +439,60 @@ const TeamComparison = () => {
                 />
               </Card>
             </Col>
-            <Col xs={12} md={6}>
+            <Col xs={12} sm={8} md={6} lg={4}>
               <Card>
                 <Statistic
                   title="Total Commits"
-                  value={teamData.reduce((sum, s) => sum + s.totalCommits, 0)}
+                  value={teamData.reduce((sum, s) => sum + s.totalCommits, 0).toLocaleString()}
                   valueStyle={{ color: '#52c41a' }}
                 />
               </Card>
             </Col>
-            <Col xs={12} md={6}>
+            <Col xs={12} sm={8} md={6} lg={4}>
+              <Card>
+                <Statistic
+                  title="Lines Added"
+                  value={teamData.reduce((sum, s) => sum + s.totalLinesAdded, 0).toLocaleString()}
+                  valueStyle={{ color: '#52c41a' }}
+                  prefix="+"
+                />
+              </Card>
+            </Col>
+            <Col xs={12} sm={8} md={6} lg={4}>
+              <Card>
+                <Statistic
+                  title="Lines Deleted"
+                  value={teamData.reduce((sum, s) => sum + s.totalLinesDeleted, 0).toLocaleString()}
+                  valueStyle={{ color: '#ff4d4f' }}
+                  prefix="-"
+                />
+              </Card>
+            </Col>
+            <Col xs={12} sm={8} md={6} lg={4}>
               <Card>
                 <Statistic
                   title="Total PRs"
-                  value={teamData.reduce((sum, s) => sum + s.totalPRs, 0)}
+                  value={teamData.reduce((sum, s) => sum + s.totalPRs, 0).toLocaleString()}
                   valueStyle={{ color: '#722ed1' }}
+                />
+              </Card>
+            </Col>
+            <Col xs={12} sm={8} md={6} lg={4}>
+              <Card>
+                <Statistic
+                  title="Repos Touched"
+                  value={[...new Set(teamData.flatMap(s => s.uniqueRepos))].length}
+                  valueStyle={{ color: '#13c2c2' }}
+                />
+              </Card>
+            </Col>
+            <Col xs={12} sm={8} md={6} lg={4}>
+              <Card>
+                <Statistic
+                  title="Avg Commits"
+                  value={(teamData.reduce((sum, s) => sum + s.avgCommitsPerPeriod, 0) / (teamData.length || 1)).toFixed(1)}
+                  valueStyle={{ color: '#1890ff' }}
+                  suffix={`/ ${granularity.replace('ly', '')}`}
                 />
               </Card>
             </Col>
@@ -394,13 +541,59 @@ const TeamComparison = () => {
                   },
                 }}
                 tooltip={{
-                  fields: ['name', 'quantity', 'quality', 'repos', 'rank'],
-                  formatter: (datum) => {
-                    return {
-                      name: datum.name,
-                      value: `Quantity: ${Math.round(datum.quantity)}, Quality: ${datum.quality.toFixed(1)}, Repos: ${datum.repos}, Rank: ${datum.rank}`,
+                  customContent: (title, data) => {
+                    if (!data || data.length === 0) return null
+                    const item = data[0].data
+
+                    // Determine quadrant
+                    let quadrant = ''
+                    let quadrantColor = ''
+                    let quadrantDesc = ''
+                    if (item.quantity >= avgQuantity && item.quality >= avgQuality) {
+                      quadrant = '⭐ Stars'
+                      quadrantColor = '#faad14'
+                      quadrantDesc = 'High quality + high quantity - top performers'
+                    } else if (item.quantity < avgQuantity && item.quality >= avgQuality) {
+                      quadrant = '🔍 Specialists'
+                      quadrantColor = '#722ed1'
+                      quadrantDesc = 'High-quality focused contributors'
+                    } else if (item.quantity >= avgQuantity && item.quality < avgQuality) {
+                      quadrant = '⚡ Grinders'
+                      quadrantColor = '#1890ff'
+                      quadrantDesc = 'High output, quality improving'
+                    } else {
+                      quadrant = '🌱 Emerging'
+                      quadrantColor = '#52c41a'
+                      quadrantDesc = 'Building both metrics'
                     }
-                  },
+
+                    return `
+                      <div style="padding: 12px; min-width: 250px;">
+                        <div style="font-weight: bold; font-size: 16px; margin-bottom: 12px;">${item.name}</div>
+                        <div style="background: ${quadrantColor}22; padding: 8px; border-radius: 4px; margin-bottom: 12px;">
+                          <div style="color: ${quadrantColor}; font-weight: bold;">${quadrant}</div>
+                          <div style="color: #666; font-size: 12px; margin-top: 4px;">${quadrantDesc}</div>
+                        </div>
+                        <div style="margin: 8px 0;">
+                          <strong>Quantity:</strong> ${Math.round(item.quantity)}<br/>
+                          <span style="color: #666; font-size: 12px;">Commits + (PRs × 2)</span>
+                        </div>
+                        <div style="margin: 8px 0;">
+                          <strong>Quality:</strong> ${item.quality.toFixed(1)}<br/>
+                          <span style="color: #666; font-size: 12px;">Merge Rate + Collaboration</span>
+                        </div>
+                        <div style="margin: 8px 0;">
+                          <strong>Repositories:</strong> ${item.repos}
+                        </div>
+                        <div style="margin: 8px 0;">
+                          <strong>Rank:</strong> ${item.rank}
+                        </div>
+                        <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #f0f0f0; color: #666; font-size: 11px;">
+                          Bubble size represents repository breadth
+                        </div>
+                      </div>
+                    `
+                  }
                 }}
                 legend={{
                   position: 'top-right',
@@ -520,9 +713,217 @@ const TeamComparison = () => {
                 legend={{
                   position: 'bottom',
                 }}
+                tooltip={{
+                  customContent: (title, data) => {
+                    if (!data || data.length === 0) return null
+                    const metricExplanations = {
+                      'Commits': 'Frequency of code commits. Higher scores indicate consistent contributions.',
+                      'Code Volume': 'Total lines of code changed. Measures output volume.',
+                      'PR Activity': 'Number of pull requests created. Shows collaboration engagement.',
+                      'Repo Breadth': 'Cross-repository involvement. Indicates versatility and team support.',
+                      'File Scope': 'Breadth of files modified. Shows wide-ranging codebase knowledge.',
+                      'Code Churn': 'Deletion to addition ratio. High values indicate refactoring work.'
+                    }
+                    const explanation = metricExplanations[title] || ''
+                    return `
+                      <div style="padding: 12px; max-width: 300px;">
+                        <div style="font-weight: bold; font-size: 14px; margin-bottom: 8px;">${title}</div>
+                        <div style="color: #666; font-size: 12px; margin-bottom: 12px;">${explanation}</div>
+                        ${data.map(item => `
+                          <div style="margin: 6px 0;">
+                            <span style="display: inline-block; width: 10px; height: 10px; background: ${item.color}; border-radius: 50%; margin-right: 8px;"></span>
+                            <strong>${item.name}:</strong> ${item.value.toFixed(1)}/100
+                          </div>
+                        `).join('')}
+                      </div>
+                    `
+                  }
+                }}
               />
             </Card>
           )}
+
+          {/* Time-Series Comparison Charts */}
+          <Card title="📈 Team Performance Comparison Over Time" style={{ marginBottom: 24 }}>
+            <Tabs
+              defaultActiveKey="1"
+              items={[
+                {
+                  key: '1',
+                  label: 'Commits Over Time',
+                  children: (
+                    <Line
+                      data={commitsComparisonData}
+                      xField="period"
+                      yField="commits"
+                      seriesField="name"
+                      smooth
+                      point={{ size: 4 }}
+                      legend={{ position: 'top-right' }}
+                      xAxis={{
+                        label: { autoRotate: true, autoHide: true }
+                      }}
+                      tooltip={{
+                        shared: true,
+                        customContent: (title, data) => {
+                          if (!data || data.length === 0) return null
+                          return `
+                            <div style="padding: 12px;">
+                              <div style="font-weight: bold; margin-bottom: 8px;">${title}</div>
+                              ${data.map(item => `
+                                <div style="margin: 4px 0;">
+                                  <span style="display: inline-block; width: 10px; height: 10px; background: ${item.color}; border-radius: 50%; margin-right: 8px;"></span>
+                                  <strong>${item.name}:</strong> ${item.value} commits
+                                </div>
+                              `).join('')}
+                            </div>
+                          `
+                        }
+                      }}
+                    />
+                  ),
+                },
+                {
+                  key: '2',
+                  label: 'Lines Changed',
+                  children: (
+                    <Column
+                      data={linesChangedComparisonData}
+                      isGroup
+                      xField="period"
+                      yField="value"
+                      seriesField="name"
+                      groupField="type"
+                      color={['#52c41a', '#ff4d4f']}
+                      legend={{ position: 'top-right' }}
+                      xAxis={{
+                        label: { autoRotate: true, autoHide: true }
+                      }}
+                      tooltip={{
+                        customContent: (title, data) => {
+                          if (!data || data.length === 0) return null
+                          return `
+                            <div style="padding: 12px;">
+                              <div style="font-weight: bold; margin-bottom: 8px;">${title}</div>
+                              ${data.map(item => `
+                                <div style="margin: 4px 0;">
+                                  <span style="display: inline-block; width: 10px; height: 10px; background: ${item.color}; border-radius: 50%; margin-right: 8px;"></span>
+                                  <strong>${item.name} (${item.data.type}):</strong> ${item.value.toLocaleString()} lines
+                                </div>
+                              `).join('')}
+                            </div>
+                          `
+                        }
+                      }}
+                    />
+                  ),
+                },
+                {
+                  key: '3',
+                  label: 'Files Changed',
+                  children: (
+                    <Line
+                      data={filesChangedComparisonData}
+                      xField="period"
+                      yField="files"
+                      seriesField="name"
+                      smooth
+                      point={{ size: 4 }}
+                      legend={{ position: 'top-right' }}
+                      xAxis={{
+                        label: { autoRotate: true, autoHide: true }
+                      }}
+                      tooltip={{
+                        shared: true,
+                        customContent: (title, data) => {
+                          if (!data || data.length === 0) return null
+                          return `
+                            <div style="padding: 12px;">
+                              <div style="font-weight: bold; margin-bottom: 8px;">${title}</div>
+                              ${data.map(item => `
+                                <div style="margin: 4px 0;">
+                                  <span style="display: inline-block; width: 10px; height: 10px; background: ${item.color}; border-radius: 50%; margin-right: 8px;"></span>
+                                  <strong>${item.name}:</strong> ${item.value} files
+                                </div>
+                              `).join('')}
+                            </div>
+                          `
+                        }
+                      }}
+                    />
+                  ),
+                },
+                {
+                  key: '4',
+                  label: 'Repos Touched',
+                  children: (
+                    <Column
+                      data={reposTouchedComparisonData}
+                      isGroup
+                      xField="period"
+                      yField="repos"
+                      seriesField="name"
+                      legend={{ position: 'top-right' }}
+                      xAxis={{
+                        label: { autoRotate: true, autoHide: true }
+                      }}
+                      tooltip={{
+                        customContent: (title, data) => {
+                          if (!data || data.length === 0) return null
+                          return `
+                            <div style="padding: 12px;">
+                              <div style="font-weight: bold; margin-bottom: 8px;">${title}</div>
+                              ${data.map(item => `
+                                <div style="margin: 4px 0;">
+                                  <span style="display: inline-block; width: 10px; height: 10px; background: ${item.color}; border-radius: 50%; margin-right: 8px;"></span>
+                                  <strong>${item.name}:</strong> ${item.value} repositories
+                                </div>
+                              `).join('')}
+                            </div>
+                          `
+                        }
+                      }}
+                    />
+                  ),
+                },
+                {
+                  key: '5',
+                  label: 'PR Activity',
+                  children: (
+                    <Line
+                      data={prActivityComparisonData}
+                      xField="period"
+                      yField="prs"
+                      seriesField="name"
+                      smooth
+                      point={{ size: 5, shape: 'diamond' }}
+                      legend={{ position: 'top-right' }}
+                      xAxis={{
+                        label: { autoRotate: true, autoHide: true }
+                      }}
+                      tooltip={{
+                        shared: true,
+                        customContent: (title, data) => {
+                          if (!data || data.length === 0) return null
+                          return `
+                            <div style="padding: 12px;">
+                              <div style="font-weight: bold; margin-bottom: 8px;">${title}</div>
+                              ${data.map(item => `
+                                <div style="margin: 4px 0;">
+                                  <span style="display: inline-block; width: 10px; height: 10px; background: ${item.color}; border-radius: 50%; margin-right: 8px;"></span>
+                                  <strong>${item.name}:</strong> ${item.value} PRs
+                                </div>
+                              `).join('')}
+                            </div>
+                          `
+                        }
+                      }}
+                    />
+                  ),
+                },
+              ]}
+            />
+          </Card>
 
           {/* Detailed Table */}
           <Card title="📋 Detailed Team Metrics" style={{ marginBottom: 24 }}>

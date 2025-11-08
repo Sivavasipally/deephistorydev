@@ -109,13 +109,60 @@ const TeamComparison = () => {
 
       // Fetch productivity data for all selected staff
       const promises = selectedStaff.map(bankId =>
-        authorsAPI.getProductivity(bankId, params)
+        authorsAPI.getProductivity(bankId, params).catch(err => ({
+          error: true,
+          bankId,
+          message: err.message
+        }))
       )
 
-      const results = await Promise.all(promises)
+      const results = await Promise.allSettled(promises)
+
+      // Separate successful and failed results
+      const successfulResults = []
+      const failedStaff = []
+
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled' && !result.value.error) {
+          successfulResults.push(result.value)
+        } else {
+          const staffInfo = staffList.find(s => s.bank_id_1 === selectedStaff[index])
+          failedStaff.push({
+            bankId: selectedStaff[index],
+            name: staffInfo?.staff_name || 'Unknown',
+            reason: result.value?.message || result.reason?.message || 'Unknown error'
+          })
+        }
+      })
+
+      // Show warning if some staff data failed to load
+      if (failedStaff.length > 0) {
+        message.warning({
+          content: (
+            <div>
+              <div>Could not load data for {failedStaff.length} staff member(s):</div>
+              <ul style={{ marginTop: 8, marginBottom: 0, paddingLeft: 20 }}>
+                {failedStaff.map(s => (
+                  <li key={s.bankId}>{s.name} - {s.reason}</li>
+                ))}
+              </ul>
+            </div>
+          ),
+          duration: 8,
+        })
+      }
+
+      // Proceed with successful results only
+      if (successfulResults.length === 0) {
+        message.error('No data available for any selected staff member')
+        setTeamData([])
+        setTimeSeriesData([])
+        setLoading(false)
+        return
+      }
 
       // Store raw timeseries data for comparison charts
-      const tsData = results.map(result => ({
+      const tsData = successfulResults.map(result => ({
         name: result.staff.name,
         commits: result.timeseries.commits,
         prs: result.timeseries.prs
@@ -123,7 +170,7 @@ const TeamComparison = () => {
       setTimeSeriesData(tsData)
 
       // Transform data for visualizations
-      const transformedData = results.map(result => {
+      const transformedData = successfulResults.map(result => {
         const totalCommits = result.timeseries.commits.reduce((sum, r) => sum + r.commits, 0)
         const totalLinesAdded = result.timeseries.commits.reduce((sum, r) => sum + r.lines_added, 0)
         const totalLinesDeleted = result.timeseries.commits.reduce((sum, r) => sum + r.lines_deleted, 0)
@@ -584,8 +631,12 @@ const TeamComparison = () => {
                   lineWidth: 2,
                 }}
                 xAxis={{
-                  title: { text: 'Quantity (Commits + PRs)' },
+                  title: {
+                    text: 'Productivity Quantity (Total Commits + Pull Requests)',
+                    style: { fontSize: 14, fontWeight: 'bold' }
+                  },
                   nice: true,
+                  label: { style: { fontSize: 12 } },
                   grid: {
                     line: {
                       style: {
@@ -597,8 +648,12 @@ const TeamComparison = () => {
                   },
                 }}
                 yAxis={{
-                  title: { text: 'Quality (Merge Rate + Collaboration)' },
+                  title: {
+                    text: 'Work Quality (Merge Success + Team Collaboration)',
+                    style: { fontSize: 14, fontWeight: 'bold' }
+                  },
                   nice: true,
+                  label: { style: { fontSize: 12 } },
                   grid: {
                     line: {
                       style: {
@@ -637,28 +692,36 @@ const TeamComparison = () => {
                     }
 
                     return `
-                      <div style="padding: 12px; min-width: 250px;">
-                        <div style="font-weight: bold; font-size: 16px; margin-bottom: 12px;">${item.name}</div>
-                        <div style="background: ${quadrantColor}22; padding: 8px; border-radius: 4px; margin-bottom: 12px;">
-                          <div style="color: ${quadrantColor}; font-weight: bold;">${quadrant}</div>
+                      <div style="padding: 14px; min-width: 280px; background: white; border: 1px solid #ddd; border-radius: 6px; box-shadow: 0 3px 12px rgba(0,0,0,0.15);">
+                        <div style="font-weight: bold; font-size: 16px; margin-bottom: 12px; color: #1890ff;">👤 ${item.name}</div>
+                        <div style="background: ${quadrantColor}22; padding: 10px; border-radius: 6px; margin-bottom: 12px; border-left: 3px solid ${quadrantColor};">
+                          <div style="color: ${quadrantColor}; font-weight: bold; font-size: 14px;">${quadrant}</div>
                           <div style="color: #666; font-size: 12px; margin-top: 4px;">${quadrantDesc}</div>
                         </div>
-                        <div style="margin: 8px 0;">
-                          <strong>Quantity:</strong> ${Math.round(item.quantity)}<br/>
-                          <span style="color: #666; font-size: 12px;">Commits + (PRs × 2)</span>
+                        <div style="margin: 10px 0; padding: 8px; background: #f9f9f9; border-radius: 4px;">
+                          <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span><strong>Productivity Quantity:</strong></span>
+                            <span style="font-weight: bold; color: #1890ff;">${Math.round(item.quantity)}</span>
+                          </div>
+                          <div style="color: #666; font-size: 11px; margin-top: 2px;">Total commits + (PRs × 2)</div>
                         </div>
-                        <div style="margin: 8px 0;">
-                          <strong>Quality:</strong> ${item.quality.toFixed(1)}<br/>
-                          <span style="color: #666; font-size: 12px;">Merge Rate + Collaboration</span>
+                        <div style="margin: 10px 0; padding: 8px; background: #f9f9f9; border-radius: 4px;">
+                          <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span><strong>Work Quality:</strong></span>
+                            <span style="font-weight: bold; color: #52c41a;">${item.quality.toFixed(1)}</span>
+                          </div>
+                          <div style="color: #666; font-size: 11px; margin-top: 2px;">Merge success rate + team collaboration score</div>
                         </div>
-                        <div style="margin: 8px 0;">
-                          <strong>Repositories:</strong> ${item.repos}
+                        <div style="margin: 10px 0; display: flex; justify-content: space-between;">
+                          <span><strong>Repositories Touched:</strong></span>
+                          <span style="font-weight: bold;">${item.repos}</span>
                         </div>
-                        <div style="margin: 8px 0;">
-                          <strong>Rank:</strong> ${item.rank}
+                        <div style="margin: 10px 0; display: flex; justify-content: space-between;">
+                          <span><strong>Rank/Position:</strong></span>
+                          <span style="font-weight: bold;">${item.rank}</span>
                         </div>
-                        <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #f0f0f0; color: #666; font-size: 11px;">
-                          Bubble size represents repository breadth
+                        <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #e8e8e8; color: #999; font-size: 11px; text-align: center;">
+                          💡 Bubble size shows breadth of repository contributions
                         </div>
                       </div>
                     `
@@ -783,27 +846,67 @@ const TeamComparison = () => {
                   position: 'bottom',
                 }}
                 tooltip={{
+                  showTitle: true,
                   customContent: (title, data) => {
                     if (!data || data.length === 0) return null
                     const metricExplanations = {
-                      'Commits': 'Frequency of code commits. Higher scores indicate consistent contributions.',
-                      'Code Volume': 'Total lines of code changed. Measures output volume.',
-                      'PR Activity': 'Number of pull requests created. Shows collaboration engagement.',
-                      'Repo Breadth': 'Cross-repository involvement. Indicates versatility and team support.',
-                      'File Scope': 'Breadth of files modified. Shows wide-ranging codebase knowledge.',
-                      'Code Churn': 'Deletion to addition ratio. High values indicate refactoring work.'
+                      'Commits': {
+                        icon: '📝',
+                        desc: 'Frequency of code commits - measures consistent contributions to the codebase'
+                      },
+                      'Code Volume': {
+                        icon: '📊',
+                        desc: 'Total lines of code changed - measures the volume of code output'
+                      },
+                      'PR Activity': {
+                        icon: '🔄',
+                        desc: 'Pull requests created - shows collaboration and code review engagement'
+                      },
+                      'Repo Breadth': {
+                        icon: '🗂️',
+                        desc: 'Cross-repository contributions - indicates versatility and team support'
+                      },
+                      'File Scope': {
+                        icon: '📁',
+                        desc: 'Breadth of files modified - shows wide-ranging codebase knowledge'
+                      },
+                      'Code Churn': {
+                        icon: '♻️',
+                        desc: 'Code deletion to addition ratio - high values indicate refactoring work'
+                      }
                     }
-                    const explanation = metricExplanations[title] || ''
+                    const metric = metricExplanations[title] || { icon: '📈', desc: '' }
+                    const avgScore = data.reduce((sum, item) => sum + item.value, 0) / data.length
+
                     return `
-                      <div style="padding: 12px; max-width: 300px;">
-                        <div style="font-weight: bold; font-size: 14px; margin-bottom: 8px;">${title}</div>
-                        <div style="color: #666; font-size: 12px; margin-bottom: 12px;">${explanation}</div>
-                        ${data.map(item => `
-                          <div style="margin: 6px 0;">
-                            <span style="display: inline-block; width: 10px; height: 10px; background: ${item.color}; border-radius: 50%; margin-right: 8px;"></span>
-                            <strong>${item.name}:</strong> ${item.value.toFixed(1)}/100
-                          </div>
-                        `).join('')}
+                      <div style="padding: 14px; max-width: 320px; background: white; border: 1px solid #ddd; border-radius: 6px; box-shadow: 0 3px 12px rgba(0,0,0,0.15);">
+                        <div style="font-weight: bold; font-size: 15px; margin-bottom: 8px; color: #1890ff;">
+                          ${metric.icon} ${title}
+                        </div>
+                        <div style="color: #666; font-size: 12px; margin-bottom: 12px; padding: 8px; background: #f9f9f9; border-radius: 4px; border-left: 3px solid #1890ff;">
+                          ${metric.desc}
+                        </div>
+                        <div style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #f0f0f0;">
+                          <strong>Team Average:</strong> <span style="color: #1890ff; font-weight: bold;">${avgScore.toFixed(1)}/100</span>
+                        </div>
+                        ${data.map(item => {
+                          const percentage = (item.value / 100) * 100
+                          const color = item.value >= 70 ? '#52c41a' : item.value >= 40 ? '#faad14' : '#ff4d4f'
+                          return `
+                            <div style="margin: 8px 0;">
+                              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                <div>
+                                  <span style="display: inline-block; width: 10px; height: 10px; background: ${item.color}; border-radius: 50%; margin-right: 8px;"></span>
+                                  <strong>${item.name}</strong>
+                                </div>
+                                <span style="font-weight: bold; color: ${color};">${item.value.toFixed(1)}/100</span>
+                              </div>
+                              <div style="background: #f0f0f0; height: 6px; border-radius: 3px; overflow: hidden;">
+                                <div style="background: ${color}; height: 100%; width: ${percentage}%; transition: width 0.3s;"></div>
+                              </div>
+                            </div>
+                          `
+                        }).join('')}
                       </div>
                     `
                   }
@@ -830,19 +933,32 @@ const TeamComparison = () => {
                       point={{ size: 4 }}
                       legend={{ position: 'top-right' }}
                       xAxis={{
-                        label: { autoRotate: true, autoHide: true }
+                        title: { text: 'Time Period', style: { fontSize: 14, fontWeight: 'bold' } },
+                        label: { autoRotate: true, autoHide: true, style: { fontSize: 12 } }
+                      }}
+                      yAxis={{
+                        title: { text: 'Number of Commits', style: { fontSize: 14, fontWeight: 'bold' } },
+                        label: { style: { fontSize: 12 } }
                       }}
                       tooltip={{
                         shared: true,
+                        showTitle: true,
                         customContent: (title, data) => {
                           if (!data || data.length === 0) return null
+                          const total = data.reduce((sum, item) => sum + item.value, 0)
                           return `
-                            <div style="padding: 12px;">
-                              <div style="font-weight: bold; margin-bottom: 8px;">${title}</div>
+                            <div style="padding: 12px; background: white; border: 1px solid #ddd; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                              <div style="font-weight: bold; font-size: 14px; margin-bottom: 8px; color: #1890ff;">📅 ${title}</div>
+                              <div style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #f0f0f0;">
+                                <strong>Total Commits:</strong> ${total}
+                              </div>
                               ${data.map(item => `
-                                <div style="margin: 4px 0;">
-                                  <span style="display: inline-block; width: 10px; height: 10px; background: ${item.color}; border-radius: 50%; margin-right: 8px;"></span>
-                                  <strong>${item.name}:</strong> ${item.value} commits
+                                <div style="margin: 6px 0; display: flex; align-items: center; justify-content: space-between;">
+                                  <div>
+                                    <span style="display: inline-block; width: 10px; height: 10px; background: ${item.color}; border-radius: 50%; margin-right: 8px;"></span>
+                                    <span style="font-weight: 500;">${item.name}</span>
+                                  </div>
+                                  <span style="margin-left: 16px; font-weight: bold; color: ${item.color};">${item.value} commits</span>
                                 </div>
                               `).join('')}
                             </div>
@@ -866,18 +982,43 @@ const TeamComparison = () => {
                       color={['#52c41a', '#ff4d4f']}
                       legend={{ position: 'top-right' }}
                       xAxis={{
-                        label: { autoRotate: true, autoHide: true }
+                        title: { text: 'Time Period', style: { fontSize: 14, fontWeight: 'bold' } },
+                        label: { autoRotate: true, autoHide: true, style: { fontSize: 12 } }
+                      }}
+                      yAxis={{
+                        title: { text: 'Number of Lines', style: { fontSize: 14, fontWeight: 'bold' } },
+                        label: {
+                          style: { fontSize: 12 },
+                          formatter: (v) => v.toLocaleString()
+                        }
                       }}
                       tooltip={{
+                        showTitle: true,
                         customContent: (title, data) => {
                           if (!data || data.length === 0) return null
+                          const grouped = {}
+                          data.forEach(item => {
+                            const type = item.data.type
+                            if (!grouped[type]) grouped[type] = []
+                            grouped[type].push(item)
+                          })
                           return `
-                            <div style="padding: 12px;">
-                              <div style="font-weight: bold; margin-bottom: 8px;">${title}</div>
-                              ${data.map(item => `
-                                <div style="margin: 4px 0;">
-                                  <span style="display: inline-block; width: 10px; height: 10px; background: ${item.color}; border-radius: 50%; margin-right: 8px;"></span>
-                                  <strong>${item.name} (${item.data.type}):</strong> ${item.value.toLocaleString()} lines
+                            <div style="padding: 12px; background: white; border: 1px solid #ddd; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                              <div style="font-weight: bold; font-size: 14px; margin-bottom: 8px; color: #1890ff;">📅 ${title}</div>
+                              ${Object.entries(grouped).map(([type, items]) => `
+                                <div style="margin-top: 8px;">
+                                  <div style="font-weight: bold; margin-bottom: 4px; color: ${type === 'Added' ? '#52c41a' : '#ff4d4f'};">
+                                    ${type === 'Added' ? '➕ Lines Added' : '➖ Lines Deleted'}
+                                  </div>
+                                  ${items.map(item => `
+                                    <div style="margin: 4px 0 4px 16px; display: flex; align-items: center; justify-content: space-between;">
+                                      <div>
+                                        <span style="display: inline-block; width: 8px; height: 8px; background: ${item.color}; border-radius: 50%; margin-right: 6px;"></span>
+                                        <span style="font-weight: 500;">${item.name}</span>
+                                      </div>
+                                      <span style="margin-left: 16px; font-weight: bold; color: ${item.color};">${item.value.toLocaleString()} lines</span>
+                                    </div>
+                                  `).join('')}
                                 </div>
                               `).join('')}
                             </div>
@@ -900,19 +1041,32 @@ const TeamComparison = () => {
                       point={{ size: 4 }}
                       legend={{ position: 'top-right' }}
                       xAxis={{
-                        label: { autoRotate: true, autoHide: true }
+                        title: { text: 'Time Period', style: { fontSize: 14, fontWeight: 'bold' } },
+                        label: { autoRotate: true, autoHide: true, style: { fontSize: 12 } }
+                      }}
+                      yAxis={{
+                        title: { text: 'Number of Files Modified', style: { fontSize: 14, fontWeight: 'bold' } },
+                        label: { style: { fontSize: 12 } }
                       }}
                       tooltip={{
                         shared: true,
+                        showTitle: true,
                         customContent: (title, data) => {
                           if (!data || data.length === 0) return null
+                          const total = data.reduce((sum, item) => sum + item.value, 0)
                           return `
-                            <div style="padding: 12px;">
-                              <div style="font-weight: bold; margin-bottom: 8px;">${title}</div>
+                            <div style="padding: 12px; background: white; border: 1px solid #ddd; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                              <div style="font-weight: bold; font-size: 14px; margin-bottom: 8px; color: #1890ff;">📅 ${title}</div>
+                              <div style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #f0f0f0;">
+                                <strong>Total Files Changed:</strong> ${total}
+                              </div>
                               ${data.map(item => `
-                                <div style="margin: 4px 0;">
-                                  <span style="display: inline-block; width: 10px; height: 10px; background: ${item.color}; border-radius: 50%; margin-right: 8px;"></span>
-                                  <strong>${item.name}:</strong> ${item.value} files
+                                <div style="margin: 6px 0; display: flex; align-items: center; justify-content: space-between;">
+                                  <div>
+                                    <span style="display: inline-block; width: 10px; height: 10px; background: ${item.color}; border-radius: 50%; margin-right: 8px;"></span>
+                                    <span style="font-weight: 500;">${item.name}</span>
+                                  </div>
+                                  <span style="margin-left: 16px; font-weight: bold; color: ${item.color};">${item.value} files</span>
                                 </div>
                               `).join('')}
                             </div>
@@ -934,18 +1088,32 @@ const TeamComparison = () => {
                       seriesField="name"
                       legend={{ position: 'top-right' }}
                       xAxis={{
-                        label: { autoRotate: true, autoHide: true }
+                        title: { text: 'Time Period', style: { fontSize: 14, fontWeight: 'bold' } },
+                        label: { autoRotate: true, autoHide: true, style: { fontSize: 12 } }
+                      }}
+                      yAxis={{
+                        title: { text: 'Number of Repositories', style: { fontSize: 14, fontWeight: 'bold' } },
+                        label: { style: { fontSize: 12 } }
                       }}
                       tooltip={{
+                        showTitle: true,
                         customContent: (title, data) => {
                           if (!data || data.length === 0) return null
+                          const total = data.reduce((sum, item) => sum + item.value, 0)
                           return `
-                            <div style="padding: 12px;">
-                              <div style="font-weight: bold; margin-bottom: 8px;">${title}</div>
+                            <div style="padding: 12px; background: white; border: 1px solid #ddd; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                              <div style="font-weight: bold; font-size: 14px; margin-bottom: 8px; color: #1890ff;">📅 ${title}</div>
+                              <div style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #f0f0f0;">
+                                <strong>Total Repos Touched:</strong> ${total}
+                                <div style="font-size: 11px; color: #666; margin-top: 2px;">Shows breadth of contribution across different repositories</div>
+                              </div>
                               ${data.map(item => `
-                                <div style="margin: 4px 0;">
-                                  <span style="display: inline-block; width: 10px; height: 10px; background: ${item.color}; border-radius: 50%; margin-right: 8px;"></span>
-                                  <strong>${item.name}:</strong> ${item.value} repositories
+                                <div style="margin: 6px 0; display: flex; align-items: center; justify-content: space-between;">
+                                  <div>
+                                    <span style="display: inline-block; width: 10px; height: 10px; background: ${item.color}; border-radius: 50%; margin-right: 8px;"></span>
+                                    <span style="font-weight: 500;">${item.name}</span>
+                                  </div>
+                                  <span style="margin-left: 16px; font-weight: bold; color: ${item.color};">${item.value} repos</span>
                                 </div>
                               `).join('')}
                             </div>
@@ -968,19 +1136,33 @@ const TeamComparison = () => {
                       point={{ size: 5, shape: 'diamond' }}
                       legend={{ position: 'top-right' }}
                       xAxis={{
-                        label: { autoRotate: true, autoHide: true }
+                        title: { text: 'Time Period', style: { fontSize: 14, fontWeight: 'bold' } },
+                        label: { autoRotate: true, autoHide: true, style: { fontSize: 12 } }
+                      }}
+                      yAxis={{
+                        title: { text: 'Number of Pull Requests', style: { fontSize: 14, fontWeight: 'bold' } },
+                        label: { style: { fontSize: 12 } }
                       }}
                       tooltip={{
                         shared: true,
+                        showTitle: true,
                         customContent: (title, data) => {
                           if (!data || data.length === 0) return null
+                          const total = data.reduce((sum, item) => sum + item.value, 0)
                           return `
-                            <div style="padding: 12px;">
-                              <div style="font-weight: bold; margin-bottom: 8px;">${title}</div>
+                            <div style="padding: 12px; background: white; border: 1px solid #ddd; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                              <div style="font-weight: bold; font-size: 14px; margin-bottom: 8px; color: #1890ff;">📅 ${title}</div>
+                              <div style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #f0f0f0;">
+                                <strong>Total PRs Opened:</strong> ${total}
+                                <div style="font-size: 11px; color: #666; margin-top: 2px;">Pull Requests indicate code review and collaboration activity</div>
+                              </div>
                               ${data.map(item => `
-                                <div style="margin: 4px 0;">
-                                  <span style="display: inline-block; width: 10px; height: 10px; background: ${item.color}; border-radius: 50%; margin-right: 8px;"></span>
-                                  <strong>${item.name}:</strong> ${item.value} PRs
+                                <div style="margin: 6px 0; display: flex; align-items: center; justify-content: space-between;">
+                                  <div>
+                                    <span style="display: inline-block; width: 10px; height: 10px; background: ${item.color}; border-radius: 50%; margin-right: 8px;"></span>
+                                    <span style="font-weight: 500;">${item.name}</span>
+                                  </div>
+                                  <span style="margin-left: 16px; font-weight: bold; color: ${item.color};">${item.value} PRs</span>
                                 </div>
                               `).join('')}
                             </div>

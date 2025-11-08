@@ -158,7 +158,7 @@ const AuthorsAnalyticsEnhanced = () => {
 
   const columns = [
     {
-      title: 'Author Name',
+      title: 'Staff Name',
       dataIndex: 'author_name',
       key: 'author_name',
       width: 200,
@@ -169,17 +169,7 @@ const AuthorsAnalyticsEnhanced = () => {
           <Space>
             <UserOutlined />
             <Text strong>{name}</Text>
-            {record.is_mapped && (
-              <Tooltip title="Mapped to staff">
-                <Tag color="green" icon={<CheckCircleOutlined />}>Mapped</Tag>
-              </Tooltip>
-            )}
           </Space>
-          {record.staff_name && record.staff_name !== name && (
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              Staff: {record.staff_name}
-            </Text>
-          )}
         </Space>
       ),
     },
@@ -326,10 +316,10 @@ const AuthorsAnalyticsEnhanced = () => {
     <div>
       <div className="page-header">
         <Title level={2}>
-          <TeamOutlined style={{ color: '#52c41a' }} /> Authors Analytics (Enhanced)
+          <TeamOutlined style={{ color: '#52c41a' }} /> Staff Analytics
         </Title>
         <Text type="secondary" style={{ fontSize: 16 }}>
-          Comprehensive author statistics with staff details integration
+          Comprehensive Git contribution statistics by staff members (mapped authors only)
         </Text>
       </div>
 
@@ -354,6 +344,7 @@ const AuthorsAnalyticsEnhanced = () => {
               onChange={setSelectedRank}
               style={{ width: '100%', marginTop: 8 }}
             >
+              <Select.Option value={null}>All</Select.Option>
               {filterOptions.ranks.map(rank => (
                 <Select.Option key={rank} value={rank}>{rank}</Select.Option>
               ))}
@@ -372,6 +363,7 @@ const AuthorsAnalyticsEnhanced = () => {
                 (option?.value?.toLowerCase() || '').includes(input.toLowerCase())
               }
             >
+              <Select.Option value={null}>All</Select.Option>
               {filterOptions.reporting_managers.map(manager => (
                 <Select.Option key={manager} value={manager}>{manager}</Select.Option>
               ))}
@@ -386,6 +378,7 @@ const AuthorsAnalyticsEnhanced = () => {
               onChange={setSelectedLocation}
               style={{ width: '100%', marginTop: 8 }}
             >
+              <Select.Option value={null}>All</Select.Option>
               {filterOptions.work_locations.map(location => (
                 <Select.Option key={location} value={location}>{location}</Select.Option>
               ))}
@@ -400,6 +393,7 @@ const AuthorsAnalyticsEnhanced = () => {
               onChange={setSelectedStaffType}
               style={{ width: '100%', marginTop: 8 }}
             >
+              <Select.Option value={null}>All</Select.Option>
               {filterOptions.staff_types.map(type => (
                 <Select.Option key={type} value={type}>{type}</Select.Option>
               ))}
@@ -457,14 +451,13 @@ const AuthorsAnalyticsEnhanced = () => {
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="Mapping Rate"
-              value={mappingRate}
-              suffix="%"
-              prefix={<CheckCircleOutlined />}
-              valueStyle={{ color: mappingRate > 50 ? '#52c41a' : '#faad14' }}
+              title="Active Staff"
+              value={authors.length}
+              prefix={<TeamOutlined />}
+              valueStyle={{ color: '#52c41a' }}
             />
             <Text type="secondary" style={{ fontSize: 12 }}>
-              {mappedAuthors} of {authors.length} authors mapped
+              Staff with mapped Git activity
             </Text>
           </Card>
         </Col>
@@ -472,7 +465,7 @@ const AuthorsAnalyticsEnhanced = () => {
 
       {/* Chart */}
       {chartData.length > 0 && (
-        <Card title="Top 10 Contributors - Code Changes" style={{ marginBottom: 24 }}>
+        <Card title="Top 10 Staff - Code Changes" style={{ marginBottom: 24 }}>
           <Column
             data={chartData}
             isGroup
@@ -507,7 +500,7 @@ const AuthorsAnalyticsEnhanced = () => {
 
       {/* Detailed Table */}
       <Card
-        title="Author Details"
+        title="Staff Contribution Details"
         extra={
           <Button icon={<DownloadOutlined />} onClick={handleDownload}>
             Download CSV

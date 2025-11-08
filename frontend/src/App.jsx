@@ -15,6 +15,7 @@ import {
   MoonOutlined,
   SunOutlined,
   HomeOutlined,
+  BarChartOutlined,
 } from '@ant-design/icons'
 
 // Import pages
@@ -27,6 +28,7 @@ import TopApprovers from './pages/TopApprovers'
 import AuthorMapping from './pages/AuthorMapping'
 import TableViewer from './pages/TableViewer'
 import SQLExecutor from './pages/SQLExecutor'
+import StaffProductivity from './pages/StaffProductivity'
 
 const { Header, Content, Sider } = Layout
 
@@ -67,6 +69,12 @@ const menuItems = [
     icon: <UserOutlined />,
     label: <Link to="/top-approvers">Top Approvers</Link>,
     breadcrumb: 'Top Approvers'
+  },
+  {
+    key: '/productivity',
+    icon: <BarChartOutlined />,
+    label: <Link to="/productivity">Staff Productivity</Link>,
+    breadcrumb: 'Staff Productivity'
   },
   {
     key: '/mapping',
@@ -195,6 +203,7 @@ function App() {
             <Route path="/pull-requests" element={<PullRequestsView />} />
             <Route path="/top-commits" element={<TopCommits />} />
             <Route path="/top-approvers" element={<TopApprovers />} />
+            <Route path="/productivity" element={<StaffProductivity />} />
             <Route path="/mapping" element={<AuthorMapping />} />
             <Route path="/tables" element={<TableViewer />} />
             <Route path="/sql" element={<SQLExecutor />} />

@@ -30,6 +30,7 @@ import TableViewer from './pages/TableViewer'
 import SQLExecutor from './pages/SQLExecutor'
 import StaffProductivity from './pages/StaffProductivity'
 import TeamComparison from './pages/TeamComparison'
+import Dashboard360 from './pages/Dashboard360'
 
 const { Header, Content, Sider } = Layout
 
@@ -82,6 +83,12 @@ const menuItems = [
     icon: <TeamOutlined />,
     label: <Link to="/team-comparison">Team Comparison</Link>,
     breadcrumb: 'Team Comparison'
+  },
+  {
+    key: '/360-dashboard',
+    icon: <DashboardOutlined />,
+    label: <Link to="/360-dashboard">360° Dashboards</Link>,
+    breadcrumb: '360° Dashboards'
   },
   {
     key: '/mapping',
@@ -212,6 +219,7 @@ function App() {
             <Route path="/top-approvers" element={<TopApprovers />} />
             <Route path="/productivity" element={<StaffProductivity />} />
             <Route path="/team-comparison" element={<TeamComparison />} />
+            <Route path="/360-dashboard" element={<Dashboard360 />} />
             <Route path="/mapping" element={<AuthorMapping />} />
             <Route path="/tables" element={<TableViewer />} />
             <Route path="/sql" element={<SQLExecutor />} />

@@ -438,31 +438,35 @@ async def get_staff_productivity(
             author_names = [m.author_name for m in author_mappings]
             author_emails = [m.author_email for m in author_mappings if m.author_email]
 
-            # Determine date truncation based on granularity
+            # Determine date truncation based on granularity and database type
+            db_type = db_config['type'].lower()
+
             if granularity == "daily":
-                date_trunc = func.date(Commit.commit_date)
+                if db_type == 'sqlite':
+                    date_trunc = func.date(Commit.commit_date)
+                else:  # mariadb/mysql
+                    date_trunc = func.date(Commit.commit_date)
                 date_format = "%Y-%m-%d"
             elif granularity == "weekly":
-                # SQLite doesn't have week truncation, use strftime
-                is_sqlite = db_config['type'] == 'sqlite'
-                if is_sqlite:
+                if db_type == 'sqlite':
                     date_trunc = func.strftime('%Y-W%W', Commit.commit_date)
-                else:
-                    date_trunc = func.date_trunc('week', Commit.commit_date)
+                else:  # mariadb/mysql
+                    # MySQL: Use DATE_FORMAT to get year-week
+                    date_trunc = func.date_format(Commit.commit_date, '%Y-W%u')
                 date_format = "%Y-W%W"
             elif granularity == "monthly":
-                is_sqlite = db_config['type'] == 'sqlite'
-                if is_sqlite:
+                if db_type == 'sqlite':
                     date_trunc = func.strftime('%Y-%m', Commit.commit_date)
-                else:
-                    date_trunc = func.date_trunc('month', Commit.commit_date)
+                else:  # mariadb/mysql
+                    # MySQL: Use DATE_FORMAT to get year-month
+                    date_trunc = func.date_format(Commit.commit_date, '%Y-%m')
                 date_format = "%Y-%m"
             else:  # yearly
-                is_sqlite = db_config['type'] == 'sqlite'
-                if is_sqlite:
+                if db_type == 'sqlite':
                     date_trunc = func.strftime('%Y', Commit.commit_date)
-                else:
-                    date_trunc = func.date_trunc('year', Commit.commit_date)
+                else:  # mariadb/mysql
+                    # MySQL: Use DATE_FORMAT or YEAR function
+                    date_trunc = func.date_format(Commit.commit_date, '%Y')
                 date_format = "%Y"
 
             # Build base commit query
@@ -486,9 +490,31 @@ async def get_staff_productivity(
 
             commit_timeseries = commit_query.group_by('period').order_by('period').all()
 
+            # Create date truncation for PR created_date
+            if granularity == "daily":
+                if db_type == 'sqlite':
+                    pr_date_trunc = func.date(PullRequest.created_date)
+                else:  # mariadb/mysql
+                    pr_date_trunc = func.date(PullRequest.created_date)
+            elif granularity == "weekly":
+                if db_type == 'sqlite':
+                    pr_date_trunc = func.strftime('%Y-W%W', PullRequest.created_date)
+                else:  # mariadb/mysql
+                    pr_date_trunc = func.date_format(PullRequest.created_date, '%Y-W%u')
+            elif granularity == "monthly":
+                if db_type == 'sqlite':
+                    pr_date_trunc = func.strftime('%Y-%m', PullRequest.created_date)
+                else:  # mariadb/mysql
+                    pr_date_trunc = func.date_format(PullRequest.created_date, '%Y-%m')
+            else:  # yearly
+                if db_type == 'sqlite':
+                    pr_date_trunc = func.strftime('%Y', PullRequest.created_date)
+                else:  # mariadb/mysql
+                    pr_date_trunc = func.date_format(PullRequest.created_date, '%Y')
+
             # PR opened/merged by time period
             pr_query = session.query(
-                date_trunc.label('period'),
+                pr_date_trunc.label('period'),
                 func.count(PullRequest.id).label('prs_opened')
             ).filter(
                 PullRequest.author_email.in_(author_emails) if author_emails else PullRequest.author_name.in_(author_names)

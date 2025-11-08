@@ -353,99 +353,110 @@ const TeamComparison = () => {
 
           {/* Productivity Quadrant Scatter */}
           <Card title="📊 Productivity Quadrant - Quality vs Quantity" style={{ marginBottom: 24 }}>
-            <Scatter
-              data={quadrantData}
-              xField="quantity"
-              yField="quality"
-              colorField="rank"
-              sizeField="repos"
-              size={[10, 40]}
-              shape="circle"
-              pointStyle={{
-                fillOpacity: 0.7,
-                stroke: '#fff',
-                lineWidth: 2,
-              }}
-              xAxis={{
-                title: { text: 'Quantity (Commits + PRs)' },
-                grid: {
-                  line: {
-                    style: {
-                      stroke: '#eee',
-                      lineWidth: 1,
-                      lineDash: [4, 5],
+            {quadrantData.length > 0 ? (
+              <Scatter
+                data={quadrantData}
+                xField="quantity"
+                yField="quality"
+                colorField="rank"
+                sizeField="repos"
+                size={[10, 40]}
+                shape="circle"
+                pointStyle={{
+                  fillOpacity: 0.7,
+                  stroke: '#fff',
+                  lineWidth: 2,
+                }}
+                xAxis={{
+                  title: { text: 'Quantity (Commits + PRs)' },
+                  nice: true,
+                  grid: {
+                    line: {
+                      style: {
+                        stroke: '#eee',
+                        lineWidth: 1,
+                        lineDash: [4, 5],
+                      },
                     },
                   },
-                },
-              }}
-              yAxis={{
-                title: { text: 'Quality (Merge Rate + Collaboration)' },
-                grid: {
-                  line: {
-                    style: {
-                      stroke: '#eee',
-                      lineWidth: 1,
-                      lineDash: [4, 5],
+                }}
+                yAxis={{
+                  title: { text: 'Quality (Merge Rate + Collaboration)' },
+                  nice: true,
+                  grid: {
+                    line: {
+                      style: {
+                        stroke: '#eee',
+                        lineWidth: 1,
+                        lineDash: [4, 5],
+                      },
                     },
                   },
-                },
-              }}
-              tooltip={{
-                fields: ['name', 'quantity', 'quality', 'repos', 'rank'],
-                formatter: (datum) => {
-                  return {
-                    name: datum.name,
-                    value: `Quantity: ${datum.quantity.toFixed(0)}, Quality: ${datum.quality.toFixed(1)}, Repos: ${datum.repos}, Rank: ${datum.rank}`,
-                  }
-                },
-              }}
-              annotations={[
-                {
-                  type: 'line',
-                  start: [avgQuantity, 'min'],
-                  end: [avgQuantity, 'max'],
-                  style: {
-                    stroke: '#ff4d4f',
-                    lineWidth: 2,
-                    lineDash: [4, 4],
+                }}
+                tooltip={{
+                  fields: ['name', 'quantity', 'quality', 'repos', 'rank'],
+                  formatter: (datum) => {
+                    return {
+                      name: datum.name,
+                      value: `Quantity: ${Math.round(datum.quantity)}, Quality: ${datum.quality.toFixed(1)}, Repos: ${datum.repos}, Rank: ${datum.rank}`,
+                    }
                   },
-                },
-                {
-                  type: 'line',
-                  start: ['min', avgQuality],
-                  end: ['max', avgQuality],
-                  style: {
-                    stroke: '#ff4d4f',
-                    lineWidth: 2,
-                    lineDash: [4, 4],
+                }}
+                legend={{
+                  position: 'top-right',
+                }}
+                annotations={[
+                  {
+                    type: 'line',
+                    start: [avgQuantity, 'min'],
+                    end: [avgQuantity, 'max'],
+                    style: {
+                      stroke: '#ff4d4f',
+                      lineWidth: 2,
+                      lineDash: [4, 4],
+                    },
                   },
-                },
-                {
-                  type: 'text',
-                  position: ['95%', '95%'],
-                  content: '⭐ Stars',
-                  style: { fontSize: 14, fill: '#faad14', fontWeight: 'bold' },
-                },
-                {
-                  type: 'text',
-                  position: ['5%', '95%'],
-                  content: '🔍 Specialists',
-                  style: { fontSize: 14, fill: '#722ed1', fontWeight: 'bold' },
-                },
-                {
-                  type: 'text',
-                  position: ['95%', '5%'],
-                  content: '⚡ Grinders',
-                  style: { fontSize: 14, fill: '#1890ff', fontWeight: 'bold' },
-                },
-                {
-                  type: 'text',
-                  position: ['5%', '5%'],
-                  content: '🌱 Emerging',
-                  style: { fontSize: 14, fill: '#52c41a', fontWeight: 'bold' },
-                },
-              ]}
-            />
+                  {
+                    type: 'line',
+                    start: ['min', avgQuality],
+                    end: ['max', avgQuality],
+                    style: {
+                      stroke: '#ff4d4f',
+                      lineWidth: 2,
+                      lineDash: [4, 4],
+                    },
+                  },
+                  {
+                    type: 'text',
+                    position: ['95%', '95%'],
+                    content: '⭐ Stars',
+                    style: { fontSize: 14, fill: '#faad14', fontWeight: 'bold' },
+                  },
+                  {
+                    type: 'text',
+                    position: ['5%', '95%'],
+                    content: '🔍 Specialists',
+                    style: { fontSize: 14, fill: '#722ed1', fontWeight: 'bold' },
+                  },
+                  {
+                    type: 'text',
+                    position: ['95%', '5%'],
+                    content: '⚡ Grinders',
+                    style: { fontSize: 14, fill: '#1890ff', fontWeight: 'bold' },
+                  },
+                  {
+                    type: 'text',
+                    position: ['5%', '5%'],
+                    content: '🌱 Emerging',
+                    style: { fontSize: 14, fill: '#52c41a', fontWeight: 'bold' },
+                  },
+                ]}
+              />
+            ) : (
+              <div style={{ textAlign: 'center', padding: '50px' }}>
+                <Text type="secondary">No data to display. Please select team members and fetch data.</Text>
+              </div>
+            )}
             <Alert
               message="Quadrant Interpretation"
               description={

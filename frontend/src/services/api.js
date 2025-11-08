@@ -81,4 +81,13 @@ export const sqlAPI = {
   generateQuery: (prompt) => api.post('/sql/generate-query', { prompt }),
 }
 
+// Dashboard 360 API
+export const dashboard360API = {
+  getTeamSummary: (params) => api.get('/dashboard360/team/summary', { params }),
+  getTeamTimeseries: (params) => api.get('/dashboard360/team/timeseries', { params }),
+  getPRAgeing: (params) => api.get('/dashboard360/team/pr-aging', { params }),
+  getTeamContributors: (params) => api.get('/dashboard360/team/contributors', { params }),
+  getOrgSummary: (params) => api.get('/dashboard360/org/summary', { params }),
+}
+
 export default api

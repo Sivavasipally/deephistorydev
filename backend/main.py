@@ -18,7 +18,7 @@ from models import (
 )
 from backend.routers import (
     overview, commits, pull_requests, authors, staff,
-    tables, sql_executor, mappings
+    tables, sql_executor, mappings, dashboard360
 )
 
 # Initialize FastAPI app
@@ -53,6 +53,7 @@ app.include_router(staff.router, prefix="/api/staff", tags=["Staff"])
 app.include_router(tables.router, prefix="/api/tables", tags=["Tables"])
 app.include_router(sql_executor.router, prefix="/api/sql", tags=["SQL Executor"])
 app.include_router(mappings.router, prefix="/api/mappings", tags=["Author-Staff Mapping"])
+app.include_router(dashboard360.router, prefix="/api/dashboard360", tags=["360 Dashboards"])
 
 # Root endpoint
 @app.get("/")

@@ -28,7 +28,7 @@ import {
   TrophyOutlined,
 } from '@ant-design/icons'
 import { Line, Column, Area, Heatmap, Scatter, Funnel } from '@ant-design/charts'
-import { authorsAPI, staffAPI } from '../services/api'
+import { authorsAPI, staffAPI, dashboard360API } from '../services/api'
 import dayjs from 'dayjs'
 
 const { Title, Text } = Typography
@@ -103,6 +103,11 @@ const Dashboard360 = () => {
         granularity,
         start_date: dateRange[0] ? dayjs(dateRange[0]).format('YYYY-MM-DD') : undefined,
         end_date: dateRange[1] ? dayjs(dateRange[1]).format('YYYY-MM-DD') : undefined,
+        rank: filterRank,
+        location: filterLocation,
+        staff_type: filterStaffType,
+        manager: filterManager,
+        sub_platform: filterSubPlatform,
       }
 
       if (dashboardType === 'developer') {
@@ -110,12 +115,19 @@ const Dashboard360 = () => {
         setDeveloperData(data)
       } else if (dashboardType === 'repo') {
         // Fetch repo/team data
-        // TODO: Implement repo-specific API call
-        message.info('Repo 360 Dashboard - Coming soon')
+        const [summary, timeseries, aging, contributors] = await Promise.all([
+          dashboard360API.getTeamSummary(params),
+          dashboard360API.getTeamTimeseries(params),
+          dashboard360API.getPRAgeing(params),
+          dashboard360API.getTeamContributors({ ...params, limit: 20 })
+        ])
+        setRepoData({ summary, timeseries, aging, contributors })
       } else if (dashboardType === 'org') {
         // Fetch org overview data
-        // TODO: Implement org overview API call
-        message.info('Org Overview Dashboard - Coming soon')
+        const summary = await dashboard360API.getOrgSummary(params)
+        const timeseries = await dashboard360API.getTeamTimeseries(params)
+        const contributors = await dashboard360API.getTeamContributors({ ...params, limit: 50 })
+        setOrgData({ summary, timeseries, contributors })
       }
     } catch (err) {
       setError(err.message)
@@ -426,20 +438,565 @@ const Dashboard360 = () => {
 
   // Repo/Team 360 Dashboard
   const renderRepo360 = () => {
+    if (!repoData) {
+      return (
+        <div style={{ textAlign: 'center', padding: '50px' }}>
+          <Text type="secondary">Apply filters and fetch data to view Repo/Team 360° Dashboard</Text>
+        </div>
+      )
+    }
+
+    const { summary, timeseries, aging, contributors } = repoData
+
+    // Prepare throughput data
+    const throughputData = timeseries.flatMap(item => [
+      { period: item.period, value: item.commits, type: 'Commits' },
+      { period: item.period, value: item.prs_opened, type: 'PRs Opened' },
+      { period: item.period, value: item.prs_merged, type: 'PRs Merged' },
+    ])
+
+    // Prepare reliability data
+    const reliabilityData = timeseries.map(item => {
+      const total = item.prs_opened
+      return {
+        period: item.period,
+        mergeRate: total > 0 ? (item.prs_merged / total * 100) : 0,
+        declineRate: total > 0 ? (item.prs_declined / total * 100) : 0,
+      }
+    })
+
+    // PR Funnel data
+    const funnelData = [
+      { stage: '1. PRs Opened', value: summary.total_prs, percent: 100 },
+      { stage: '2. PRs Merged', value: summary.merged_prs, percent: summary.total_prs > 0 ? (summary.merged_prs / summary.total_prs * 100) : 0 },
+      { stage: '3. Active (Open)', value: summary.open_prs, percent: summary.total_prs > 0 ? (summary.open_prs / summary.total_prs * 100) : 0 },
+    ]
+
+    // Aging PRs data
+    const agingData = aging.map(bucket => ({
+      bucket: bucket.bucket,
+      count: bucket.count,
+    }))
+
+    // Contributors table columns
+    const contributorColumns = [
+      { title: 'Rank', dataIndex: 'rank', key: 'rank', render: (_, __, index) => index + 1, width: 60 },
+      { title: 'Developer', dataIndex: 'staff_name', key: 'staff_name', render: (name, record) => name || record.author_name },
+      { title: 'Commits', dataIndex: 'commits', key: 'commits', sorter: (a, b) => a.commits - b.commits, defaultSortOrder: 'descend' },
+      { title: 'PRs', dataIndex: 'prs', key: 'prs', sorter: (a, b) => a.prs - b.prs },
+      { title: 'Lines Added', dataIndex: 'lines_added', key: 'lines_added', sorter: (a, b) => a.lines_added - b.lines_added },
+      { title: 'Lines Deleted', dataIndex: 'lines_deleted', key: 'lines_deleted', sorter: (a, b) => a.lines_deleted - b.lines_deleted },
+      { title: 'Repositories', dataIndex: 'repos_count', key: 'repos_count', sorter: (a, b) => a.repos_count - b.repos_count },
+    ]
+
     return (
-      <div style={{ textAlign: 'center', padding: '50px' }}>
-        <Title level={3}>Repo/Team 360° Dashboard</Title>
-        <Text type="secondary">Select a repository to view comprehensive team analytics</Text>
+      <div>
+        {/* Key Metrics */}
+        <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+          <Col xs={12} sm={8} md={6}>
+            <Card>
+              <Statistic
+                title="Total Commits"
+                value={summary.total_commits}
+                prefix={<FireOutlined />}
+                valueStyle={{ color: '#1890ff' }}
+              />
+            </Card>
+          </Col>
+          <Col xs={12} sm={8} md={6}>
+            <Card>
+              <Statistic
+                title="Total PRs"
+                value={summary.total_prs}
+                prefix={<RocketOutlined />}
+                valueStyle={{ color: '#52c41a' }}
+              />
+            </Card>
+          </Col>
+          <Col xs={12} sm={8} md={6}>
+            <Card>
+              <Statistic
+                title="Open PRs"
+                value={summary.open_prs}
+                prefix={<ClockCircleOutlined />}
+                valueStyle={{ color: summary.open_prs > 10 ? '#faad14' : '#1890ff' }}
+              />
+            </Card>
+          </Col>
+          <Col xs={12} sm={8} md={6}>
+            <Card>
+              <Statistic
+                title="Merge Rate"
+                value={summary.merge_rate}
+                precision={1}
+                suffix="%"
+                valueStyle={{ color: summary.merge_rate > 80 ? '#52c41a' : '#faad14' }}
+              />
+            </Card>
+          </Col>
+          <Col xs={12} sm={8} md={6}>
+            <Card>
+              <Statistic
+                title="Contributors"
+                value={summary.unique_contributors}
+                prefix={<TeamOutlined />}
+                valueStyle={{ color: '#722ed1' }}
+              />
+            </Card>
+          </Col>
+          <Col xs={12} sm={8} md={6}>
+            <Card>
+              <Statistic
+                title="Repositories"
+                value={summary.repositories_count}
+                prefix={<GlobalOutlined />}
+                valueStyle={{ color: '#eb2f96' }}
+              />
+            </Card>
+          </Col>
+          <Col xs={12} sm={8} md={6}>
+            <Card>
+              <Statistic
+                title="Avg Review Time"
+                value={summary.avg_review_time_hours}
+                precision={1}
+                suffix="hrs"
+                valueStyle={{ color: summary.avg_review_time_hours > 48 ? '#ff4d4f' : '#52c41a' }}
+              />
+            </Card>
+          </Col>
+          <Col xs={12} sm={8} md={6}>
+            <Card>
+              <Statistic
+                title="Decline Rate"
+                value={summary.decline_rate}
+                precision={1}
+                suffix="%"
+                valueStyle={{ color: summary.decline_rate > 20 ? '#ff4d4f' : '#52c41a' }}
+              />
+            </Card>
+          </Col>
+        </Row>
+
+        {/* Throughput */}
+        <Card title="📊 Throughput: Commits & PRs Trend" style={{ marginBottom: 24 }}>
+          <Line
+            data={throughputData}
+            xField="period"
+            yField="value"
+            seriesField="type"
+            smooth
+            point={{ size: 5, shape: 'circle' }}
+            legend={{ position: 'top-right' }}
+            xAxis={{
+              title: { text: 'Time Period', style: { fontSize: 14, fontWeight: 'bold' } },
+              label: { autoRotate: true, autoHide: true, style: { fontSize: 12 } }
+            }}
+            yAxis={{
+              title: { text: 'Count', style: { fontSize: 14, fontWeight: 'bold' } },
+              label: { style: { fontSize: 12 } }
+            }}
+            label={{
+              content: (item) => item.value > 0 ? item.value : '',
+              style: { fontSize: 10 }
+            }}
+            tooltip={{
+              showTitle: true,
+              customContent: (title, data) => {
+                if (!data || data.length === 0) return null
+                return `
+                  <div style="padding: 12px; background: white; border: 1px solid #ddd; border-radius: 4px;">
+                    <div style="font-weight: bold; margin-bottom: 8px;">📅 ${title}</div>
+                    ${data.map(item => `
+                      <div style="margin: 4px 0;">
+                        <span style="display: inline-block; width: 10px; height: 10px; background: ${item.color}; border-radius: 50%; margin-right: 8px;"></span>
+                        <strong>${item.name}:</strong> <span style="font-weight: bold; color: ${item.color};">${item.value}</span>
+                      </div>
+                    `).join('')}
+                  </div>
+                `
+              }
+            }}
+          />
+        </Card>
+
+        {/* Reliability & Flow */}
+        <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+          <Col xs={24} lg={12}>
+            <Card title="✅ Reliability: Merge & Decline Rates">
+              <Line
+                data={reliabilityData.flatMap(item => [
+                  { period: item.period, rate: item.mergeRate, type: 'Merge Rate' },
+                  { period: item.period, rate: item.declineRate, type: 'Decline Rate' },
+                ])}
+                xField="period"
+                yField="rate"
+                seriesField="type"
+                smooth
+                point={{ size: 5 }}
+                color={['#52c41a', '#ff4d4f']}
+                xAxis={{
+                  title: { text: 'Time Period', style: { fontSize: 14, fontWeight: 'bold' } },
+                  label: { autoRotate: true, style: { fontSize: 11 } }
+                }}
+                yAxis={{
+                  title: { text: 'Rate (%)', style: { fontSize: 14, fontWeight: 'bold' } },
+                  min: 0,
+                  max: 100,
+                }}
+                tooltip={{
+                  customContent: (title, data) => {
+                    if (!data || data.length === 0) return null
+                    return `
+                      <div style="padding: 12px; background: white; border: 1px solid #ddd; border-radius: 4px;">
+                        <div style="font-weight: bold; margin-bottom: 8px;">📅 ${title}</div>
+                        ${data.map(item => `
+                          <div style="margin: 4px 0;">
+                            ${item.name}: <strong style="color: ${item.color};">${item.value.toFixed(1)}%</strong>
+                          </div>
+                        `).join('')}
+                      </div>
+                    `
+                  }
+                }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} lg={12}>
+            <Card title="🔄 PR Funnel">
+              <Funnel
+                data={funnelData}
+                xField="stage"
+                yField="value"
+                legend={false}
+                label={{
+                  formatter: (datum) => `${datum.stage}\n${datum.value} (${datum.percent.toFixed(1)}%)`,
+                }}
+                tooltip={{
+                  customContent: (title, data) => {
+                    if (!data || data.length === 0) return null
+                    const item = data[0].data
+                    return `
+                      <div style="padding: 12px; background: white; border: 1px solid #ddd; border-radius: 4px;">
+                        <div style="font-weight: bold; margin-bottom: 8px;">${item.stage}</div>
+                        <div>Count: <strong style="color: #1890ff;">${item.value}</strong></div>
+                        <div>Percentage: <strong>${item.percent.toFixed(1)}%</strong></div>
+                      </div>
+                    `
+                  }
+                }}
+              />
+            </Card>
+          </Col>
+        </Row>
+
+        {/* Risk Analysis */}
+        <Card title="⚠️ Risk: Aging Open PRs" style={{ marginBottom: 24 }}>
+          <Column
+            data={agingData}
+            xField="bucket"
+            yField="count"
+            label={{
+              position: 'top',
+              style: { fill: '#000', fontSize: 12 },
+            }}
+            color={(datum) => {
+              if (datum.bucket === '60+ days') return '#ff4d4f'
+              if (datum.bucket === '31-60 days') return '#faad14'
+              if (datum.bucket === '15-30 days') return '#fadb14'
+              return '#52c41a'
+            }}
+            xAxis={{
+              title: { text: 'Age Bucket', style: { fontSize: 14, fontWeight: 'bold' } },
+            }}
+            yAxis={{
+              title: { text: 'Number of PRs', style: { fontSize: 14, fontWeight: 'bold' } },
+            }}
+            tooltip={{
+              customContent: (title, data) => {
+                if (!data || data.length === 0) return null
+                const item = data[0].data
+                return `
+                  <div style="padding: 12px; background: white; border: 1px solid #ddd; border-radius: 4px;">
+                    <div style="font-weight: bold; margin-bottom: 8px;">📅 ${item.bucket}</div>
+                    <div>Open PRs: <strong style="color: ${data[0].color};">${item.count}</strong></div>
+                    ${item.count > 5 ? '<div style="color: #faad14; margin-top: 4px;">⚠️ High number of aging PRs</div>' : ''}
+                  </div>
+                `
+              }
+            }}
+          />
+        </Card>
+
+        {/* Top Contributors */}
+        <Card title="🏆 Top Contributors" style={{ marginBottom: 24 }}>
+          <Table
+            dataSource={contributors}
+            columns={contributorColumns}
+            rowKey={(record) => record.author_name}
+            pagination={{ pageSize: 10 }}
+            size="small"
+          />
+        </Card>
       </div>
     )
   }
 
   // Org Overview Dashboard
   const renderOrgOverview = () => {
+    if (!orgData) {
+      return (
+        <div style={{ textAlign: 'center', padding: '50px' }}>
+          <Text type="secondary">Apply filters and fetch data to view Organization Overview Dashboard</Text>
+        </div>
+      )
+    }
+
+    const { summary, timeseries, contributors } = orgData
+
+    // Prepare time series data
+    const commitsAreaData = timeseries.map(item => ({
+      period: item.period,
+      value: item.commits,
+      type: 'Commits',
+    }))
+
+    const prsAreaData = timeseries.map(item => ({
+      period: item.period,
+      value: item.prs_opened,
+      type: 'PRs',
+    }))
+
+    const combinedAreaData = [...commitsAreaData, ...prsAreaData]
+
+    // Top contributors for leaderboard
+    const topCommitters = [...contributors].sort((a, b) => b.commits - a.commits).slice(0, 10)
+    const topPRCreators = [...contributors].sort((a, b) => b.prs - a.prs).slice(0, 10)
+
+    // Leaderboard columns
+    const leaderboardColumns = [
+      { title: 'Rank', dataIndex: 'rank', key: 'rank', render: (_, __, index) => {
+        if (index === 0) return '🥇'
+        if (index === 1) return '🥈'
+        if (index === 2) return '🥉'
+        return index + 1
+      }, width: 60 },
+      { title: 'Developer', dataIndex: 'staff_name', key: 'staff_name', render: (name, record) => name || record.author_name },
+      { title: 'Commits', dataIndex: 'commits', key: 'commits' },
+      { title: 'PRs', dataIndex: 'prs', key: 'prs' },
+      { title: 'Lines Changed', key: 'lines_changed', render: (record) => (record.lines_added || 0) + (record.lines_deleted || 0) },
+    ]
+
     return (
-      <div style={{ textAlign: 'center', padding: '50px' }}>
-        <Title level={3}>Organization Overview Dashboard</Title>
-        <Text type="secondary">Organization-wide productivity metrics and insights</Text>
+      <div>
+        {/* SLA Scorecards */}
+        <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+          <Col xs={24} sm={12} md={8}>
+            <Card>
+              <Statistic
+                title="📊 Total Commits"
+                value={summary.total_commits}
+                prefix={<FireOutlined />}
+                valueStyle={{ color: '#1890ff', fontSize: 32 }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={8}>
+            <Card>
+              <Statistic
+                title="📦 Total Pull Requests"
+                value={summary.total_prs}
+                prefix={<RocketOutlined />}
+                valueStyle={{ color: '#52c41a', fontSize: 32 }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={8}>
+            <Card>
+              <Statistic
+                title="👥 Total Contributors"
+                value={summary.total_contributors}
+                prefix={<TeamOutlined />}
+                valueStyle={{ color: '#722ed1', fontSize: 32 }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={8}>
+            <Card>
+              <Statistic
+                title="🏛️ Total Repositories"
+                value={summary.total_repositories}
+                prefix={<GlobalOutlined />}
+                valueStyle={{ color: '#eb2f96', fontSize: 32 }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={8}>
+            <Card>
+              <Statistic
+                title="⏱️ Median Cycle Time"
+                value={summary.median_cycle_time_hours}
+                precision={1}
+                suffix="hrs"
+                valueStyle={{ color: summary.median_cycle_time_hours > 48 ? '#faad14' : '#52c41a', fontSize: 28 }}
+              />
+              <Text type="secondary" style={{ fontSize: 12 }}>SLA Target: 48 hrs</Text>
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={8}>
+            <Card>
+              <Statistic
+                title="📈 P90 Cycle Time"
+                value={summary.p90_cycle_time_hours}
+                precision={1}
+                suffix="hrs"
+                valueStyle={{ color: summary.p90_cycle_time_hours > 96 ? '#ff4d4f' : '#52c41a', fontSize: 28 }}
+              />
+              <Text type="secondary" style={{ fontSize: 12 }}>SLA Target: 96 hrs</Text>
+            </Card>
+          </Col>
+          <Col xs={24}>
+            <Card>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Statistic
+                    title="✅ Overall Merge Rate"
+                    value={summary.overall_merge_rate}
+                    precision={1}
+                    suffix="%"
+                    valueStyle={{ color: summary.overall_merge_rate > 80 ? '#52c41a' : '#faad14', fontSize: 36 }}
+                  />
+                  <Progress
+                    percent={summary.overall_merge_rate}
+                    strokeColor={summary.overall_merge_rate > 80 ? '#52c41a' : '#faad14'}
+                    showInfo={false}
+                  />
+                  <Text type="secondary">Target: 80%</Text>
+                </Col>
+                <Col span={12}>
+                  <div style={{ paddingTop: 20 }}>
+                    {summary.overall_merge_rate >= 90 && (
+                      <Alert message="Excellent merge rate! 🎉" type="success" showIcon />
+                    )}
+                    {summary.overall_merge_rate >= 80 && summary.overall_merge_rate < 90 && (
+                      <Alert message="Good merge rate ✓" type="success" showIcon />
+                    )}
+                    {summary.overall_merge_rate >= 70 && summary.overall_merge_rate < 80 && (
+                      <Alert message="Merge rate needs improvement" type="warning" showIcon />
+                    )}
+                    {summary.overall_merge_rate < 70 && (
+                      <Alert message="Low merge rate - Review required" type="error" showIcon />
+                    )}
+                  </div>
+                </Col>
+              </Row>
+            </Card>
+          </Col>
+        </Row>
+
+        {/* Seasonality - Activity Trends */}
+        <Card title="📈 Seasonality: Organizational Activity Trends" style={{ marginBottom: 24 }}>
+          <Area
+            data={combinedAreaData}
+            xField="period"
+            yField="value"
+            seriesField="type"
+            smooth
+            legend={{ position: 'top-right' }}
+            areaStyle={{ fillOpacity: 0.6 }}
+            xAxis={{
+              title: { text: 'Time Period', style: { fontSize: 14, fontWeight: 'bold' } },
+              label: { autoRotate: true, autoHide: true, style: { fontSize: 12 } }
+            }}
+            yAxis={{
+              title: { text: 'Count', style: { fontSize: 14, fontWeight: 'bold' } },
+              label: { style: { fontSize: 12 } }
+            }}
+            tooltip={{
+              showTitle: true,
+              customContent: (title, data) => {
+                if (!data || data.length === 0) return null
+                const total = data.reduce((sum, item) => sum + item.value, 0)
+                return `
+                  <div style="padding: 12px; background: white; border: 1px solid #ddd; border-radius: 4px;">
+                    <div style="font-weight: bold; margin-bottom: 8px;">📅 ${title}</div>
+                    <div style="margin-bottom: 4px;">Total Activity: <strong>${total}</strong></div>
+                    <div style="border-top: 1px solid #f0f0f0; padding-top: 4px; margin-top: 4px;">
+                      ${data.map(item => `
+                        <div style="margin: 4px 0;">
+                          <span style="display: inline-block; width: 10px; height: 10px; background: ${item.color}; border-radius: 50%; margin-right: 8px;"></span>
+                          ${item.name}: <strong style="color: ${item.color};">${item.value}</strong>
+                        </div>
+                      `).join('')}
+                    </div>
+                  </div>
+                `
+              }
+            }}
+          />
+        </Card>
+
+        {/* Leaderboards */}
+        <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+          <Col xs={24} lg={12}>
+            <Card title="🏆 Top Committers" style={{ height: '100%' }}>
+              <Table
+                dataSource={topCommitters}
+                columns={leaderboardColumns}
+                rowKey={(record) => record.author_name}
+                pagination={false}
+                size="small"
+              />
+            </Card>
+          </Col>
+          <Col xs={24} lg={12}>
+            <Card title="🚀 Top PR Creators" style={{ height: '100%' }}>
+              <Table
+                dataSource={topPRCreators}
+                columns={leaderboardColumns}
+                rowKey={(record) => record.author_name}
+                pagination={false}
+                size="small"
+              />
+            </Card>
+          </Col>
+        </Row>
+
+        {/* Repository Distribution */}
+        <Card title="📦 Repository Engagement Distribution" style={{ marginBottom: 24 }}>
+          <Column
+            data={contributors.slice(0, 15).map(c => ({
+              name: c.staff_name || c.author_name,
+              repos: c.repos_count,
+            }))}
+            xField="name"
+            yField="repos"
+            label={{
+              position: 'top',
+              style: { fill: '#000', fontSize: 11 },
+            }}
+            color="#722ed1"
+            xAxis={{
+              title: { text: 'Developer', style: { fontSize: 14, fontWeight: 'bold' } },
+              label: { autoRotate: true, autoHide: true, style: { fontSize: 10 } }
+            }}
+            yAxis={{
+              title: { text: 'Number of Repositories', style: { fontSize: 14, fontWeight: 'bold' } },
+            }}
+            tooltip={{
+              customContent: (title, data) => {
+                if (!data || data.length === 0) return null
+                const item = data[0].data
+                return `
+                  <div style="padding: 12px; background: white; border: 1px solid #ddd; border-radius: 4px;">
+                    <div style="font-weight: bold; margin-bottom: 8px;">👤 ${item.name}</div>
+                    <div>Repositories Contributed: <strong style="color: #722ed1;">${item.repos}</strong></div>
+                  </div>
+                `
+              }
+            }}
+          />
+        </Card>
       </div>
     )
   }

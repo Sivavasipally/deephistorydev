@@ -41,6 +41,9 @@ const TeamComparison = () => {
   const [filterLocation, setFilterLocation] = useState(null)
   const [filterRank, setFilterRank] = useState(null)
   const [filterStaffType, setFilterStaffType] = useState(null)
+  const [filterManager, setFilterManager] = useState(null)
+  const [filterSubPlatform, setFilterSubPlatform] = useState(null)
+  const [filterStaffGrouping, setFilterStaffGrouping] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -52,11 +55,32 @@ const TeamComparison = () => {
   const locationOptions = [...new Set(staffList.map(s => s.work_location).filter(Boolean))].map(loc => ({ label: loc, value: loc }))
   const rankOptions = [...new Set(staffList.map(s => s.rank).filter(Boolean))].map(rank => ({ label: rank, value: rank }))
   const staffTypeOptions = [...new Set(staffList.map(s => s.staff_type).filter(Boolean))].map(type => ({ label: type, value: type }))
+  const managerOptions = [...new Set(staffList.map(s => s.reporting_manager_name).filter(Boolean))].map(mgr => ({ label: mgr, value: mgr }))
+  const subPlatformOptions = [...new Set(staffList.map(s => s.sub_platform).filter(Boolean))].map(sp => ({ label: sp, value: sp }))
+  const staffGroupingOptions = [...new Set(staffList.map(s => s.staff_grouping).filter(Boolean))].map(sg => ({ label: sg, value: sg }))
 
   // Fetch staff list on mount
   useEffect(() => {
     fetchStaffList()
   }, [])
+
+  // Auto-select staff when filters change
+  useEffect(() => {
+    if (filterLocation || filterRank || filterStaffType || filterManager || filterSubPlatform || filterStaffGrouping) {
+      // Get all staff that match the current filters
+      const matchingStaff = staffList.filter(staff => {
+        if (filterLocation && staff.work_location !== filterLocation) return false
+        if (filterRank && staff.rank !== filterRank) return false
+        if (filterStaffType && staff.staff_type !== filterStaffType) return false
+        if (filterManager && staff.reporting_manager_name !== filterManager) return false
+        if (filterSubPlatform && staff.sub_platform !== filterSubPlatform) return false
+        if (filterStaffGrouping && staff.staff_grouping !== filterStaffGrouping) return false
+        return true
+      })
+      // Auto-select all matching staff
+      setSelectedStaff(matchingStaff.map(s => s.bank_id_1))
+    }
+  }, [filterLocation, filterRank, filterStaffType, filterManager, filterSubPlatform, filterStaffGrouping, staffList])
 
   const fetchStaffList = async () => {
     try {
@@ -153,6 +177,9 @@ const TeamComparison = () => {
     setFilterLocation(null)
     setFilterRank(null)
     setFilterStaffType(null)
+    setFilterManager(null)
+    setFilterSubPlatform(null)
+    setFilterStaffGrouping(null)
     setTeamData([])
   }
 
@@ -161,6 +188,9 @@ const TeamComparison = () => {
     if (filterLocation && staff.work_location !== filterLocation) return false
     if (filterRank && staff.rank !== filterRank) return false
     if (filterStaffType && staff.staff_type !== filterStaffType) return false
+    if (filterManager && staff.reporting_manager_name !== filterManager) return false
+    if (filterSubPlatform && staff.sub_platform !== filterSubPlatform) return false
+    if (filterStaffGrouping && staff.staff_grouping !== filterStaffGrouping) return false
     return true
   })
 
@@ -351,6 +381,45 @@ const TeamComparison = () => {
               value={filterStaffType}
               onChange={setFilterStaffType}
               options={staffTypeOptions}
+            />
+          </Col>
+
+          <Col xs={24} md={8}>
+            <Text strong>Manager:</Text>
+            <Select
+              allowClear
+              showSearch
+              placeholder="Filter by manager..."
+              style={{ width: '100%', marginTop: 8 }}
+              value={filterManager}
+              onChange={setFilterManager}
+              options={managerOptions}
+            />
+          </Col>
+
+          <Col xs={24} md={8}>
+            <Text strong>Sub Platform:</Text>
+            <Select
+              allowClear
+              showSearch
+              placeholder="Filter by sub platform..."
+              style={{ width: '100%', marginTop: 8 }}
+              value={filterSubPlatform}
+              onChange={setFilterSubPlatform}
+              options={subPlatformOptions}
+            />
+          </Col>
+
+          <Col xs={24} md={8}>
+            <Text strong>Staff Grouping:</Text>
+            <Select
+              allowClear
+              showSearch
+              placeholder="Filter by staff grouping..."
+              style={{ width: '100%', marginTop: 8 }}
+              value={filterStaffGrouping}
+              onChange={setFilterStaffGrouping}
+              options={staffGroupingOptions}
             />
           </Col>
 

@@ -22,6 +22,13 @@ class StaffInfo(BaseModel):
     platform_name: str
     staff_type: str
     staff_status: str
+    work_location: str
+    rank: str
+    sub_platform: str
+    staff_grouping: str
+    reporting_manager_name: str
+    staff_start_date: str
+    staff_end_date: str
 
 @router.get("/", response_model=List[StaffInfo])
 async def get_staff_list(
@@ -60,7 +67,14 @@ async def get_staff_list(
                     tech_unit=r.tech_unit or "",
                     platform_name=r.platform_name or "",
                     staff_type=r.staff_type or "",
-                    staff_status=r.staff_status or ""
+                    staff_status=r.staff_status or "",
+                    work_location=r.work_location or "",
+                    rank=r.rank or "",
+                    sub_platform=r.sub_platform or "",
+                    staff_grouping=r.staff_grouping or "",
+                    reporting_manager_name=r.reporting_manager_name or "",
+                    staff_start_date=str(r.staff_start_date) if r.staff_start_date else "",
+                    staff_end_date=str(r.staff_end_date) if r.staff_end_date else ""
                 )
                 for r in results
             ]
@@ -113,7 +127,14 @@ async def get_unmapped_staff(
                     tech_unit=r.tech_unit or "",
                     platform_name=r.platform_name or "",
                     staff_type=r.staff_type or "",
-                    staff_status=r.staff_status or ""
+                    staff_status=r.staff_status or "",
+                    work_location=r.work_location or "",
+                    rank=r.rank or "",
+                    sub_platform=r.sub_platform or "",
+                    staff_grouping=r.staff_grouping or "",
+                    reporting_manager_name=r.reporting_manager_name or "",
+                    staff_start_date=str(r.staff_start_date) if r.staff_start_date else "",
+                    staff_end_date=str(r.staff_end_date) if r.staff_end_date else ""
                 )
                 for r in results
             ]

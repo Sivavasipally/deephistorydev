@@ -390,7 +390,7 @@ async def get_filter_options():
 @router.get("/productivity/{bank_id}")
 async def get_staff_productivity(
     bank_id: str,
-    granularity: str = Query("monthly", regex="^(daily|weekly|monthly|yearly)$"),
+    granularity: str = Query("monthly", regex="^(daily|weekly|monthly|quarterly|yearly)$"),
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     repository_id: Optional[int] = None
@@ -400,7 +400,7 @@ async def get_staff_productivity(
 
     Args:
         bank_id: Staff bank ID
-        granularity: Time granularity (daily, weekly, monthly, yearly)
+        granularity: Time granularity (daily, weekly, monthly, quarterly, yearly)
         start_date: Start date (YYYY-MM-DD)
         end_date: End date (YYYY-MM-DD)
         repository_id: Optional repository filter
@@ -461,6 +461,21 @@ async def get_staff_productivity(
                     # MySQL: Use DATE_FORMAT to get year-month
                     date_trunc = func.date_format(Commit.commit_date, '%Y-%m')
                 date_format = "%Y-%m"
+            elif granularity == "quarterly":
+                if db_type == 'sqlite':
+                    # SQLite: Format as YYYY-Q# (e.g., 2024-Q1)
+                    date_trunc = func.printf('%s-Q%d',
+                        func.strftime('%Y', Commit.commit_date),
+                        (func.cast(func.strftime('%m', Commit.commit_date), Integer) + 2) / 3
+                    )
+                else:  # mariadb/mysql
+                    # MySQL: Use CONCAT and QUARTER functions (e.g., 2024-Q1)
+                    date_trunc = func.concat(
+                        func.year(Commit.commit_date),
+                        '-Q',
+                        func.quarter(Commit.commit_date)
+                    )
+                date_format = "%Y-Q%q"
             else:  # yearly
                 if db_type == 'sqlite':
                     date_trunc = func.strftime('%Y', Commit.commit_date)
@@ -506,6 +521,18 @@ async def get_staff_productivity(
                     pr_date_trunc = func.strftime('%Y-%m', PullRequest.created_date)
                 else:  # mariadb/mysql
                     pr_date_trunc = func.date_format(PullRequest.created_date, '%Y-%m')
+            elif granularity == "quarterly":
+                if db_type == 'sqlite':
+                    pr_date_trunc = func.printf('%s-Q%d',
+                        func.strftime('%Y', PullRequest.created_date),
+                        (func.cast(func.strftime('%m', PullRequest.created_date), Integer) + 2) / 3
+                    )
+                else:  # mariadb/mysql
+                    pr_date_trunc = func.concat(
+                        func.year(PullRequest.created_date),
+                        '-Q',
+                        func.quarter(PullRequest.created_date)
+                    )
             else:  # yearly
                 if db_type == 'sqlite':
                     pr_date_trunc = func.strftime('%Y', PullRequest.created_date)

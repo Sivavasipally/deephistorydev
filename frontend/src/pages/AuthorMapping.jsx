@@ -59,6 +59,13 @@ const AuthorMapping = () => {
   const [bulkNotes, setBulkNotes] = useState('')
   const [searchAuthor, setSearchAuthor] = useState('')
 
+  // Reverse mapping state (staff to author)
+  const [unmappedStaff, setUnmappedStaff] = useState([])
+  const [selectedStaffMember, setSelectedStaffMember] = useState(null)
+  const [selectedAuthorForStaff, setSelectedAuthorForStaff] = useState(null)
+  const [reverseNotes, setReverseNotes] = useState('')
+  const [searchUnmappedStaff, setSearchUnmappedStaff] = useState('')
+
   useEffect(() => {
     fetchData()
   }, [])
@@ -66,14 +73,16 @@ const AuthorMapping = () => {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [authorsData, staffData, mappingsData] = await Promise.all([
+      const [authorsData, staffData, mappingsData, unmappedStaffData] = await Promise.all([
         mappingsAPI.getUnmappedAuthors(),
         staffAPI.getStaffList({ limit: 1000 }),
         mappingsAPI.getMappings(),
+        staffAPI.getUnmappedStaff({ limit: 1000 }),
       ])
       setUnmappedAuthors(authorsData)
       setStaffList(staffData)
       setMappings(mappingsData)
+      setUnmappedStaff(unmappedStaffData)
     } catch (err) {
       message.error('Failed to fetch data')
     } finally {
@@ -277,6 +286,32 @@ const AuthorMapping = () => {
     a.download = `author_staff_mappings_${dayjs().format('YYYYMMDD_HHmmss')}.csv`
     a.click()
     message.success('Downloaded successfully!')
+  }
+
+  const handleReverseMapping = async () => {
+    if (!selectedStaffMember || !selectedAuthorForStaff) {
+      message.warning('Please select both staff member and author')
+      return
+    }
+
+    try {
+      await mappingsAPI.createMapping({
+        author_name: selectedAuthorForStaff.author_name,
+        author_email: selectedAuthorForStaff.author_email,
+        bank_id_1: selectedStaffMember.bank_id_1,
+        staff_id: selectedStaffMember.staff_id,
+        staff_name: selectedStaffMember.staff_name,
+        notes: reverseNotes || 'Reverse mapped (staff to author)',
+      })
+
+      message.success(`Mapped ${selectedStaffMember.staff_name} to ${selectedAuthorForStaff.author_name}!`)
+      setSelectedStaffMember(null)
+      setSelectedAuthorForStaff(null)
+      setReverseNotes('')
+      fetchData()
+    } catch (err) {
+      message.error('Failed to create reverse mapping')
+    }
   }
 
   // Filter staff by search
@@ -541,7 +576,7 @@ const AuthorMapping = () => {
         <Space direction="vertical" style={{ width: '100%' }} size="large">
           <Alert
             message="Automatic Email Matching"
-            description="This will automatically map authors to staff members when their email addresses match exactly."
+            description="This will automatically map authors to active staff members when their email addresses match exactly. Inactive staff members are excluded from matching."
             type="info"
             showIcon
           />
@@ -562,7 +597,11 @@ const AuthorMapping = () => {
       </Card>
 
       {/* Multi-Select Bulk Mapping */}
-      <Card title="📋 Bulk Mapping (Multi-Select)" style={{ marginBottom: 24 }}>
+      <Card
+        title="📋 Bulk Mapping (Multi-Select)"
+        style={{ marginBottom: 24 }}
+        extra={<Text type="secondary" style={{ fontSize: 12 }}>Only active staff members shown</Text>}
+      >
         <Row gutter={[24, 24]}>
           {/* Left: Author Selection */}
           <Col xs={24} lg={14}>
@@ -731,12 +770,141 @@ const AuthorMapping = () => {
         </Row>
       </Card>
 
+      {/* Reverse Mapping: Staff to Author */}
+      <Card
+        title="🔄 Reverse Mapping (Staff → Author)"
+        style={{ marginBottom: 24 }}
+        extra={<Text type="secondary" style={{ fontSize: 12 }}>Map unmapped staff to authors</Text>}
+      >
+        <Alert
+          message="Reverse Mapping"
+          description="Select an unmapped staff member and map them to a Git author. This is useful when you know the staff member but need to find their corresponding Git identity."
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
+        <Row gutter={[24, 24]}>
+          {/* Left: Staff Selection */}
+          <Col xs={24} lg={12}>
+            <Space direction="vertical" style={{ width: '100%' }} size="middle">
+              <div>
+                <Text strong>Step 1: Select Unmapped Staff Member</Text>
+                <Input
+                  placeholder="Search staff by name or email..."
+                  value={searchUnmappedStaff}
+                  onChange={(e) => setSearchUnmappedStaff(e.target.value)}
+                  allowClear
+                  style={{ marginTop: 8, marginBottom: 8 }}
+                />
+                <Select
+                  showSearch
+                  placeholder="Select staff member..."
+                  style={{ width: '100%' }}
+                  value={selectedStaffMember?.bank_id_1}
+                  onChange={(value) => {
+                    const staff = unmappedStaff.find(s => s.bank_id_1 === value)
+                    setSelectedStaffMember(staff)
+                    setSelectedAuthorForStaff(null)
+                  }}
+                  filterOption={(input, option) =>
+                    (option?.value?.toLowerCase() || '').includes(input.toLowerCase())
+                  }
+                  options={unmappedStaff
+                    .filter(s =>
+                      !searchUnmappedStaff ||
+                      s.staff_name?.toLowerCase().includes(searchUnmappedStaff.toLowerCase()) ||
+                      s.email_address?.toLowerCase().includes(searchUnmappedStaff.toLowerCase())
+                    )
+                    .map(s => ({
+                      value: s.bank_id_1,
+                      label: `${s.staff_name} (${s.email_address})`
+                    }))}
+                />
+              </div>
+
+              {selectedStaffMember && (
+                <Card size="small" style={{ backgroundColor: '#f0f9ff' }}>
+                  <Space direction="vertical" size="small">
+                    <Text strong>Selected Staff:</Text>
+                    <Text>Name: {selectedStaffMember.staff_name}</Text>
+                    <Text>Email: {selectedStaffMember.email_address}</Text>
+                    <Text>Bank ID: {selectedStaffMember.bank_id_1}</Text>
+                    <Text>Tech Unit: {selectedStaffMember.tech_unit}</Text>
+                  </Space>
+                </Card>
+              )}
+            </Space>
+          </Col>
+
+          {/* Right: Author Selection */}
+          <Col xs={24} lg={12}>
+            <Space direction="vertical" style={{ width: '100%' }} size="middle">
+              <div>
+                <Text strong>Step 2: Select Author to Map To</Text>
+                <Select
+                  showSearch
+                  placeholder="Select author..."
+                  style={{ width: '100%', marginTop: 8 }}
+                  value={selectedAuthorForStaff?.author_name}
+                  onChange={(value) => {
+                    const author = unmappedAuthors.find(a => a.author_name === value)
+                    setSelectedAuthorForStaff(author)
+                  }}
+                  disabled={!selectedStaffMember}
+                  filterOption={(input, option) =>
+                    (option?.value?.toLowerCase() || '').includes(input.toLowerCase())
+                  }
+                  options={unmappedAuthors.map(a => ({
+                    value: a.author_name,
+                    label: `${a.author_name} (${a.author_email}) - ${a.commit_count} commits`
+                  }))}
+                />
+              </div>
+
+              {selectedAuthorForStaff && (
+                <Card size="small" style={{ backgroundColor: '#f0f9ff' }}>
+                  <Space direction="vertical" size="small">
+                    <Text strong>Selected Author:</Text>
+                    <Text>Name: {selectedAuthorForStaff.author_name}</Text>
+                    <Text>Email: {selectedAuthorForStaff.author_email}</Text>
+                    <Text>Commits: {selectedAuthorForStaff.commit_count}</Text>
+                  </Space>
+                </Card>
+              )}
+
+              <TextArea
+                placeholder="Add notes (optional)..."
+                value={reverseNotes}
+                onChange={(e) => setReverseNotes(e.target.value)}
+                rows={3}
+                disabled={!selectedStaffMember || !selectedAuthorForStaff}
+              />
+
+              <Button
+                type="primary"
+                size="large"
+                icon={<LinkOutlined />}
+                onClick={handleReverseMapping}
+                disabled={!selectedStaffMember || !selectedAuthorForStaff}
+                block
+              >
+                Create Mapping
+              </Button>
+            </Space>
+          </Col>
+        </Row>
+      </Card>
+
       {/* Statistics */}
       <Card title="📊 Statistics">
         <Space direction="vertical" style={{ width: '100%' }} size="middle">
           <div>
             <Text strong>Unmapped Authors: </Text>
             <Tag color="orange">{unmappedAuthors.length}</Tag>
+          </div>
+          <div>
+            <Text strong>Unmapped Staff: </Text>
+            <Tag color="orange">{unmappedStaff.length}</Tag>
           </div>
           <div>
             <Text strong>Selected for Mapping: </Text>

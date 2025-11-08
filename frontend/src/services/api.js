@@ -57,6 +57,7 @@ export const pullRequestsAPI = {
 // Staff API
 export const staffAPI = {
   getStaffList: (params) => api.get('/staff/', { params }),
+  getUnmappedStaff: (params) => api.get('/staff/unmapped', { params }),
 }
 
 // Mappings API

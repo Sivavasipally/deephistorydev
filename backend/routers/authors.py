@@ -154,6 +154,12 @@ async def get_author_statistics(
                 AuthorStaffMapping.bank_id_1 == StaffDetails.bank_id_1
             )
 
+            # Exclude inactive staff members AND unmapped authors (only show authors with valid staff mapping)
+            query = query.filter(
+                AuthorStaffMapping.author_name.isnot(None),  # Must have mapping
+                (StaffDetails.staff_status != 'Inactive') | (StaffDetails.staff_status.is_(None))  # Staff must be active
+            )
+
             # Apply staff detail filters
             if rank:
                 query = query.filter(StaffDetails.rank == rank)
@@ -294,32 +300,51 @@ async def get_filter_options():
         session = get_session(engine)
 
         try:
-            # Get unique ranks
+            # Base filter to exclude inactive staff and ensure staff has author mapping
+            active_filter = (StaffDetails.staff_status != 'Inactive') | (StaffDetails.staff_status.is_(None))
+
+            # Get unique ranks (active staff with mappings only)
             ranks = session.query(
                 StaffDetails.rank
+            ).join(
+                AuthorStaffMapping,
+                StaffDetails.bank_id_1 == AuthorStaffMapping.bank_id_1
             ).distinct().filter(
-                StaffDetails.rank.isnot(None)
+                StaffDetails.rank.isnot(None),
+                active_filter
             ).order_by(StaffDetails.rank).all()
 
-            # Get unique reporting managers
+            # Get unique reporting managers (active staff with mappings only)
             managers = session.query(
                 StaffDetails.reporting_manager_name
+            ).join(
+                AuthorStaffMapping,
+                StaffDetails.bank_id_1 == AuthorStaffMapping.bank_id_1
             ).distinct().filter(
-                StaffDetails.reporting_manager_name.isnot(None)
+                StaffDetails.reporting_manager_name.isnot(None),
+                active_filter
             ).order_by(StaffDetails.reporting_manager_name).all()
 
-            # Get unique work locations
+            # Get unique work locations (active staff with mappings only)
             locations = session.query(
                 StaffDetails.work_location
+            ).join(
+                AuthorStaffMapping,
+                StaffDetails.bank_id_1 == AuthorStaffMapping.bank_id_1
             ).distinct().filter(
-                StaffDetails.work_location.isnot(None)
+                StaffDetails.work_location.isnot(None),
+                active_filter
             ).order_by(StaffDetails.work_location).all()
 
-            # Get unique staff types
+            # Get unique staff types (active staff with mappings only)
             staff_types = session.query(
                 StaffDetails.staff_type
+            ).join(
+                AuthorStaffMapping,
+                StaffDetails.bank_id_1 == AuthorStaffMapping.bank_id_1
             ).distinct().filter(
-                StaffDetails.staff_type.isnot(None)
+                StaffDetails.staff_type.isnot(None),
+                active_filter
             ).order_by(StaffDetails.staff_type).all()
 
             return {

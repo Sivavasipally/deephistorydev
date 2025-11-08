@@ -1,0 +1,169 @@
+-- --------------------------------------------------------
+-- Host:                         127.0.0.1
+-- Server version:               10.3.13-MariaDB - mariadb.org binary distribution
+-- Server OS:                    Win64
+-- HeidiSQL Version:             12.12.0.7122
+-- --------------------------------------------------------
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET NAMES utf8 */;
+/*!50503 SET NAMES utf8mb4 */;
+/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
+/*!40103 SET TIME_ZONE='+00:00' */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+
+
+-- Dumping database structure for devworkmetrics
+CREATE DATABASE IF NOT EXISTS `devworkmetrics` /*!40100 DEFAULT CHARACTER SET latin1 */;
+USE `devworkmetrics`;
+
+-- Dumping structure for table devworkmetrics.commits
+CREATE TABLE IF NOT EXISTS `commits` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `project_key` varchar(255) DEFAULT NULL,
+  `project_id` varchar(255) DEFAULT NULL,
+  `project_name` varchar(500) DEFAULT NULL,
+  `project_type` varchar(100) DEFAULT NULL,
+  `repository_name` varchar(500) DEFAULT NULL,
+  `repo_name` varchar(500) DEFAULT NULL,
+  `commit_hash` varchar(255) DEFAULT NULL,
+  `author_email` varchar(255) DEFAULT NULL,
+  `committer_email` varchar(255) DEFAULT NULL,
+  `commit_date` datetime DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `ix_commits_commit_hash` (`commit_hash`),
+  KEY `ix_commits_repository_name` (`repository_name`),
+  KEY `idx_author_date` (`author_email`,`commit_date`),
+  KEY `ix_commits_committer_email` (`committer_email`),
+  KEY `idx_repo_date` (`repository_name`,`commit_date`),
+  KEY `ix_commits_id` (`id`),
+  KEY `ix_commits_commit_date` (`commit_date`),
+  KEY `ix_commits_project_key` (`project_key`),
+  KEY `ix_commits_author_email` (`author_email`)
+) ENGINE=InnoDB AUTO_INCREMENT=36 DEFAULT CHARSET=latin1;
+
+-- Data exporting was unselected.
+
+-- Dumping structure for table devworkmetrics.commit_metrics
+CREATE TABLE IF NOT EXISTS `commit_metrics` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `metric_date` datetime DEFAULT NULL,
+  `period_type` varchar(20) DEFAULT NULL,
+  `author_email` varchar(255) DEFAULT NULL,
+  `repository_name` varchar(500) DEFAULT NULL,
+  `commit_count` int(11) DEFAULT NULL,
+  `active_days` int(11) DEFAULT NULL,
+  `commit_frequency` float DEFAULT NULL,
+  `code_ownership_percentage` float DEFAULT NULL,
+  `rank_in_repo` int(11) DEFAULT NULL,
+  `calculated_at` datetime DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_commit_metrics` (`author_email`,`repository_name`,`metric_date`,`period_type`),
+  KEY `idx_metrics_lookup` (`author_email`,`metric_date`,`period_type`),
+  KEY `ix_commit_metrics_period_type` (`period_type`),
+  KEY `ix_commit_metrics_repository_name` (`repository_name`),
+  KEY `ix_commit_metrics_author_email` (`author_email`),
+  KEY `ix_commit_metrics_metric_date` (`metric_date`),
+  KEY `ix_commit_metrics_id` (`id`),
+  KEY `idx_repo_metrics` (`repository_name`,`metric_date`)
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=latin1;
+
+-- Data exporting was unselected.
+
+-- Dumping structure for table devworkmetrics.developer_summary
+CREATE TABLE IF NOT EXISTS `developer_summary` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `email` varchar(255) DEFAULT NULL,
+  `total_commits` int(11) DEFAULT NULL,
+  `active_repos` int(11) DEFAULT NULL,
+  `first_commit_date` datetime DEFAULT NULL,
+  `last_commit_date` datetime DEFAULT NULL,
+  `avg_commits_per_week` float DEFAULT NULL,
+  `total_prs` int(11) DEFAULT NULL,
+  `total_merged_prs` int(11) DEFAULT NULL,
+  `total_reviews` int(11) DEFAULT NULL,
+  `overall_merge_rate` float DEFAULT NULL,
+  `avg_pr_cycle_time_hours` float DEFAULT NULL,
+  `active_days_count` int(11) DEFAULT NULL,
+  `last_active_date` datetime DEFAULT NULL,
+  `updated_at` datetime DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `ix_developer_summary_email` (`email`),
+  KEY `ix_developer_summary_id` (`id`),
+  KEY `idx_developer_activity` (`last_active_date`,`total_commits`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=latin1;
+
+-- Data exporting was unselected.
+
+-- Dumping structure for table devworkmetrics.pr_metrics
+CREATE TABLE IF NOT EXISTS `pr_metrics` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `metric_date` datetime DEFAULT NULL,
+  `period_type` varchar(20) DEFAULT NULL,
+  `author_email` varchar(255) DEFAULT NULL,
+  `approver_name` varchar(255) DEFAULT NULL,
+  `repo_slug` varchar(500) DEFAULT NULL,
+  `pr_count` int(11) DEFAULT NULL,
+  `merged_count` int(11) DEFAULT NULL,
+  `declined_count` int(11) DEFAULT NULL,
+  `open_count` int(11) DEFAULT NULL,
+  `merge_rate` float DEFAULT NULL,
+  `avg_pr_duration_hours` float DEFAULT NULL,
+  `avg_approvers_per_pr` float DEFAULT NULL,
+  `reviews_count` int(11) DEFAULT NULL,
+  `avg_review_time_hours` float DEFAULT NULL,
+  `calculated_at` datetime DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_pr_metrics` (`author_email`,`approver_name`,`repo_slug`,`metric_date`,`period_type`),
+  KEY `ix_pr_metrics_metric_date` (`metric_date`),
+  KEY `ix_pr_metrics_approver_name` (`approver_name`),
+  KEY `ix_pr_metrics_period_type` (`period_type`),
+  KEY `idx_pr_metrics_approver` (`approver_name`,`metric_date`,`period_type`),
+  KEY `ix_pr_metrics_id` (`id`),
+  KEY `ix_pr_metrics_repo_slug` (`repo_slug`),
+  KEY `idx_pr_metrics_author` (`author_email`,`metric_date`,`period_type`),
+  KEY `ix_pr_metrics_author_email` (`author_email`)
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=latin1;
+
+-- Data exporting was unselected.
+
+-- Dumping structure for table devworkmetrics.pull_requests
+CREATE TABLE IF NOT EXISTS `pull_requests` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `project_key` varchar(255) DEFAULT NULL,
+  `repo_slug` varchar(500) DEFAULT NULL,
+  `scoped_id` varchar(255) DEFAULT NULL,
+  `pull_request_title` text DEFAULT NULL,
+  `source_branch` varchar(500) DEFAULT NULL,
+  `target_branch` varchar(500) DEFAULT NULL,
+  `created_date` datetime DEFAULT NULL,
+  `closed_date` datetime DEFAULT NULL,
+  `pull_request_state` varchar(50) DEFAULT NULL,
+  `approver_name` varchar(255) DEFAULT NULL,
+  `author_email` varchar(255) DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `ix_pull_requests_project_key` (`project_key`),
+  KEY `ix_pull_requests_repo_slug` (`repo_slug`),
+  KEY `ix_pull_requests_pull_request_state` (`pull_request_state`),
+  KEY `ix_pull_requests_created_date` (`created_date`),
+  KEY `ix_pull_requests_scoped_id` (`scoped_id`),
+  KEY `ix_pull_requests_author_email` (`author_email`),
+  KEY `ix_pull_requests_id` (`id`),
+  KEY `idx_approver_closed` (`approver_name`,`closed_date`),
+  KEY `ix_pull_requests_closed_date` (`closed_date`),
+  KEY `ix_pull_requests_approver_name` (`approver_name`),
+  KEY `idx_author_created` (`author_email`,`created_date`),
+  KEY `idx_state_dates` (`pull_request_state`,`created_date`,`closed_date`)
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=latin1;
+
+-- Data exporting was unselected.
+
+/*!40103 SET TIME_ZONE=IFNULL(@OLD_TIME_ZONE, 'system') */;
+/*!40101 SET SQL_MODE=IFNULL(@OLD_SQL_MODE, '') */;
+/*!40014 SET FOREIGN_KEY_CHECKS=IFNULL(@OLD_FOREIGN_KEY_CHECKS, 1) */;
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40111 SET SQL_NOTES=IFNULL(@OLD_SQL_NOTES, 1) */;

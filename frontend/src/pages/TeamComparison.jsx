@@ -241,18 +241,18 @@ const TeamComparison = () => {
     return true
   })
 
-  // Prepare Productivity Quadrant Scatter data
-  const quadrantData = teamData.map(staff => ({
+  // Prepare Productivity Quadrant Scatter data - only if teamData is available
+  const quadrantData = teamData.length > 0 ? teamData.map(staff => ({
     name: staff.name,
-    quantity: staff.quantity,
-    quality: staff.quality,
-    repos: staff.uniqueRepos,
+    quantity: staff.quantity || 0,
+    quality: staff.quality || 0,
+    repos: staff.uniqueRepos || 1,
     rank: staff.rank || 'N/A',
-  }))
+  })).filter(item => !isNaN(item.quantity) && !isNaN(item.quality)) : []
 
   // Calculate quadrant stats
-  const avgQuantity = teamData.reduce((sum, s) => sum + s.quantity, 0) / (teamData.length || 1)
-  const avgQuality = teamData.reduce((sum, s) => sum + s.quality, 0) / (teamData.length || 1)
+  const avgQuantity = teamData.length > 0 ? teamData.reduce((sum, s) => sum + (s.quantity || 0), 0) / teamData.length : 0
+  const avgQuality = teamData.length > 0 ? teamData.reduce((sum, s) => sum + (s.quality || 0), 0) / teamData.length : 0
 
   // Categorize staff by quadrant
   const stars = teamData.filter(s => s.quantity >= avgQuantity && s.quality >= avgQuality)
@@ -388,6 +388,19 @@ const TeamComparison = () => {
           Multi-dimensional productivity analytics across team members
         </Text>
       </div>
+
+      {/* Error Display */}
+      {error && (
+        <Alert
+          message="Error Loading Data"
+          description={error}
+          type="error"
+          closable
+          onClose={() => setError(null)}
+          style={{ marginBottom: 24 }}
+          showIcon
+        />
+      )}
 
       {/* Filters */}
       <Card title="🔍 Filters & Configuration" style={{ marginBottom: 24 }}>
@@ -616,7 +629,7 @@ const TeamComparison = () => {
 
           {/* Productivity Quadrant Scatter */}
           <Card title="📊 Productivity Quadrant - Quality vs Quantity" style={{ marginBottom: 24 }}>
-            {quadrantData.length > 0 ? (
+            {teamData.length > 0 && quadrantData.length > 0 ? (
               <Scatter
                 data={quadrantData}
                 xField="quantity"

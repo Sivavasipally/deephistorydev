@@ -37,6 +37,7 @@ const { RangePicker } = DatePicker
 const Dashboard360 = () => {
   // Filters
   const [staffList, setStaffList] = useState([])
+  const [repositoryList, setRepositoryList] = useState([])
   const [selectedStaff, setSelectedStaff] = useState(null)
   const [selectedRepo, setSelectedRepo] = useState(null)
   const [granularity, setGranularity] = useState('monthly')
@@ -53,6 +54,8 @@ const Dashboard360 = () => {
   const [developerData, setDeveloperData] = useState(null)
   const [repoData, setRepoData] = useState(null)
   const [orgData, setOrgData] = useState(null)
+  const [codeReviewData, setCodeReviewData] = useState(null)
+  const [commitHeatmapData, setCommitHeatmapData] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -78,6 +81,7 @@ const Dashboard360 = () => {
 
   useEffect(() => {
     fetchStaffList()
+    fetchRepositoryList()
   }, [])
 
   const fetchStaffList = async () => {
@@ -86,6 +90,15 @@ const Dashboard360 = () => {
       setStaffList(response)
     } catch (err) {
       message.error(`Failed to fetch staff list: ${err.message}`)
+    }
+  }
+
+  const fetchRepositoryList = async () => {
+    try {
+      const response = await dashboard360API.getRepositories()
+      setRepositoryList(response)
+    } catch (err) {
+      message.error(`Failed to fetch repository list: ${err.message}`)
     }
   }
 
@@ -108,11 +121,18 @@ const Dashboard360 = () => {
         staff_type: filterStaffType,
         manager: filterManager,
         sub_platform: filterSubPlatform,
+        repository_id: selectedRepo,
       }
 
       if (dashboardType === 'developer') {
-        const data = await authorsAPI.getProductivity(selectedStaff, params)
-        setDeveloperData(data)
+        const [productivity, codeReviews, heatmap] = await Promise.all([
+          authorsAPI.getProductivity(selectedStaff, params),
+          dashboard360API.getCodeReviews(selectedStaff, params),
+          dashboard360API.getCommitHeatmap(selectedStaff, params)
+        ])
+        setDeveloperData(productivity)
+        setCodeReviewData(codeReviews)
+        setCommitHeatmapData(heatmap)
       } else if (dashboardType === 'repo') {
         // Fetch repo/team data
         const [summary, timeseries, aging, contributors] = await Promise.all([
@@ -150,6 +170,8 @@ const Dashboard360 = () => {
     setDeveloperData(null)
     setRepoData(null)
     setOrgData(null)
+    setCodeReviewData(null)
+    setCommitHeatmapData([])
   }
 
   // Developer 360 Dashboard Components
@@ -179,21 +201,10 @@ const Dashboard360 = () => {
       rate: item.prs_opened > 0 ? (item.prs_merged / item.prs_opened * 100) : 0,
     }))
 
-    // Calendar heatmap data - day of week x hour
-    const calendarData = []
-    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-    const hours = Array.from({ length: 24 }, (_, i) => `${i}:00`)
-
-    // Generate sample heatmap data (in production, this would come from actual commit times)
-    days.forEach(day => {
-      hours.forEach(hour => {
-        calendarData.push({
-          day,
-          hour,
-          commits: Math.floor(Math.random() * 10), // Replace with actual data
-        })
-      })
-    })
+    // Calendar heatmap data - use real commit time data
+    const calendarData = commitHeatmapData && commitHeatmapData.length > 0
+      ? commitHeatmapData
+      : []
 
     // Repository focus data
     const repoFocusData = developerData.repository_breakdown.map(repo => ({
@@ -420,15 +431,100 @@ const Dashboard360 = () => {
         </Card>
 
         {/* Reviews Section */}
-        <Row gutter={[16, 16]}>
-          <Col xs={24} md={12}>
-            <Card title="👥 Code Reviews Given">
-              <Text type="secondary">Coming soon: Reviews given statistics</Text>
+        <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+          <Col xs={24} lg={12}>
+            <Card title="👥 Code Reviews Given" style={{ height: '100%' }}>
+              {codeReviewData ? (
+                <>
+                  <Row gutter={16}>
+                    <Col span={12}>
+                      <Statistic
+                        title="Total Reviews"
+                        value={codeReviewData.total_reviews_given}
+                        valueStyle={{ color: '#1890ff' }}
+                      />
+                    </Col>
+                    <Col span={12}>
+                      <Statistic
+                        title="Monthly Avg"
+                        value={codeReviewData.prs_reviewed_by_month.length > 0
+                          ? Math.round(codeReviewData.prs_reviewed_by_month.reduce((sum, m) => sum + m.count, 0) / codeReviewData.prs_reviewed_by_month.length)
+                          : 0}
+                        valueStyle={{ color: '#52c41a' }}
+                      />
+                    </Col>
+                  </Row>
+                  {codeReviewData.prs_reviewed_by_month.length > 0 && (
+                    <div style={{ marginTop: 16 }}>
+                      <Line
+                        data={codeReviewData.prs_reviewed_by_month.map(item => ({
+                          month: item.month,
+                          count: item.count
+                        }))}
+                        xField="month"
+                        yField="count"
+                        smooth
+                        color="#1890ff"
+                        height={200}
+                        xAxis={{
+                          label: { autoRotate: true, style: { fontSize: 10 } }
+                        }}
+                      />
+                    </div>
+                  )}
+                </>
+              ) : (
+                <Text type="secondary">Select a developer and fetch data to view review statistics</Text>
+              )}
             </Card>
           </Col>
-          <Col xs={24} md={12}>
-            <Card title="📝 Code Reviews Received">
-              <Text type="secondary">Coming soon: Reviews received statistics</Text>
+          <Col xs={24} lg={12}>
+            <Card title="📝 Code Reviews Received" style={{ height: '100%' }}>
+              {codeReviewData ? (
+                <>
+                  <Row gutter={16}>
+                    <Col span={12}>
+                      <Statistic
+                        title="Total Reviews"
+                        value={codeReviewData.total_reviews_received}
+                        valueStyle={{ color: '#722ed1' }}
+                      />
+                    </Col>
+                    <Col span={12}>
+                      <Statistic
+                        title="Avg Turnaround"
+                        value={codeReviewData.avg_review_turnaround_hours}
+                        precision={1}
+                        suffix="hrs"
+                        valueStyle={{
+                          color: codeReviewData.avg_review_turnaround_hours > 48 ? '#ff4d4f' : '#52c41a'
+                        }}
+                      />
+                    </Col>
+                  </Row>
+                  <div style={{ marginTop: 16 }}>
+                    <Alert
+                      message={
+                        codeReviewData.avg_review_turnaround_hours <= 24
+                          ? '🚀 Excellent review turnaround time!'
+                          : codeReviewData.avg_review_turnaround_hours <= 48
+                          ? '✅ Good review turnaround time'
+                          : '⚠️ Review turnaround could be improved'
+                      }
+                      type={
+                        codeReviewData.avg_review_turnaround_hours <= 24
+                          ? 'success'
+                          : codeReviewData.avg_review_turnaround_hours <= 48
+                          ? 'info'
+                          : 'warning'
+                      }
+                      showIcon
+                    />
+                  </div>
+                </>
+              ) : (
+                <Text type="secondary">Select a developer and fetch data to view review statistics</Text>
+              )}
             </Card>
           </Col>
         </Row>
@@ -1131,6 +1227,28 @@ const Dashboard360 = () => {
                 options={filteredStaffList.map(s => ({
                   value: s.bank_id_1,
                   label: `${s.staff_name} (${s.rank || 'N/A'})`,
+                }))}
+              />
+            </Col>
+          )}
+
+          {/* Repository Selection (for Repo/Team 360) */}
+          {dashboardType === 'repo' && (
+            <Col xs={24} md={8}>
+              <Text strong>Filter by Repository (Optional):</Text>
+              <Select
+                allowClear
+                showSearch
+                placeholder="Select a repository..."
+                style={{ width: '100%', marginTop: 8 }}
+                value={selectedRepo}
+                onChange={setSelectedRepo}
+                filterOption={(input, option) =>
+                  (option?.label?.toLowerCase() || '').includes(input.toLowerCase())
+                }
+                options={repositoryList.map(repo => ({
+                  value: repo.id,
+                  label: repo.full_name,
                 }))}
               />
             </Col>

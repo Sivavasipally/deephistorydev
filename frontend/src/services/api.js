@@ -83,11 +83,14 @@ export const sqlAPI = {
 
 // Dashboard 360 API
 export const dashboard360API = {
+  getRepositories: () => api.get('/dashboard360/repositories'),
   getTeamSummary: (params) => api.get('/dashboard360/team/summary', { params }),
   getTeamTimeseries: (params) => api.get('/dashboard360/team/timeseries', { params }),
   getPRAgeing: (params) => api.get('/dashboard360/team/pr-aging', { params }),
   getTeamContributors: (params) => api.get('/dashboard360/team/contributors', { params }),
   getOrgSummary: (params) => api.get('/dashboard360/org/summary', { params }),
+  getCodeReviews: (bankId, params) => api.get(`/dashboard360/developer/code-reviews/${bankId}`, { params }),
+  getCommitHeatmap: (bankId, params) => api.get(`/dashboard360/developer/commit-heatmap/${bankId}`, { params }),
 }
 
 export default api

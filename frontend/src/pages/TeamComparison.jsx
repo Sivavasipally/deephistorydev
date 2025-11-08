@@ -244,11 +244,18 @@ const TeamComparison = () => {
   // Prepare Productivity Quadrant Scatter data - only if teamData is available
   const quadrantData = teamData.length > 0 ? teamData.map(staff => ({
     name: staff.name,
-    quantity: staff.quantity || 0,
-    quality: staff.quality || 0,
+    quantity: typeof staff.quantity === 'number' ? staff.quantity : 0,
+    quality: typeof staff.quality === 'number' ? staff.quality : 0,
     repos: staff.uniqueRepos || 1,
     rank: staff.rank || 'N/A',
-  })).filter(item => !isNaN(item.quantity) && !isNaN(item.quality)) : []
+  })).filter(item =>
+    typeof item.quantity === 'number' &&
+    typeof item.quality === 'number' &&
+    !isNaN(item.quantity) &&
+    !isNaN(item.quality) &&
+    isFinite(item.quantity) &&
+    isFinite(item.quality)
+  ) : []
 
   // Calculate quadrant stats
   const avgQuantity = teamData.length > 0 ? teamData.reduce((sum, s) => sum + (s.quantity || 0), 0) / teamData.length : 0

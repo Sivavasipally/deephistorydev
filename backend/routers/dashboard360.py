@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Query
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 from pydantic import BaseModel
-from sqlalchemy import func, and_, or_, case, extract
+from sqlalchemy import func, and_, or_, case, extract, text, literal
 from sqlalchemy.orm import Session
 
 from config import Config
@@ -161,23 +161,24 @@ async def get_team_summary(
             decline_rate = (declined_prs / total_prs * 100) if total_prs > 0 else 0
 
             # Calculate average review time (created to merged)
-            avg_review_time = session.query(
-                func.avg(
-                    func.timestampdiff(
-                        'SECOND',
-                        PullRequest.created_date,
-                        PullRequest.merged_date
-                    )
-                )
+            # Get PRs with both created and merged dates
+            prs_with_times = session.query(
+                PullRequest.created_date,
+                PullRequest.merged_date
             ).filter(
                 PullRequest.author_email.in_(emails),
-                PullRequest.merged_date.isnot(None)
+                PullRequest.merged_date.isnot(None),
+                PullRequest.created_date.isnot(None)
             )
             if pr_date_filters:
-                avg_review_time = avg_review_time.filter(and_(*pr_date_filters))
+                prs_with_times = prs_with_times.filter(and_(*pr_date_filters))
 
-            avg_seconds = avg_review_time.scalar() or 0
-            avg_review_time_hours = avg_seconds / 3600 if avg_seconds else 0
+            pr_times = prs_with_times.all()
+            if pr_times:
+                total_seconds = sum([(pr.merged_date - pr.created_date).total_seconds() for pr in pr_times])
+                avg_review_time_hours = (total_seconds / len(pr_times)) / 3600
+            else:
+                avg_review_time_hours = 0
 
             return TeamMetrics(
                 total_commits=commit_stats.total_commits or 0,
@@ -600,20 +601,20 @@ async def get_org_summary(
             merge_rate = (merged_prs / total_prs * 100) if total_prs > 0 else 0
 
             # Calculate cycle time percentiles
+            # Get PRs with both created and merged dates
             cycle_times_query = session.query(
-                func.timestampdiff(
-                    'SECOND',
-                    PullRequest.created_date,
-                    PullRequest.merged_date
-                ).label('cycle_time_seconds')
+                PullRequest.created_date,
+                PullRequest.merged_date
             ).filter(
-                PullRequest.merged_date.isnot(None)
+                PullRequest.merged_date.isnot(None),
+                PullRequest.created_date.isnot(None)
             )
 
             if pr_date_filters:
                 cycle_times_query = cycle_times_query.filter(and_(*pr_date_filters))
 
-            cycle_times = [row.cycle_time_seconds / 3600 for row in cycle_times_query.all() if row.cycle_time_seconds]
+            pr_cycles = cycle_times_query.all()
+            cycle_times = [(pr.merged_date - pr.created_date).total_seconds() / 3600 for pr in pr_cycles]
 
             median_cycle_time = 0
             p90_cycle_time = 0

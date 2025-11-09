@@ -49,6 +49,24 @@ const menuItems = [
     breadcrumb: 'Authors Analytics'
   },
   {
+    key: '/360-dashboard',
+    icon: <DashboardOutlined />,
+    label: <Link to="/360-dashboard">360° Dashboards</Link>,
+    breadcrumb: '360° Dashboards'
+  },
+  {
+    key: '/productivity',
+    icon: <BarChartOutlined />,
+    label: <Link to="/productivity">Staff Productivity</Link>,
+    breadcrumb: 'Staff Productivity'
+  },
+  {
+    key: '/team-comparison',
+    icon: <TeamOutlined />,
+    label: <Link to="/team-comparison">Team Comparison</Link>,
+    breadcrumb: 'Team Comparison'
+  },
+  {
     key: '/commits',
     icon: <CodeOutlined />,
     label: <Link to="/commits">Commits View</Link>,
@@ -71,24 +89,6 @@ const menuItems = [
     icon: <UserOutlined />,
     label: <Link to="/top-approvers">Top Approvers</Link>,
     breadcrumb: 'Top Approvers'
-  },
-  {
-    key: '/productivity',
-    icon: <BarChartOutlined />,
-    label: <Link to="/productivity">Staff Productivity</Link>,
-    breadcrumb: 'Staff Productivity'
-  },
-  {
-    key: '/team-comparison',
-    icon: <TeamOutlined />,
-    label: <Link to="/team-comparison">Team Comparison</Link>,
-    breadcrumb: 'Team Comparison'
-  },
-  {
-    key: '/360-dashboard',
-    icon: <DashboardOutlined />,
-    label: <Link to="/360-dashboard">360° Dashboards</Link>,
-    breadcrumb: '360° Dashboards'
   },
   {
     key: '/mapping',

@@ -346,9 +346,10 @@ const AuthorsAnalyticsEnhanced = () => {
               onChange={setSelectedRank}
               style={{ width: '100%', marginTop: 8 }}
             >
-              <Select.Option value={null}>All</Select.Option>
               {filterOptions.ranks.map(rank => (
-                <Select.Option key={rank} value={rank}>{rank}</Select.Option>
+                <Select.Option key={rank} value={rank}>
+                  {typeof rank === 'object' ? JSON.stringify(rank) : rank}
+                </Select.Option>
               ))}
             </Select>
           </Col>
@@ -362,12 +363,13 @@ const AuthorsAnalyticsEnhanced = () => {
               onChange={setSelectedManager}
               style={{ width: '100%', marginTop: 8 }}
               filterOption={(input, option) =>
-                (option?.value?.toLowerCase() || '').includes(input.toLowerCase())
+                (option?.children?.toLowerCase() || '').includes(input.toLowerCase())
               }
             >
-              <Select.Option value={null}>All</Select.Option>
               {filterOptions.reporting_managers.map(manager => (
-                <Select.Option key={manager} value={manager}>{manager}</Select.Option>
+                <Select.Option key={manager} value={manager}>
+                  {typeof manager === 'object' ? JSON.stringify(manager) : manager}
+                </Select.Option>
               ))}
             </Select>
           </Col>
@@ -380,9 +382,10 @@ const AuthorsAnalyticsEnhanced = () => {
               onChange={setSelectedLocation}
               style={{ width: '100%', marginTop: 8 }}
             >
-              <Select.Option value={null}>All</Select.Option>
               {filterOptions.work_locations.map(location => (
-                <Select.Option key={location} value={location}>{location}</Select.Option>
+                <Select.Option key={location} value={location}>
+                  {typeof location === 'object' ? JSON.stringify(location) : location}
+                </Select.Option>
               ))}
             </Select>
           </Col>
@@ -395,9 +398,10 @@ const AuthorsAnalyticsEnhanced = () => {
               onChange={setSelectedStaffType}
               style={{ width: '100%', marginTop: 8 }}
             >
-              <Select.Option value={null}>All</Select.Option>
               {filterOptions.staff_types.map(type => (
-                <Select.Option key={type} value={type}>{type}</Select.Option>
+                <Select.Option key={type} value={type}>
+                  {typeof type === 'object' ? JSON.stringify(type) : type}
+                </Select.Option>
               ))}
             </Select>
           </Col>

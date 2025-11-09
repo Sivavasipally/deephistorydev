@@ -348,10 +348,11 @@ const Dashboard360 = () => {
                       customContent: (title, data) => {
                         if (!data || data.length === 0) return null
                         const item = data[0]
+                        const value = item.value !== undefined ? item.value : 0
                         return `
                           <div style="padding: 12px; background: white; border: 1px solid #ddd; border-radius: 4px;">
                             <div style="font-weight: bold; margin-bottom: 8px;">📅 ${title}</div>
-                            <div>Merge Rate: <strong style="color: #52c41a;">${item.value.toFixed(1)}%</strong></div>
+                            <div>Merge Rate: <strong style="color: #52c41a;">${value.toFixed(1)}%</strong></div>
                           </div>
                         `
                       }

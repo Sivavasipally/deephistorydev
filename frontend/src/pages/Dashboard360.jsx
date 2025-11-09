@@ -310,7 +310,7 @@ const Dashboard360 = () => {
               {
                 key: '2',
                 label: 'Merge Rate Trend',
-                children: (
+                children: mergeRateData.length > 0 ? (
                   <Line
                     data={mergeRateData}
                     xField="period"
@@ -357,6 +357,10 @@ const Dashboard360 = () => {
                       }
                     }}
                   />
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
+                    <Text type="secondary">No PR data available for the selected period</Text>
+                  </div>
                 ),
               },
             ]}
@@ -405,7 +409,6 @@ const Dashboard360 = () => {
             label={{
               position: 'top',
               style: { fill: '#000', fontSize: 12 },
-              formatter: (v) => v.commits,
             }}
             color="#1890ff"
             xAxis={{

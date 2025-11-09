@@ -75,7 +75,9 @@ const AuthorsAnalyticsEnhanced = () => {
   const fetchAuthors = async () => {
     try {
       setLoading(true)
-      const params = {}
+      const params = {
+        limit: 10000 // Fetch all authors instead of default 100
+      }
       if (dateRange[0]) params.start_date = dateRange[0].format('YYYY-MM-DD')
       if (dateRange[1]) params.end_date = dateRange[1].format('YYYY-MM-DD')
       if (selectedRank) params.rank = selectedRank

@@ -40,7 +40,7 @@ class AuthorStats(BaseModel):
 async def get_author_statistics(
     start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
     end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
-    limit: int = Query(100, ge=1, le=1000, description="Maximum number of authors to return"),
+    limit: int = Query(100, ge=1, le=50000, description="Maximum number of authors to return"),
     rank: Optional[str] = Query(None, description="Filter by rank"),
     reporting_manager: Optional[str] = Query(None, description="Filter by reporting manager"),
     work_location: Optional[str] = Query(None, description="Filter by work location"),

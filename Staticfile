@@ -1,0 +1,2 @@
+root: frontend/dist
+location_include: includes/*.conf

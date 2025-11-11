@@ -1,0 +1,12 @@
+---
+applications:
+  - name: git-history-frontend
+    memory: 256M
+    instances: 1
+    buildpacks:
+      - staticfile_buildpack
+    path: frontend/dist
+    env:
+      FORCE_HTTPS: "true"
+    routes:
+      - route: git-history.apps.pcfone.io

@@ -190,3 +190,7 @@ repositories/
 /.idea
 /frontend/node_modules
 frontend/package-lock.json
+
+# PCF deployment credentials
+credentials.json
+.cfconfig

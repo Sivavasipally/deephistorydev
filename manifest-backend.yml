@@ -1,0 +1,19 @@
+---
+applications:
+  - name: git-history-backend
+    memory: 1G
+    instances: 1
+    buildpacks:
+      - python_buildpack
+    command: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    health-check-type: http
+    health-check-http-endpoint: /api/overview/stats
+    timeout: 180
+    env:
+      PYTHONUNBUFFERED: "true"
+      PYTHONPATH: "."
+    services:
+      - git-history-config
+      - git-history-db
+    routes:
+      - route: git-history-backend.apps.pcfone.io

@@ -1,0 +1,72 @@
+# CF Ignore - Files to exclude from PCF deployment
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Frontend development files
+frontend/node_modules/
+frontend/src/
+frontend/public/
+frontend/.env
+frontend/.env.local
+frontend/.env.development
+frontend/package.json
+frontend/package-lock.json
+frontend/vite.config.js
+frontend/index.html
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data files (don't deploy to PCF)
+*.db
+*.sqlite
+*.sqlite3
+repositories/
+*.csv
+*.xlsx
+
+# Documentation
+*.md
+!README.md
+
+# Scripts
+*.sh
+*.bat
+deploy-pcf.sh
+deploy-pcf.bat
+
+# Test files
+test_*.py
+*_test.py
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.example
+.env.local
+.env.development

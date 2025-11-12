@@ -39,7 +39,7 @@ const TeamComparison = () => {
   // Filters
   const [staffList, setStaffList] = useState([])
   const [selectedStaff, setSelectedStaff] = useState([])
-  const [granularity, setGranularity] = useState('monthly')
+  const [granularity, setGranularity] = useState('quarterly')
   const [dateRange, setDateRange] = useState([
     dayjs().startOf('year'),
     dayjs()
@@ -226,7 +226,7 @@ const TeamComparison = () => {
   const handleClearFilters = () => {
     setSelectedStaff([])
     setDateRange([null, null])
-    setGranularity('monthly')
+    setGranularity('quarterly')
     setFilterLocation(null)
     setFilterRank(null)
     setFilterStaffType(null)
@@ -392,7 +392,7 @@ const TeamComparison = () => {
   ]
 
   const hasActiveFilters = filterLocation || filterRank || filterStaffType || filterManager ||
-    filterSubPlatform || filterStaffGrouping || selectedStaff.length > 0 || dateRange[0] || dateRange[1] || granularity !== 'monthly'
+    filterSubPlatform || filterStaffGrouping || selectedStaff.length > 0 || dateRange[0] || dateRange[1] || granularity !== 'quarterly'
 
   return (
     <div>

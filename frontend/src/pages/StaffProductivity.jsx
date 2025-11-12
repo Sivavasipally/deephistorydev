@@ -43,7 +43,7 @@ const StaffProductivity = () => {
   // Filters
   const [staffList, setStaffList] = useState([])
   const [selectedStaff, setSelectedStaff] = useState(null)
-  const [granularity, setGranularity] = useState('monthly')
+  const [granularity, setGranularity] = useState('quarterly')
   const [dateRange, setDateRange] = useState([
     dayjs().startOf('year'),
     dayjs()
@@ -103,7 +103,7 @@ const StaffProductivity = () => {
 
   const handleClearFilters = () => {
     setDateRange([null, null])
-    setGranularity('monthly')
+    setGranularity('quarterly')
   }
 
   const handleExportCSV = (dataType) => {
@@ -265,7 +265,7 @@ const StaffProductivity = () => {
     )
   }
 
-  const hasActiveFilters = selectedStaff || dateRange[0] || dateRange[1] || granularity !== 'monthly'
+  const hasActiveFilters = selectedStaff || dateRange[0] || dateRange[1] || granularity !== 'quarterly'
 
   return (
     <div>

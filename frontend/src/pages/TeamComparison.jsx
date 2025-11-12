@@ -1026,15 +1026,40 @@ const TeamComparison = () => {
                   key: '1',
                   label: 'Combined Metrics View',
                   children: (
-                    <Line
+                    <Column
                       data={combinedMetricsData}
+                      isGroup
                       xField="period"
                       yField="value"
                       seriesField="metric"
-                      smooth
-                      point={{ size: 4 }}
-                      legend={{ position: 'top-right' }}
                       color={['#1890ff', '#52c41a', '#faad14']}
+                      columnStyle={{
+                        radius: [8, 8, 0, 0],
+                      }}
+                      legend={{
+                        position: 'top-right',
+                        itemName: {
+                          formatter: (text) => {
+                            const icons = {
+                              'Commits': '📝 Commits',
+                              'Lines Changed': '📊 Lines Changed',
+                              'Files Changed': '📁 Files Changed'
+                            }
+                            return icons[text] || text
+                          }
+                        }
+                      }}
+                      label={{
+                        position: 'top',
+                        style: {
+                          fill: '#000',
+                          opacity: 0.8,
+                          fontSize: 11,
+                        },
+                        formatter: (datum) => {
+                          return datum.value.toLocaleString()
+                        }
+                      }}
                       xAxis={{
                         title: { text: 'Time Period', style: { fontSize: 14, fontWeight: 'bold' } },
                         label: { autoRotate: true, autoHide: true, style: { fontSize: 12 } }

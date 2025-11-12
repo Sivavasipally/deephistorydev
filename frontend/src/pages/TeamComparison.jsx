@@ -1026,6 +1026,7 @@ const TeamComparison = () => {
                   key: '1',
                   label: 'Combined Metrics View',
                   children: (
+                    <>
                     <Column
                       data={combinedMetricsData}
                       isGroup
@@ -1038,7 +1039,12 @@ const TeamComparison = () => {
                       }}
                       legend={{
                         position: 'top-right',
+                        layout: 'horizontal',
                         itemName: {
+                          style: {
+                            fontSize: 13,
+                            fontWeight: 500,
+                          },
                           formatter: (text) => {
                             const icons = {
                               'Commits': '📝 Commits',
@@ -1046,6 +1052,20 @@ const TeamComparison = () => {
                               'Files Changed': '📁 Files Changed'
                             }
                             return icons[text] || text
+                          }
+                        },
+                        marker: {
+                          symbol: 'square',
+                          style: (item) => {
+                            const colors = {
+                              'Commits': '#1890ff',
+                              'Lines Changed': '#52c41a',
+                              'Files Changed': '#faad14'
+                            }
+                            return {
+                              fill: colors[item] || '#1890ff',
+                              r: 6,
+                            }
                           }
                         }
                       }}
@@ -1126,6 +1146,20 @@ const TeamComparison = () => {
                         }
                       }}
                     />
+                    <Alert
+                      message="Chart Legend"
+                      description={
+                        <Space size="large">
+                          <Text><span style={{ display: 'inline-block', width: 12, height: 12, background: '#1890ff', borderRadius: 2, marginRight: 8 }}></span>📝 <strong>Commits</strong> - Total number of code commits</Text>
+                          <Text><span style={{ display: 'inline-block', width: 12, height: 12, background: '#52c41a', borderRadius: 2, marginRight: 8 }}></span>📊 <strong>Lines Changed</strong> - Total lines added + deleted</Text>
+                          <Text><span style={{ display: 'inline-block', width: 12, height: 12, background: '#faad14', borderRadius: 2, marginRight: 8 }}></span>📁 <strong>Files Changed</strong> - Number of files modified</Text>
+                        </Space>
+                      }
+                      type="info"
+                      showIcon
+                      style={{ marginTop: 16 }}
+                    />
+                    </>
                   ),
                 },
                 {

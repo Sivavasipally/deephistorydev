@@ -42,19 +42,19 @@ const Dashboard360 = () => {
   const [staffList, setStaffList] = useState([])
   const [repositoryList, setRepositoryList] = useState([])
   const [selectedStaff, setSelectedStaff] = useState(null)
-  const [selectedRepo, setSelectedRepo] = useState(null)
-  const [granularity, setGranularity] = useState('monthly')
+  const [selectedRepo, setSelectedRepo] = useState('all')
+  const [granularity, setGranularity] = useState('quarterly')
   const [dateRange, setDateRange] = useState([
     dayjs().startOf('year'),
     dayjs()
   ])
 
   // Advanced Filters
-  const [filterRank, setFilterRank] = useState(null)
-  const [filterLocation, setFilterLocation] = useState(null)
-  const [filterStaffType, setFilterStaffType] = useState(null)
-  const [filterManager, setFilterManager] = useState(null)
-  const [filterSubPlatform, setFilterSubPlatform] = useState(null)
+  const [filterRank, setFilterRank] = useState('Senior Associate')
+  const [filterLocation, setFilterLocation] = useState('all')
+  const [filterStaffType, setFilterStaffType] = useState('all')
+  const [filterManager, setFilterManager] = useState('all')
+  const [filterSubPlatform, setFilterSubPlatform] = useState('all')
 
   // Data states
   const [developerData, setDeveloperData] = useState(null)
@@ -66,22 +66,41 @@ const Dashboard360 = () => {
   const [error, setError] = useState(null)
 
   // Active dashboard type
-  const [dashboardType, setDashboardType] = useState('developer')
+  const [dashboardType, setDashboardType] = useState('org')
 
-  // Filter options
-  const rankOptions = [...new Set(staffList.map(s => s.rank).filter(Boolean))].map(rank => ({ label: rank, value: rank }))
-  const locationOptions = [...new Set(staffList.map(s => s.work_location).filter(Boolean))].map(loc => ({ label: loc, value: loc }))
-  const staffTypeOptions = [...new Set(staffList.map(s => s.staff_type).filter(Boolean))].map(type => ({ label: type, value: type }))
-  const managerOptions = [...new Set(staffList.map(s => s.reporting_manager_name).filter(Boolean))].map(mgr => ({ label: mgr, value: mgr }))
-  const subPlatformOptions = [...new Set(staffList.map(s => s.sub_platform).filter(Boolean))].map(sp => ({ label: sp, value: sp }))
+  // Filter options with "All" option
+  const rankOptions = [
+    { label: 'All', value: 'all' },
+    ...[...new Set(staffList.map(s => s.rank).filter(Boolean))].map(rank => ({ label: rank, value: rank }))
+  ]
+  const locationOptions = [
+    { label: 'All', value: 'all' },
+    ...[...new Set(staffList.map(s => s.work_location).filter(Boolean))].map(loc => ({ label: loc, value: loc }))
+  ]
+  const staffTypeOptions = [
+    { label: 'All', value: 'all' },
+    ...[...new Set(staffList.map(s => s.staff_type).filter(Boolean))].map(type => ({ label: type, value: type }))
+  ]
+  const managerOptions = [
+    { label: 'All', value: 'all' },
+    ...[...new Set(staffList.map(s => s.reporting_manager_name).filter(Boolean))].map(mgr => ({ label: mgr, value: mgr }))
+  ]
+  const subPlatformOptions = [
+    { label: 'All', value: 'all' },
+    ...[...new Set(staffList.map(s => s.sub_platform).filter(Boolean))].map(sp => ({ label: sp, value: sp }))
+  ]
+  const repositoryOptions = [
+    { label: 'All', value: 'all' },
+    ...repositoryList.map(repo => ({ label: repo.name || repo.repository_id, value: repo.repository_id }))
+  ]
 
   // Filtered staff list
   const filteredStaffList = staffList.filter(staff => {
-    if (filterRank && staff.rank !== filterRank) return false
-    if (filterLocation && staff.work_location !== filterLocation) return false
-    if (filterStaffType && staff.staff_type !== filterStaffType) return false
-    if (filterManager && staff.reporting_manager_name !== filterManager) return false
-    if (filterSubPlatform && staff.sub_platform !== filterSubPlatform) return false
+    if (filterRank && filterRank !== 'all' && staff.rank !== filterRank) return false
+    if (filterLocation && filterLocation !== 'all' && staff.work_location !== filterLocation) return false
+    if (filterStaffType && filterStaffType !== 'all' && staff.staff_type !== filterStaffType) return false
+    if (filterManager && filterManager !== 'all' && staff.reporting_manager_name !== filterManager) return false
+    if (filterSubPlatform && filterSubPlatform !== 'all' && staff.sub_platform !== filterSubPlatform) return false
     return true
   })
 
@@ -89,6 +108,13 @@ const Dashboard360 = () => {
     fetchStaffList()
     fetchRepositoryList()
   }, [])
+
+  // Auto-fetch data on load for org dashboard with Senior Associate filter
+  useEffect(() => {
+    if (staffList.length > 0 && repositoryList.length > 0 && dashboardType === 'org') {
+      fetchDashboardData()
+    }
+  }, [staffList, repositoryList])
 
   const fetchStaffList = async () => {
     try {
@@ -122,12 +148,12 @@ const Dashboard360 = () => {
         granularity,
         start_date: dateRange[0] ? dayjs(dateRange[0]).format('YYYY-MM-DD') : undefined,
         end_date: dateRange[1] ? dayjs(dateRange[1]).format('YYYY-MM-DD') : undefined,
-        rank: filterRank,
-        location: filterLocation,
-        staff_type: filterStaffType,
-        manager: filterManager,
-        sub_platform: filterSubPlatform,
-        repository_id: selectedRepo,
+        rank: filterRank && filterRank !== 'all' ? filterRank : undefined,
+        location: filterLocation && filterLocation !== 'all' ? filterLocation : undefined,
+        staff_type: filterStaffType && filterStaffType !== 'all' ? filterStaffType : undefined,
+        manager: filterManager && filterManager !== 'all' ? filterManager : undefined,
+        sub_platform: filterSubPlatform && filterSubPlatform !== 'all' ? filterSubPlatform : undefined,
+        repository_id: selectedRepo && selectedRepo !== 'all' ? selectedRepo : undefined,
       }
 
       if (dashboardType === 'developer') {
@@ -165,14 +191,14 @@ const Dashboard360 = () => {
 
   const handleClearFilters = () => {
     setSelectedStaff(null)
-    setSelectedRepo(null)
-    setDateRange([null, null])
-    setGranularity('monthly')
-    setFilterRank(null)
-    setFilterLocation(null)
-    setFilterStaffType(null)
-    setFilterManager(null)
-    setFilterSubPlatform(null)
+    setSelectedRepo('all')
+    setDateRange([dayjs().startOf('year'), dayjs()])
+    setGranularity('quarterly')
+    setFilterRank('Senior Associate')
+    setFilterLocation('all')
+    setFilterStaffType('all')
+    setFilterManager('all')
+    setFilterSubPlatform('all')
     setDeveloperData(null)
     setRepoData(null)
     setOrgData(null)
@@ -1261,9 +1287,8 @@ const Dashboard360 = () => {
           {/* Repository Selection (for Repo/Team 360) */}
           {dashboardType === 'repo' && (
             <Col xs={24} md={8}>
-              <Text strong>Filter by Repository (Optional):</Text>
+              <Text strong>Filter by Repository:</Text>
               <Select
-                allowClear
                 showSearch
                 placeholder="Select a repository..."
                 style={{ width: '100%', marginTop: 8 }}
@@ -1272,10 +1297,7 @@ const Dashboard360 = () => {
                 filterOption={(input, option) =>
                   (option?.label?.toLowerCase() || '').includes(input.toLowerCase())
                 }
-                options={repositoryList.map(repo => ({
-                  value: repo.id,
-                  label: repo.full_name,
-                }))}
+                options={repositoryOptions}
               />
             </Col>
           )}

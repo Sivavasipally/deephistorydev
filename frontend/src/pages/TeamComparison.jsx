@@ -308,6 +308,15 @@ const TeamComparison = () => {
     }))
   )
 
+  // Prepare combined metrics data for multi-line chart
+  const combinedMetricsData = timeSeriesData.flatMap(staff =>
+    staff.commits.flatMap(c => [
+      { period: c.period, name: staff.name, metric: 'Commits', value: c.commits },
+      { period: c.period, name: staff.name, metric: 'Lines Changed', value: c.lines_added + c.lines_deleted },
+      { period: c.period, name: staff.name, metric: 'Files Changed', value: c.files_changed }
+    ])
+  )
+
   const reposTouchedComparisonData = timeSeriesData.flatMap(staff =>
     staff.commits.map(c => ({
       period: c.period,
@@ -697,7 +706,8 @@ const TeamComparison = () => {
             </Col>
           </Row>
 
-          {/* Productivity Quadrant Scatter */}
+          {/* Productivity Quadrant Scatter - Hidden */}
+          {false && (
           <Card title="📊 Productivity Quadrant - Quality vs Quantity" style={{ marginBottom: 24 }}>
             {teamData.length > 0 && quadrantData.length > 0 ? (
               <Scatter
@@ -880,10 +890,19 @@ const TeamComparison = () => {
               style={{ marginTop: 16 }}
             />
           </Card>
+          )}
 
           {/* Comparative Radar - Top 5 */}
           {top5.length > 0 && (
-            <Card title="🧬 Top 5 Developer DNA Comparison" style={{ marginBottom: 24 }}>
+            <Card
+              title="🧬 Top 5 Developer DNA Comparison"
+              style={{ marginBottom: 24 }}
+              extra={
+                <Text type="secondary" style={{ fontSize: 13 }}>
+                  Multi-dimensional skill profile comparing top performers across 6 key metrics
+                </Text>
+              }
+            >
               <Radar
                 data={radarData}
                 xField="metric"
@@ -1005,6 +1024,87 @@ const TeamComparison = () => {
               items={[
                 {
                   key: '1',
+                  label: 'Combined Metrics View',
+                  children: (
+                    <Line
+                      data={combinedMetricsData}
+                      xField="period"
+                      yField="value"
+                      seriesField="metric"
+                      smooth
+                      point={{ size: 4 }}
+                      legend={{ position: 'top-right' }}
+                      color={['#1890ff', '#52c41a', '#faad14']}
+                      xAxis={{
+                        title: { text: 'Time Period', style: { fontSize: 14, fontWeight: 'bold' } },
+                        label: { autoRotate: true, autoHide: true, style: { fontSize: 12 } }
+                      }}
+                      yAxis={{
+                        title: { text: 'Metric Value', style: { fontSize: 14, fontWeight: 'bold' } },
+                        label: {
+                          style: { fontSize: 12 },
+                          formatter: (v) => v.toLocaleString()
+                        }
+                      }}
+                      tooltip={{
+                        shared: true,
+                        showTitle: true,
+                        customContent: (title, data) => {
+                          if (!data || data.length === 0) return null
+
+                          // Group by metric
+                          const grouped = {}
+                          data.forEach(item => {
+                            const metric = item.data.metric
+                            if (!grouped[metric]) grouped[metric] = []
+                            grouped[metric].push(item)
+                          })
+
+                          const metricColors = {
+                            'Commits': '#1890ff',
+                            'Lines Changed': '#52c41a',
+                            'Files Changed': '#faad14'
+                          }
+
+                          const metricIcons = {
+                            'Commits': '📝',
+                            'Lines Changed': '📊',
+                            'Files Changed': '📁'
+                          }
+
+                          return `
+                            <div style="padding: 12px; background: white; border: 1px solid #ddd; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 400px;">
+                              <div style="font-weight: bold; font-size: 14px; margin-bottom: 8px; color: #1890ff;">📅 ${title}</div>
+                              ${Object.entries(grouped).map(([metric, items]) => {
+                                const total = items.reduce((sum, item) => sum + item.value, 0)
+                                const color = metricColors[metric] || '#666'
+                                const icon = metricIcons[metric] || '📈'
+                                return `
+                                  <div style="margin-top: 10px; padding: 8px; background: ${color}10; border-left: 3px solid ${color}; border-radius: 4px;">
+                                    <div style="font-weight: bold; margin-bottom: 4px; color: ${color};">
+                                      ${icon} ${metric}
+                                    </div>
+                                    <div style="font-size: 11px; color: #666; margin-bottom: 4px;">
+                                      Total: <strong>${total.toLocaleString()}</strong>
+                                    </div>
+                                    ${items.map(item => `
+                                      <div style="margin: 4px 0; display: flex; align-items: center; justify-content: space-between;">
+                                        <span style="font-size: 12px;">${item.name}</span>
+                                        <span style="font-weight: bold; color: ${color};">${item.value.toLocaleString()}</span>
+                                      </div>
+                                    `).join('')}
+                                  </div>
+                                `
+                              }).join('')}
+                            </div>
+                          `
+                        }
+                      }}
+                    />
+                  ),
+                },
+                {
+                  key: '2',
                   label: 'Commits Over Time',
                   children: (
                     <Line
@@ -1052,7 +1152,7 @@ const TeamComparison = () => {
                   ),
                 },
                 {
-                  key: '2',
+                  key: '3',
                   label: 'Lines Changed',
                   children: (
                     <Column
@@ -1112,7 +1212,7 @@ const TeamComparison = () => {
                   ),
                 },
                 {
-                  key: '3',
+                  key: '4',
                   label: 'Files Changed',
                   children: (
                     <Line
@@ -1160,7 +1260,7 @@ const TeamComparison = () => {
                   ),
                 },
                 {
-                  key: '4',
+                  key: '5',
                   label: 'Repos Touched',
                   children: (
                     <Column

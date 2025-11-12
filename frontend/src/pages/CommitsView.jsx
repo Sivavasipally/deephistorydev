@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Card, Table, Input, Select, DatePicker, Button, Space, message, Tag, Typography, Collapse } from 'antd'
+import { Card, Table, Input, Select, DatePicker, Button, Space, message, Tag, Typography, Collapse, Row, Col } from 'antd'
 import { SearchOutlined, DownloadOutlined, DownOutlined, FilterOutlined } from '@ant-design/icons'
 import { commitsAPI } from '../services/api'
 import dayjs from 'dayjs'
@@ -118,6 +118,32 @@ const CommitsView = () => {
           </Space>
         </Collapse.Panel>
       </Collapse>
+
+      {/* Data Explanation Header */}
+      {!loading && (
+        <Card style={{ marginBottom: 24, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', border: 'none' }}>
+          <Row align="middle" gutter={16}>
+            <Col flex="auto">
+              <Space direction="vertical" size={4}>
+                <Text strong style={{ color: '#fff', fontSize: 16 }}>
+                  📝 Commits History Dashboard
+                </Text>
+                <Text style={{ color: '#f0f0f0', fontSize: 13 }}>
+                  {filters.author && `Showing commits by author: ${filters.author}`}
+                  {!filters.author && 'Comprehensive commit history across all repositories showing code changes, contributors, and development activity'}
+                </Text>
+              </Space>
+            </Col>
+            <Col>
+              <Space>
+                <Tag color="blue" style={{ fontSize: 12 }}>
+                  {commits.length} Commits
+                </Tag>
+              </Space>
+            </Col>
+          </Row>
+        </Card>
+      )}
 
       <Card>
         <Table

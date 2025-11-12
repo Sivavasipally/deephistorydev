@@ -350,6 +350,43 @@ const PullRequestsView = () => {
         </Collapse.Panel>
       </Collapse>
 
+      {/* Data Explanation Header */}
+      {!loading && (
+        <Card style={{ marginBottom: 24, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', border: 'none' }}>
+          <Row align="middle" gutter={16}>
+            <Col flex="auto">
+              <Space direction="vertical" size={4}>
+                <Text strong style={{ color: '#fff', fontSize: 16 }}>
+                  📋 Pull Requests Analytics Dashboard
+                </Text>
+                <Text style={{ color: '#f0f0f0', fontSize: 13 }}>
+                  {searchAuthor && !searchRepo && !selectedState && `Showing pull requests by author: ${searchAuthor}`}
+                  {searchRepo && !searchAuthor && !selectedState && `Showing pull requests for repository: ${searchRepo}`}
+                  {selectedState && !searchAuthor && !searchRepo && `Showing ${selectedState.toLowerCase()} pull requests`}
+                  {searchAuthor && searchRepo && `Showing pull requests by ${searchAuthor} in ${searchRepo}`}
+                  {searchAuthor && selectedState && !searchRepo && `Showing ${selectedState.toLowerCase()} pull requests by ${searchAuthor}`}
+                  {searchRepo && selectedState && !searchAuthor && `Showing ${selectedState.toLowerCase()} pull requests in ${searchRepo}`}
+                  {searchAuthor && searchRepo && selectedState && `Showing ${selectedState.toLowerCase()} pull requests by ${searchAuthor} in ${searchRepo}`}
+                  {!searchAuthor && !searchRepo && !selectedState && 'Comprehensive view of all pull requests across repositories including merge status, code changes, and approval metrics'}
+                </Text>
+              </Space>
+            </Col>
+            <Col>
+              <Space>
+                {dateRange[0] && dateRange[1] && (
+                  <Tag color="purple" style={{ fontSize: 12 }}>
+                    {dateRange[0].format('MMM D, YYYY')} - {dateRange[1].format('MMM D, YYYY')}
+                  </Tag>
+                )}
+                <Tag color="blue" style={{ fontSize: 12 }}>
+                  {pullRequests.length} PRs
+                </Tag>
+              </Space>
+            </Col>
+          </Row>
+        </Card>
+      )}
+
       {/* Summary Stats */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={12} lg={6}>

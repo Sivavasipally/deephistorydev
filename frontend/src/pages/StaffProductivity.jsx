@@ -369,6 +369,36 @@ const StaffProductivity = () => {
         </Collapse.Panel>
       </Collapse>
 
+      {/* Data Explanation Header */}
+      {!loading && selectedStaff && productivityData && (
+        <Card style={{ marginBottom: 24, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', border: 'none' }}>
+          <Row align="middle" gutter={16}>
+            <Col flex="auto">
+              <Space direction="vertical" size={4}>
+                <Text strong style={{ color: '#fff', fontSize: 16 }}>
+                  📈 Individual Productivity Dashboard - {productivityData.staff.name || selectedStaff.staff_name}
+                </Text>
+                <Text style={{ color: '#f0f0f0', fontSize: 13 }}>
+                  Analyzing {granularity} productivity trends and contribution metrics for {productivityData.staff.rank || selectedStaff.rank || 'staff member'} in {productivityData.staff.work_location || selectedStaff.work_location || 'the organization'}
+                </Text>
+              </Space>
+            </Col>
+            <Col>
+              <Space>
+                <Tag color="blue" style={{ fontSize: 12 }}>
+                  {granularity.charAt(0).toUpperCase() + granularity.slice(1)} View
+                </Tag>
+                {dateRange[0] && dateRange[1] && (
+                  <Tag color="purple" style={{ fontSize: 12 }}>
+                    {dateRange[0].format('MMM D, YYYY')} - {dateRange[1].format('MMM D, YYYY')}
+                  </Tag>
+                )}
+              </Space>
+            </Col>
+          </Row>
+        </Card>
+      )}
+
       {error && <Alert message="Error" description={error} type="error" showIcon style={{ marginBottom: 24 }} />}
 
       {!selectedStaff && !productivityData && (

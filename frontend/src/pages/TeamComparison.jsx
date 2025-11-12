@@ -572,6 +572,45 @@ const TeamComparison = () => {
         </Collapse.Panel>
       </Collapse>
 
+      {/* Data Explanation Header */}
+      {!loading && teamData.length > 0 && (
+        <Card style={{ marginBottom: 24, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', border: 'none' }}>
+          <Row align="middle" gutter={16}>
+            <Col flex="auto">
+              <Space direction="vertical" size={4}>
+                <Text strong style={{ color: '#fff', fontSize: 16 }}>
+                  🏆 Team Performance Comparison Dashboard
+                </Text>
+                <Text style={{ color: '#f0f0f0', fontSize: 13 }}>
+                  {selectedStaff.length > 0 && `Comparing ${selectedStaff.length} team member${selectedStaff.length > 1 ? 's' : ''}`}
+                  {filterRank && ` with rank: ${filterRank}`}
+                  {filterLocation && ` in ${filterLocation}`}
+                  {filterStaffType && ` (${filterStaffType})`}
+                  {filterManager && ` reporting to ${filterManager}`}
+                  {filterSubPlatform && ` working on ${filterSubPlatform}`}
+                  {selectedStaff.length === 0 && 'Select staff members or apply filters to compare team productivity metrics and identify top performers'}
+                </Text>
+              </Space>
+            </Col>
+            <Col>
+              <Space>
+                <Tag color="blue" style={{ fontSize: 12 }}>
+                  {granularity.charAt(0).toUpperCase() + granularity.slice(1)} View
+                </Tag>
+                {dateRange[0] && dateRange[1] && (
+                  <Tag color="purple" style={{ fontSize: 12 }}>
+                    {dateRange[0].format('MMM D, YYYY')} - {dateRange[1].format('MMM D, YYYY')}
+                  </Tag>
+                )}
+                <Tag color="green" style={{ fontSize: 12 }}>
+                  {teamData.length} Members
+                </Tag>
+              </Space>
+            </Col>
+          </Row>
+        </Card>
+      )}
+
       {error && <Alert message="Error" description={error} type="error" showIcon style={{ marginBottom: 24 }} />}
 
       {teamData.length > 0 && (

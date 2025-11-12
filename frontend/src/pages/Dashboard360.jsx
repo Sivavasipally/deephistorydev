@@ -16,6 +16,7 @@ import {
   Alert,
   Tooltip,
   Progress,
+  Collapse,
 } from 'antd'
 import {
   DashboardOutlined,
@@ -26,6 +27,8 @@ import {
   FireOutlined,
   RocketOutlined,
   TrophyOutlined,
+  DownOutlined,
+  FilterOutlined,
 } from '@ant-design/icons'
 import { Line, Column, Area, Heatmap, Scatter, Funnel } from '@ant-design/charts'
 import { authorsAPI, staffAPI, dashboard360API } from '../services/api'
@@ -1147,7 +1150,23 @@ const Dashboard360 = () => {
       </Card>
 
       {/* Filters */}
-      <Card title="🔍 Filters & Configuration" style={{ marginBottom: 24 }}>
+      <Collapse
+        defaultActiveKey={[]}
+        style={{ marginBottom: 24 }}
+        expandIcon={({ isActive }) => <DownOutlined rotate={isActive ? 180 : 0} />}
+      >
+        <Collapse.Panel
+          header={
+            <Space>
+              <FilterOutlined />
+              <span>Filters & Configuration</span>
+              {(filterRank || filterLocation || filterStaffType || filterManager || filterSubPlatform || dateRange[0]) && (
+                <Tag color="blue">Active</Tag>
+              )}
+            </Space>
+          }
+          key="1"
+        >
         <Row gutter={[16, 16]}>
           {/* Advanced Filters */}
           <Col xs={24} md={8}>
@@ -1297,7 +1316,8 @@ const Dashboard360 = () => {
             </Space>
           </Col>
         </Row>
-      </Card>
+        </Collapse.Panel>
+      </Collapse>
 
       {/* Dashboard Content */}
       {loading ? (

@@ -17,6 +17,7 @@ import {
   Tooltip,
   Statistic,
   Tabs,
+  Collapse,
 } from 'antd'
 import {
   ReloadOutlined,
@@ -24,6 +25,8 @@ import {
   TrophyOutlined,
   RiseOutlined,
   FallOutlined,
+  DownOutlined,
+  FilterOutlined,
 } from '@ant-design/icons'
 import { Scatter, Radar, Column, Line } from '@ant-design/charts'
 import { authorsAPI, staffAPI } from '../services/api'
@@ -385,6 +388,9 @@ const TeamComparison = () => {
     },
   ]
 
+  const hasActiveFilters = filterLocation || filterRank || filterStaffType || filterManager ||
+    filterSubPlatform || filterStaffGrouping || selectedStaff.length > 0 || dateRange[0] || dateRange[1] || granularity !== 'monthly'
+
   return (
     <div>
       <div className="page-header">
@@ -410,7 +416,21 @@ const TeamComparison = () => {
       )}
 
       {/* Filters */}
-      <Card title="🔍 Filters & Configuration" style={{ marginBottom: 24 }}>
+      <Collapse
+        defaultActiveKey={[]}
+        style={{ marginBottom: 24 }}
+        expandIcon={({ isActive }) => <DownOutlined rotate={isActive ? 180 : 0} />}
+      >
+        <Collapse.Panel
+          header={
+            <Space>
+              <FilterOutlined />
+              <span>Filters & Configuration</span>
+              {hasActiveFilters && <Tag color="blue">Active</Tag>}
+            </Space>
+          }
+          key="1"
+        >
         <Row gutter={[16, 16]}>
           <Col xs={24} md={8}>
             <Text strong>Location:</Text>
@@ -546,7 +566,8 @@ const TeamComparison = () => {
             </Space>
           </Col>
         </Row>
-      </Card>
+        </Collapse.Panel>
+      </Collapse>
 
       {error && <Alert message="Error" description={error} type="error" showIcon style={{ marginBottom: 24 }} />}
 

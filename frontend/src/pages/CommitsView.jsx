@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { Card, Table, Input, Select, DatePicker, Button, Space, message, Tag, Typography } from 'antd'
-import { SearchOutlined, DownloadOutlined } from '@ant-design/icons'
+import { Card, Table, Input, Select, DatePicker, Button, Space, message, Tag, Typography, Collapse } from 'antd'
+import { SearchOutlined, DownloadOutlined, DownOutlined, FilterOutlined } from '@ant-design/icons'
 import { commitsAPI } from '../services/api'
 import dayjs from 'dayjs'
 
@@ -83,24 +83,41 @@ const CommitsView = () => {
     },
   ]
 
+  const hasActiveFilters = filters.author
+
   return (
     <div>
       <Title level={2}>📝 Commits View</Title>
 
-      <Card style={{ marginBottom: 24 }}>
-        <Space wrap>
-          <Input
-            placeholder="Search author..."
-            prefix={<SearchOutlined />}
-            onChange={(e) => setFilters({ ...filters, author: e.target.value })}
-            style={{ width: 200 }}
-          />
-          <Button type="primary" onClick={fetchCommits} loading={loading}>
-            Search
-          </Button>
-          <Button icon={<DownloadOutlined />}>Download CSV</Button>
-        </Space>
-      </Card>
+      <Collapse
+        defaultActiveKey={[]}
+        style={{ marginBottom: 24 }}
+        expandIcon={({ isActive }) => <DownOutlined rotate={isActive ? 180 : 0} />}
+      >
+        <Collapse.Panel
+          header={
+            <Space>
+              <FilterOutlined />
+              <span>Filters</span>
+              {hasActiveFilters && <Tag color="blue">Active</Tag>}
+            </Space>
+          }
+          key="1"
+        >
+          <Space wrap>
+            <Input
+              placeholder="Search author..."
+              prefix={<SearchOutlined />}
+              onChange={(e) => setFilters({ ...filters, author: e.target.value })}
+              style={{ width: 200 }}
+            />
+            <Button type="primary" onClick={fetchCommits} loading={loading}>
+              Search
+            </Button>
+            <Button icon={<DownloadOutlined />}>Download CSV</Button>
+          </Space>
+        </Collapse.Panel>
+      </Collapse>
 
       <Card>
         <Table

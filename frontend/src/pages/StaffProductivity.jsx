@@ -16,6 +16,7 @@ import {
   Tooltip,
   Tag,
   Tabs,
+  Collapse,
 } from 'antd'
 import {
   DownloadOutlined,
@@ -28,6 +29,8 @@ import {
   CalendarOutlined,
   TrophyOutlined,
   QuestionCircleOutlined,
+  DownOutlined,
+  FilterOutlined,
 } from '@ant-design/icons'
 import { Line, Column, Area, Radar } from '@ant-design/charts'
 import { authorsAPI, staffAPI } from '../services/api'
@@ -259,6 +262,8 @@ const StaffProductivity = () => {
     )
   }
 
+  const hasActiveFilters = selectedStaff || dateRange[0] || dateRange[1] || granularity !== 'monthly'
+
   return (
     <div>
       <div className="page-header">
@@ -271,80 +276,95 @@ const StaffProductivity = () => {
       </div>
 
       {/* Filters */}
-      <Card title="🔍 Filters & Configuration" style={{ marginBottom: 24 }}>
-        <Row gutter={[16, 16]}>
-          <Col xs={24} md={8}>
-            <Text strong>Staff Member: <Text type="danger">*</Text></Text>
-            <Select
-              showSearch
-              placeholder="Select staff member..."
-              style={{ width: '100%', marginTop: 8 }}
-              value={selectedStaff?.bank_id_1}
-              onChange={(value) => {
-                const staff = staffList.find(s => s.bank_id_1 === value)
-                setSelectedStaff(staff)
-              }}
-              filterOption={(input, option) =>
-                (option?.label?.toLowerCase() || '').includes(input.toLowerCase())
-              }
-              options={staffList
-                .filter(s =>
-                  !searchStaff ||
-                  s.staff_name?.toLowerCase().includes(searchStaff.toLowerCase()) ||
-                  s.email_address?.toLowerCase().includes(searchStaff.toLowerCase())
-                )
-                .map(s => ({
-                  value: s.bank_id_1,
-                  label: `${s.staff_name} (${s.email_address})`,
-                }))}
-            />
-            {selectedStaff && (
-              <div style={{ marginTop: 8 }}>
-                <Tag color="blue">Rank: {selectedStaff.rank || 'N/A'}</Tag>
-                <Tag color="cyan">Location: {selectedStaff.work_location || 'N/A'}</Tag>
-              </div>
-            )}
-          </Col>
-
-          <Col xs={24} md={8}>
-            <Text strong>Time Granularity:</Text>
-            <Segmented
-              options={[
-                { label: 'Daily', value: 'daily' },
-                { label: 'Weekly', value: 'weekly' },
-                { label: 'Monthly', value: 'monthly' },
-                { label: 'Quarterly', value: 'quarterly' },
-                { label: 'Yearly', value: 'yearly' },
-              ]}
-              value={granularity}
-              onChange={setGranularity}
-              block
-              style={{ marginTop: 8 }}
-            />
-          </Col>
-
-          <Col xs={24} md={8}>
-            <Text strong>Date Range:</Text>
-            <RangePicker
-              value={dateRange}
-              onChange={setDateRange}
-              style={{ width: '100%', marginTop: 8 }}
-              format="YYYY-MM-DD"
-            />
-          </Col>
-        </Row>
-
-        <Row style={{ marginTop: 16 }}>
-          <Col span={24}>
+      <Collapse
+        defaultActiveKey={[]}
+        style={{ marginBottom: 24 }}
+        expandIcon={({ isActive }) => <DownOutlined rotate={isActive ? 180 : 0} />}
+      >
+        <Collapse.Panel
+          header={
             <Space>
-              <Button onClick={fetchProductivityData} icon={<ReloadOutlined />} type="primary">
-                Refresh
-              </Button>
-              <Button onClick={handleClearFilters}>Clear Filters</Button>
+              <FilterOutlined />
+              <span>Filters & Configuration</span>
+              {hasActiveFilters && <Tag color="blue">Active</Tag>}
             </Space>
-          </Col>
-        </Row>
-      </Card>
+          }
+          key="1"
+        >
+          <Row gutter={[16, 16]}>
+            <Col xs={24} md={8}>
+              <Text strong>Staff Member: <Text type="danger">*</Text></Text>
+              <Select
+                showSearch
+                placeholder="Select staff member..."
+                style={{ width: '100%', marginTop: 8 }}
+                value={selectedStaff?.bank_id_1}
+                onChange={(value) => {
+                  const staff = staffList.find(s => s.bank_id_1 === value)
+                  setSelectedStaff(staff)
+                }}
+                filterOption={(input, option) =>
+                  (option?.label?.toLowerCase() || '').includes(input.toLowerCase())
+                }
+                options={staffList
+                  .filter(s =>
+                    !searchStaff ||
+                    s.staff_name?.toLowerCase().includes(searchStaff.toLowerCase()) ||
+                    s.email_address?.toLowerCase().includes(searchStaff.toLowerCase())
+                  )
+                  .map(s => ({
+                    value: s.bank_id_1,
+                    label: `${s.staff_name} (${s.email_address})`,
+                  }))}
+              />
+              {selectedStaff && (
+                <div style={{ marginTop: 8 }}>
+                  <Tag color="blue">Rank: {selectedStaff.rank || 'N/A'}</Tag>
+                  <Tag color="cyan">Location: {selectedStaff.work_location || 'N/A'}</Tag>
+                </div>
+              )}
+            </Col>
+
+            <Col xs={24} md={8}>
+              <Text strong>Time Granularity:</Text>
+              <Segmented
+                options={[
+                  { label: 'Daily', value: 'daily' },
+                  { label: 'Weekly', value: 'weekly' },
+                  { label: 'Monthly', value: 'monthly' },
+                  { label: 'Quarterly', value: 'quarterly' },
+                  { label: 'Yearly', value: 'yearly' },
+                ]}
+                value={granularity}
+                onChange={setGranularity}
+                block
+                style={{ marginTop: 8 }}
+              />
+            </Col>
+
+            <Col xs={24} md={8}>
+              <Text strong>Date Range:</Text>
+              <RangePicker
+                value={dateRange}
+                onChange={setDateRange}
+                style={{ width: '100%', marginTop: 8 }}
+                format="YYYY-MM-DD"
+              />
+            </Col>
+          </Row>
+
+          <Row style={{ marginTop: 16 }}>
+            <Col span={24}>
+              <Space>
+                <Button onClick={fetchProductivityData} icon={<ReloadOutlined />} type="primary">
+                  Refresh
+                </Button>
+                <Button onClick={handleClearFilters}>Clear Filters</Button>
+              </Space>
+            </Col>
+          </Row>
+        </Collapse.Panel>
+      </Collapse>
 
       {error && <Alert message="Error" description={error} type="error" showIcon style={{ marginBottom: 24 }} />}
 

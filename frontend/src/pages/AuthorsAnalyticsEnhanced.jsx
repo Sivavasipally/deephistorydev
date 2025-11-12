@@ -15,6 +15,7 @@ import {
   message,
   Tag,
   Tooltip,
+  Collapse,
 } from 'antd'
 import {
   DownloadOutlined,
@@ -29,6 +30,7 @@ import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   FilterOutlined,
+  DownOutlined,
 } from '@ant-design/icons'
 import { Column } from '@ant-design/charts'
 import { authorsAPI } from '../services/api'
@@ -326,101 +328,116 @@ const AuthorsAnalyticsEnhanced = () => {
       </div>
 
       {/* Filters */}
-      <Card title={<Space><FilterOutlined /> Filters</Space>} style={{ marginBottom: 24 }}>
-        <Row gutter={[16, 16]}>
-          <Col xs={24} md={12} lg={6}>
-            <Text strong>Date Range:</Text>
-            <RangePicker
-              value={dateRange}
-              onChange={setDateRange}
-              style={{ width: '100%', marginTop: 8 }}
-              format="YYYY-MM-DD"
-            />
-          </Col>
-          <Col xs={24} md={12} lg={6}>
-            <Text strong>Rank:</Text>
-            <Select
-              allowClear
-              placeholder="Select rank"
-              value={selectedRank}
-              onChange={setSelectedRank}
-              style={{ width: '100%', marginTop: 8 }}
-            >
-              {filterOptions.ranks.map(rank => (
-                <Select.Option key={rank} value={rank}>
-                  {typeof rank === 'object' ? JSON.stringify(rank) : rank}
-                </Select.Option>
-              ))}
-            </Select>
-          </Col>
-          <Col xs={24} md={12} lg={6}>
-            <Text strong>Reporting Manager:</Text>
-            <Select
-              allowClear
-              showSearch
-              placeholder="Select manager"
-              value={selectedManager}
-              onChange={setSelectedManager}
-              style={{ width: '100%', marginTop: 8 }}
-              filterOption={(input, option) =>
-                (option?.children?.toLowerCase() || '').includes(input.toLowerCase())
-              }
-            >
-              {filterOptions.reporting_managers.map(manager => (
-                <Select.Option key={manager} value={manager}>
-                  {typeof manager === 'object' ? JSON.stringify(manager) : manager}
-                </Select.Option>
-              ))}
-            </Select>
-          </Col>
-          <Col xs={24} md={12} lg={6}>
-            <Text strong>Work Location:</Text>
-            <Select
-              allowClear
-              placeholder="Select location"
-              value={selectedLocation}
-              onChange={setSelectedLocation}
-              style={{ width: '100%', marginTop: 8 }}
-            >
-              {filterOptions.work_locations.map(location => (
-                <Select.Option key={location} value={location}>
-                  {typeof location === 'object' ? JSON.stringify(location) : location}
-                </Select.Option>
-              ))}
-            </Select>
-          </Col>
-          <Col xs={24} md={12} lg={6}>
-            <Text strong>Staff Type:</Text>
-            <Select
-              allowClear
-              placeholder="Select staff type"
-              value={selectedStaffType}
-              onChange={setSelectedStaffType}
-              style={{ width: '100%', marginTop: 8 }}
-            >
-              {filterOptions.staff_types.map(type => (
-                <Select.Option key={type} value={type}>
-                  {typeof type === 'object' ? JSON.stringify(type) : type}
-                </Select.Option>
-              ))}
-            </Select>
-          </Col>
-          <Col xs={24} md={12} lg={6}>
-            <div style={{ marginTop: 28 }}>
-              <Space>
-                <Button onClick={fetchAuthors} icon={<ReloadOutlined />}>
-                  Refresh
-                </Button>
-                {hasActiveFilters && (
-                  <Button onClick={clearFilters}>
-                    Clear Filters
+      <Collapse
+        defaultActiveKey={[]}
+        style={{ marginBottom: 24 }}
+        expandIcon={({ isActive }) => <DownOutlined rotate={isActive ? 180 : 0} />}
+      >
+        <Collapse.Panel
+          header={
+            <Space>
+              <FilterOutlined />
+              <span>Filters</span>
+              {hasActiveFilters && <Tag color="blue">Active</Tag>}
+            </Space>
+          }
+          key="1"
+        >
+          <Row gutter={[16, 16]}>
+            <Col xs={24} md={12} lg={6}>
+              <Text strong>Date Range:</Text>
+              <RangePicker
+                value={dateRange}
+                onChange={setDateRange}
+                style={{ width: '100%', marginTop: 8 }}
+                format="YYYY-MM-DD"
+              />
+            </Col>
+            <Col xs={24} md={12} lg={6}>
+              <Text strong>Rank:</Text>
+              <Select
+                allowClear
+                placeholder="Select rank"
+                value={selectedRank}
+                onChange={setSelectedRank}
+                style={{ width: '100%', marginTop: 8 }}
+              >
+                {filterOptions.ranks.map(rank => (
+                  <Select.Option key={rank} value={rank}>
+                    {typeof rank === 'object' ? JSON.stringify(rank) : rank}
+                  </Select.Option>
+                ))}
+              </Select>
+            </Col>
+            <Col xs={24} md={12} lg={6}>
+              <Text strong>Reporting Manager:</Text>
+              <Select
+                allowClear
+                showSearch
+                placeholder="Select manager"
+                value={selectedManager}
+                onChange={setSelectedManager}
+                style={{ width: '100%', marginTop: 8 }}
+                filterOption={(input, option) =>
+                  (option?.children?.toLowerCase() || '').includes(input.toLowerCase())
+                }
+              >
+                {filterOptions.reporting_managers.map(manager => (
+                  <Select.Option key={manager} value={manager}>
+                    {typeof manager === 'object' ? JSON.stringify(manager) : manager}
+                  </Select.Option>
+                ))}
+              </Select>
+            </Col>
+            <Col xs={24} md={12} lg={6}>
+              <Text strong>Work Location:</Text>
+              <Select
+                allowClear
+                placeholder="Select location"
+                value={selectedLocation}
+                onChange={setSelectedLocation}
+                style={{ width: '100%', marginTop: 8 }}
+              >
+                {filterOptions.work_locations.map(location => (
+                  <Select.Option key={location} value={location}>
+                    {typeof location === 'object' ? JSON.stringify(location) : location}
+                  </Select.Option>
+                ))}
+              </Select>
+            </Col>
+            <Col xs={24} md={12} lg={6}>
+              <Text strong>Staff Type:</Text>
+              <Select
+                allowClear
+                placeholder="Select staff type"
+                value={selectedStaffType}
+                onChange={setSelectedStaffType}
+                style={{ width: '100%', marginTop: 8 }}
+              >
+                {filterOptions.staff_types.map(type => (
+                  <Select.Option key={type} value={type}>
+                    {typeof type === 'object' ? JSON.stringify(type) : type}
+                  </Select.Option>
+                ))}
+              </Select>
+            </Col>
+            <Col xs={24} md={12} lg={6}>
+              <div style={{ marginTop: 28 }}>
+                <Space>
+                  <Button onClick={fetchAuthors} icon={<ReloadOutlined />}>
+                    Refresh
                   </Button>
-                )}
-              </Space>
-            </div>
-          </Col>
-        </Row>
-      </Card>
+                  {hasActiveFilters && (
+                    <Button onClick={clearFilters}>
+                      Clear Filters
+                    </Button>
+                  )}
+                </Space>
+              </div>
+            </Col>
+          </Row>
+        </Collapse.Panel>
+      </Collapse>
 
       {/* Summary Stats */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>

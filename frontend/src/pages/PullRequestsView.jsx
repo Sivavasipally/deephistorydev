@@ -15,6 +15,7 @@ import {
   Statistic,
   Tooltip,
   Badge,
+  Collapse,
 } from 'antd'
 import {
   SearchOutlined,
@@ -25,6 +26,8 @@ import {
   ClockCircleOutlined,
   BranchesOutlined,
   FileTextOutlined,
+  DownOutlined,
+  FilterOutlined,
 } from '@ant-design/icons'
 import { pullRequestsAPI } from '../services/api'
 import dayjs from 'dayjs'
@@ -257,6 +260,8 @@ const PullRequestsView = () => {
   const openPRs = pullRequests.filter((pr) => pr.state === 'OPEN').length
   const totalApprovals = pullRequests.reduce((sum, pr) => sum + pr.approvals_count, 0)
 
+  const hasActiveFilters = searchAuthor || searchRepo || selectedState || dateRange[0] || dateRange[1]
+
   return (
     <div>
       <Title level={2}>
@@ -264,68 +269,83 @@ const PullRequestsView = () => {
       </Title>
 
       {/* Filters */}
-      <Card style={{ marginBottom: 24 }}>
-        <Space direction="vertical" style={{ width: '100%' }} size="middle">
-          <Row gutter={[16, 16]}>
-            <Col xs={24} sm={12} md={8} lg={6}>
-              <Input
-                placeholder="Search author..."
-                prefix={<SearchOutlined />}
-                value={searchAuthor}
-                onChange={(e) => setSearchAuthor(e.target.value)}
-                onPressEnter={handleSearch}
-              />
-            </Col>
-            <Col xs={24} sm={12} md={8} lg={6}>
-              <Input
-                placeholder="Search repository..."
-                prefix={<SearchOutlined />}
-                value={searchRepo}
-                onChange={(e) => setSearchRepo(e.target.value)}
-                onPressEnter={handleSearch}
-              />
-            </Col>
-            <Col xs={24} sm={12} md={8} lg={6}>
-              <Select
-                style={{ width: '100%' }}
-                placeholder="Filter by state"
-                allowClear
-                value={selectedState}
-                onChange={setSelectedState}
-              >
-                <Select.Option value="MERGED">Merged</Select.Option>
-                <Select.Option value="OPEN">Open</Select.Option>
-                <Select.Option value="DECLINED">Declined</Select.Option>
-              </Select>
-            </Col>
-            <Col xs={24} sm={12} md={8} lg={6}>
-              <RangePicker
-                style={{ width: '100%' }}
-                value={dateRange}
-                onChange={setDateRange}
-                format="YYYY-MM-DD"
-              />
-            </Col>
-          </Row>
-          <Row gutter={[8, 8]}>
-            <Col>
-              <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch} loading={loading}>
-                Search
-              </Button>
-            </Col>
-            <Col>
-              <Button icon={<ReloadOutlined />} onClick={handleReset}>
-                Reset
-              </Button>
-            </Col>
-            <Col>
-              <Button icon={<DownloadOutlined />} onClick={handleDownload}>
-                Download CSV
-              </Button>
-            </Col>
-          </Row>
-        </Space>
-      </Card>
+      <Collapse
+        defaultActiveKey={[]}
+        style={{ marginBottom: 24 }}
+        expandIcon={({ isActive }) => <DownOutlined rotate={isActive ? 180 : 0} />}
+      >
+        <Collapse.Panel
+          header={
+            <Space>
+              <FilterOutlined />
+              <span>Filters</span>
+              {hasActiveFilters && <Tag color="blue">Active</Tag>}
+            </Space>
+          }
+          key="1"
+        >
+          <Space direction="vertical" style={{ width: '100%' }} size="middle">
+            <Row gutter={[16, 16]}>
+              <Col xs={24} sm={12} md={8} lg={6}>
+                <Input
+                  placeholder="Search author..."
+                  prefix={<SearchOutlined />}
+                  value={searchAuthor}
+                  onChange={(e) => setSearchAuthor(e.target.value)}
+                  onPressEnter={handleSearch}
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8} lg={6}>
+                <Input
+                  placeholder="Search repository..."
+                  prefix={<SearchOutlined />}
+                  value={searchRepo}
+                  onChange={(e) => setSearchRepo(e.target.value)}
+                  onPressEnter={handleSearch}
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8} lg={6}>
+                <Select
+                  style={{ width: '100%' }}
+                  placeholder="Filter by state"
+                  allowClear
+                  value={selectedState}
+                  onChange={setSelectedState}
+                >
+                  <Select.Option value="MERGED">Merged</Select.Option>
+                  <Select.Option value="OPEN">Open</Select.Option>
+                  <Select.Option value="DECLINED">Declined</Select.Option>
+                </Select>
+              </Col>
+              <Col xs={24} sm={12} md={8} lg={6}>
+                <RangePicker
+                  style={{ width: '100%' }}
+                  value={dateRange}
+                  onChange={setDateRange}
+                  format="YYYY-MM-DD"
+                />
+              </Col>
+            </Row>
+            <Row gutter={[8, 8]}>
+              <Col>
+                <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch} loading={loading}>
+                  Search
+                </Button>
+              </Col>
+              <Col>
+                <Button icon={<ReloadOutlined />} onClick={handleReset}>
+                  Reset
+                </Button>
+              </Col>
+              <Col>
+                <Button icon={<DownloadOutlined />} onClick={handleDownload}>
+                  Download CSV
+                </Button>
+              </Col>
+            </Row>
+          </Space>
+        </Collapse.Panel>
+      </Collapse>
 
       {/* Summary Stats */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>

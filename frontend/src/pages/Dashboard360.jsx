@@ -1344,6 +1344,41 @@ const Dashboard360 = () => {
         </Collapse.Panel>
       </Collapse>
 
+      {/* Data Explanation Header */}
+      <Card style={{ marginBottom: 24, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', border: 'none' }}>
+        <Row align="middle">
+          <Col flex="auto">
+            <Space direction="vertical" size={4}>
+              <Text strong style={{ color: '#fff', fontSize: 16 }}>
+                {dashboardType === 'developer' && '👤 Developer 360° Analytics'}
+                {dashboardType === 'repo' && '📦 Repository/Team 360° Analytics'}
+                {dashboardType === 'org' && '🌍 Organization Overview Analytics'}
+              </Text>
+              <Text style={{ color: '#f0f0f0', fontSize: 13 }}>
+                {dashboardType === 'developer' && selectedStaff && `Showing comprehensive productivity metrics and insights for ${selectedStaff.staff_name || 'selected developer'}`}
+                {dashboardType === 'developer' && !selectedStaff && 'Select a staff member to view individual developer analytics including commits, PRs, code reviews, and activity patterns'}
+                {dashboardType === 'repo' && selectedRepo && selectedRepo !== 'all' && `Displaying team collaboration and repository metrics for the selected repository`}
+                {dashboardType === 'repo' && (!selectedRepo || selectedRepo === 'all') && 'Showing aggregated team collaboration metrics across all repositories with contribution patterns and code review analytics'}
+                {dashboardType === 'org' && filterRank && filterRank !== 'all' && `Displaying organization-wide metrics filtered by ${filterRank} rank${filterLocation && filterLocation !== 'all' ? ` in ${filterLocation}` : ''} - includes team productivity, code quality trends, and collaboration insights`}
+                {dashboardType === 'org' && (!filterRank || filterRank === 'all') && 'Organization-wide overview showing team productivity metrics, collaboration trends, and code quality insights across all staff members'}
+              </Text>
+            </Space>
+          </Col>
+          <Col>
+            <Space>
+              <Tag color="blue" style={{ fontSize: 12 }}>
+                {granularity.charAt(0).toUpperCase() + granularity.slice(1)} View
+              </Tag>
+              {dateRange[0] && dateRange[1] && (
+                <Tag color="purple" style={{ fontSize: 12 }}>
+                  {dateRange[0].format('MMM D, YYYY')} - {dateRange[1].format('MMM D, YYYY')}
+                </Tag>
+              )}
+            </Space>
+          </Col>
+        </Row>
+      </Card>
+
       {/* Dashboard Content */}
       {loading ? (
         <Card loading={true} style={{ minHeight: 400 }} />

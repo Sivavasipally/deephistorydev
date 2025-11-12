@@ -44,7 +44,10 @@ const StaffProductivity = () => {
   const [staffList, setStaffList] = useState([])
   const [selectedStaff, setSelectedStaff] = useState(null)
   const [granularity, setGranularity] = useState('monthly')
-  const [dateRange, setDateRange] = useState([null, null])
+  const [dateRange, setDateRange] = useState([
+    dayjs().startOf('year'),
+    dayjs()
+  ])
   const [searchStaff, setSearchStaff] = useState('')
 
   // Data

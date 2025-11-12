@@ -49,7 +49,10 @@ const AuthorsAnalyticsEnhanced = () => {
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [dateRange, setDateRange] = useState([null, null])
+  const [dateRange, setDateRange] = useState([
+    dayjs().startOf('year'),
+    dayjs()
+  ])
 
   // New filters
   const [selectedRank, setSelectedRank] = useState(null)

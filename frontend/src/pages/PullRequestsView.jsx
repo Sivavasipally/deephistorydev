@@ -42,7 +42,10 @@ const PullRequestsView = () => {
   const [searchAuthor, setSearchAuthor] = useState('')
   const [searchRepo, setSearchRepo] = useState('')
   const [selectedState, setSelectedState] = useState(null)
-  const [dateRange, setDateRange] = useState([null, null])
+  const [dateRange, setDateRange] = useState([
+    dayjs().startOf('year'),
+    dayjs()
+  ])
 
   useEffect(() => {
     fetchPullRequests()

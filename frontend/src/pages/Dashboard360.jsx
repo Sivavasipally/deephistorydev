@@ -44,7 +44,10 @@ const Dashboard360 = () => {
   const [selectedStaff, setSelectedStaff] = useState(null)
   const [selectedRepo, setSelectedRepo] = useState(null)
   const [granularity, setGranularity] = useState('monthly')
-  const [dateRange, setDateRange] = useState([null, null])
+  const [dateRange, setDateRange] = useState([
+    dayjs().startOf('year'),
+    dayjs()
+  ])
 
   // Advanced Filters
   const [filterRank, setFilterRank] = useState(null)

@@ -40,7 +40,10 @@ const TeamComparison = () => {
   const [staffList, setStaffList] = useState([])
   const [selectedStaff, setSelectedStaff] = useState([])
   const [granularity, setGranularity] = useState('monthly')
-  const [dateRange, setDateRange] = useState([null, null])
+  const [dateRange, setDateRange] = useState([
+    dayjs().startOf('year'),
+    dayjs()
+  ])
   const [filterLocation, setFilterLocation] = useState(null)
   const [filterRank, setFilterRank] = useState(null)
   const [filterStaffType, setFilterStaffType] = useState(null)

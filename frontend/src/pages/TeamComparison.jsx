@@ -308,12 +308,12 @@ const TeamComparison = () => {
     }))
   )
 
-  // Prepare combined metrics data for multi-line chart
+  // Prepare combined metrics data - restructured for proper grouping
   const combinedMetricsData = timeSeriesData.flatMap(staff =>
     staff.commits.flatMap(c => [
-      { period: c.period, name: staff.name, metric: 'Commits', value: c.commits },
-      { period: c.period, name: staff.name, metric: 'Lines Changed', value: c.lines_added + c.lines_deleted },
-      { period: c.period, name: staff.name, metric: 'Files Changed', value: c.files_changed }
+      { period: c.period, staffName: staff.name, metric: 'Commits', value: c.commits, groupKey: `${c.period}-Commits` },
+      { period: c.period, staffName: staff.name, metric: 'Lines Changed', value: c.lines_added + c.lines_deleted, groupKey: `${c.period}-Lines Changed` },
+      { period: c.period, staffName: staff.name, metric: 'Files Changed', value: c.files_changed, groupKey: `${c.period}-Files Changed` }
     ])
   )
 
@@ -1030,44 +1030,17 @@ const TeamComparison = () => {
                     <Column
                       data={combinedMetricsData}
                       isGroup
-                      xField="period"
+                      xField="groupKey"
                       yField="value"
-                      seriesField="metric"
-                      color={['#1890ff', '#52c41a', '#faad14']}
+                      seriesField="staffName"
+                      dodgePadding={4}
+                      intervalPadding={20}
                       columnStyle={{
                         radius: [8, 8, 0, 0],
                       }}
                       legend={{
                         position: 'top-right',
                         layout: 'horizontal',
-                        itemName: {
-                          style: {
-                            fontSize: 13,
-                            fontWeight: 500,
-                          },
-                          formatter: (text) => {
-                            const icons = {
-                              'Commits': '📝 Commits',
-                              'Lines Changed': '📊 Lines Changed',
-                              'Files Changed': '📁 Files Changed'
-                            }
-                            return icons[text] || text
-                          }
-                        },
-                        marker: {
-                          symbol: 'square',
-                          style: (item) => {
-                            const colors = {
-                              'Commits': '#1890ff',
-                              'Lines Changed': '#52c41a',
-                              'Files Changed': '#faad14'
-                            }
-                            return {
-                              fill: colors[item] || '#1890ff',
-                              r: 6,
-                            }
-                          }
-                        }
                       }}
                       label={{
                         position: 'top',
@@ -1081,8 +1054,27 @@ const TeamComparison = () => {
                         }
                       }}
                       xAxis={{
-                        title: { text: 'Time Period', style: { fontSize: 14, fontWeight: 'bold' } },
-                        label: { autoRotate: true, autoHide: true, style: { fontSize: 12 } }
+                        title: { text: 'Metrics by Period', style: { fontSize: 14, fontWeight: 'bold' } },
+                        label: {
+                          autoRotate: true,
+                          autoHide: true,
+                          style: { fontSize: 11 },
+                          formatter: (text) => {
+                            // Extract period and metric from groupKey
+                            const parts = text.split('-')
+                            if (parts.length >= 2) {
+                              const period = parts[0]
+                              const metric = parts.slice(1).join('-')
+                              const metricIcons = {
+                                'Commits': '📝',
+                                'Lines Changed': '📊',
+                                'Files Changed': '📁'
+                              }
+                              return `${period}\n${metricIcons[metric] || metric}`
+                            }
+                            return text
+                          }
+                        }
                       }}
                       yAxis={{
                         title: { text: 'Metric Value', style: { fontSize: 14, fontWeight: 'bold' } },
@@ -1097,13 +1089,10 @@ const TeamComparison = () => {
                         customContent: (title, data) => {
                           if (!data || data.length === 0) return null
 
-                          // Group by metric
-                          const grouped = {}
-                          data.forEach(item => {
-                            const metric = item.data.metric
-                            if (!grouped[metric]) grouped[metric] = []
-                            grouped[metric].push(item)
-                          })
+                          // Extract period and metric from groupKey
+                          const parts = title.split('-')
+                          const period = parts[0]
+                          const metric = parts.slice(1).join('-')
 
                           const metricColors = {
                             'Commits': '#1890ff',
@@ -1117,30 +1106,27 @@ const TeamComparison = () => {
                             'Files Changed': '📁'
                           }
 
+                          const color = metricColors[metric] || '#1890ff'
+                          const icon = metricIcons[metric] || '📈'
+                          const total = data.reduce((sum, item) => sum + item.value, 0)
+
                           return `
-                            <div style="padding: 12px; background: white; border: 1px solid #ddd; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 400px;">
-                              <div style="font-weight: bold; font-size: 14px; margin-bottom: 8px; color: #1890ff;">📅 ${title}</div>
-                              ${Object.entries(grouped).map(([metric, items]) => {
-                                const total = items.reduce((sum, item) => sum + item.value, 0)
-                                const color = metricColors[metric] || '#666'
-                                const icon = metricIcons[metric] || '📈'
-                                return `
-                                  <div style="margin-top: 10px; padding: 8px; background: ${color}10; border-left: 3px solid ${color}; border-radius: 4px;">
-                                    <div style="font-weight: bold; margin-bottom: 4px; color: ${color};">
-                                      ${icon} ${metric}
-                                    </div>
-                                    <div style="font-size: 11px; color: #666; margin-bottom: 4px;">
-                                      Total: <strong>${total.toLocaleString()}</strong>
-                                    </div>
-                                    ${items.map(item => `
-                                      <div style="margin: 4px 0; display: flex; align-items: center; justify-content: space-between;">
-                                        <span style="font-size: 12px;">${item.name}</span>
-                                        <span style="font-weight: bold; color: ${color};">${item.value.toLocaleString()}</span>
-                                      </div>
-                                    `).join('')}
+                            <div style="padding: 12px; background: white; border: 1px solid #ddd; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 350px;">
+                              <div style="font-weight: bold; font-size: 14px; margin-bottom: 8px; color: ${color};">
+                                ${icon} ${metric} - ${period}
+                              </div>
+                              <div style="font-size: 11px; color: #666; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #f0f0f0;">
+                                Total: <strong style="color: ${color};">${total.toLocaleString()}</strong>
+                              </div>
+                              ${data.map(item => `
+                                <div style="margin: 6px 0; display: flex; align-items: center; justify-content: space-between;">
+                                  <div>
+                                    <span style="display: inline-block; width: 8px; height: 8px; background: ${item.color}; border-radius: 50%; margin-right: 6px;"></span>
+                                    <span style="font-size: 12px; font-weight: 500;">${item.data.staffName}</span>
                                   </div>
-                                `
-                              }).join('')}
+                                  <span style="font-weight: bold; color: ${item.color}; margin-left: 12px;">${item.value.toLocaleString()}</span>
+                                </div>
+                              `).join('')}
                             </div>
                           `
                         }

@@ -9,8 +9,8 @@ from typing import List
 from datetime import datetime
 from pydantic import BaseModel
 
-from config import Config
-from models import get_engine, get_session, AuthorStaffMapping, Commit, StaffDetails
+from cli.config import Config
+from cli.models import get_engine, get_session, AuthorStaffMapping, Commit, StaffDetails
 
 router = APIRouter()
 

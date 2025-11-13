@@ -7,8 +7,8 @@ import plotly.graph_objects as go
 from sqlalchemy import func, desc
 from datetime import datetime
 
-from config import Config
-from models import (
+from .config import Config
+from .models import (
     get_engine, get_session, init_database,
     Repository, Commit, PullRequest, PRApproval, StaffDetails, AuthorStaffMapping
 )

@@ -7,8 +7,8 @@ from fastapi import APIRouter, HTTPException, Query
 from typing import List
 from pydantic import BaseModel
 
-from config import Config
-from models import get_engine, get_session, StaffDetails, AuthorStaffMapping
+from cli.config import Config
+from cli.models import get_engine, get_session, StaffDetails, AuthorStaffMapping
 
 router = APIRouter()
 

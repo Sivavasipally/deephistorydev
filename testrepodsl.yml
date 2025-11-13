@@ -1,0 +1,356 @@
+version: 0.1
+
+app:
+  name: "Bitbucket ChartFlow README Agent"
+  mode: "workflow"
+  icon: "GitBranch"
+  description: >
+    Given a Bitbucket repo URL + credentials, this workflow reads the repo,
+    analyzes the codebase, and generates a detailed README.md with architecture
+    overview, flow charts (Mermaid), setup, usage, and extension guidelines.
+
+workflow:
+  inputs:
+    repo_url:
+      type: string
+      required: true
+      label: "Bitbucket repository URL"
+      default: "https://bitbucket.org/myteam/my-repo"
+    bb_username:
+      type: string
+      required: true
+      label: "Bitbucket username / app-user"
+    bb_password:
+      type: string
+      required: true
+      label: "Bitbucket app password"
+      secret: true
+
+  # Final value returned by the workflow
+  outputs:
+    generated_readme:
+      type: string
+      label: "Generated README.md content"
+      description: "Markdown README generated from Bitbucket repo analysis"
+
+  nodes:
+    # 1) Start node – just exposes inputs
+    - id: start
+      type: start
+      name: "Start"
+      outputs:
+        repo_url: "{{ inputs.repo_url }}"
+        bb_username: "{{ inputs.bb_username }}"
+        bb_password: "{{ inputs.bb_password }}"
+
+    # 2) Code node – normalize Bitbucket REST API endpoints from repo_url
+    - id: build_bitbucket_api_urls
+      type: code
+      name: "Build Bitbucket API URLs"
+      language: "python"
+      inputs:
+        repo_url: "{{ start.repo_url }}"
+      code: |-
+        import re
+        from urllib.parse import urlparse
+
+        repo_url = inputs["repo_url"].strip()
+
+        # Expect URLs like:
+        # https://bitbucket.org/{workspace}/{repo_slug}
+        # or with .git at the end
+        parsed = urlparse(repo_url)
+        path = parsed.path.strip("/")
+
+        # workspace/repo_slug[.git]
+        parts = path.split("/")
+        if len(parts) < 2:
+          raise ValueError("Repo URL must look like https://bitbucket.org/workspace/repo")
+
+        workspace = parts[0]
+        repo_slug = re.sub(r"\.git$", "", parts[1])
+
+        # Bitbucket Cloud v2 API root
+        api_root = f"https://api.bitbucket.org/2.0/repositories/{workspace}/{repo_slug}"
+
+        # We'll use:
+        # - api_root/src: list files + get content
+        # - api_root/commits: basic commit history (for context)
+        outputs = {
+          "workspace": workspace,
+          "repo_slug": repo_slug,
+          "api_root": api_root,
+          "tree_url": f"{api_root}/src",
+          "commits_url": f"{api_root}/commits"
+        }
+      outputs:
+        workspace: "workspace"
+        repo_slug: "repo_slug"
+        api_root: "api_root"
+        tree_url: "tree_url"
+        commits_url: "commits_url"
+
+    # 3) HTTP node – fetch file tree / representative contents
+    #    (You can later extend this into an iterator to fetch more files)
+    - id: fetch_repo_tree
+      type: http_request
+      name: "Fetch Bitbucket Repo Tree"
+      inputs:
+        tree_url: "{{ build_bitbucket_api_urls.tree_url }}"
+        bb_username: "{{ start.bb_username }}"
+        bb_password: "{{ start.bb_password }}"
+      config:
+        method: "GET"
+        url: "{{ tree_url }}"
+        auth:
+          type: "basic"
+          username: "{{ bb_username }}"
+          password: "{{ bb_password }}"
+        query:
+          pagelen: "100"
+        headers:
+          Accept: "application/json"
+      outputs:
+        tree_response: "body"
+
+    # 4) HTTP node – fetch recent commits (for context & activity)
+    - id: fetch_commits
+      type: http_request
+      name: "Fetch Repo Commits"
+      inputs:
+        commits_url: "{{ build_bitbucket_api_urls.commits_url }}"
+        bb_username: "{{ start.bb_username }}"
+        bb_password: "{{ start.bb_password }}"
+      config:
+        method: "GET"
+        url: "{{ commits_url }}"
+        auth:
+          type: "basic"
+          username: "{{ bb_username }}"
+          password: "{{ bb_password }}"
+        query:
+          pagelen: "20"
+        headers:
+          Accept: "application/json"
+      outputs:
+        commits_json: "body"
+
+    # 5) Code node – extract a manageable "code map" from the tree JSON
+    #    (group by folder, select key files by extension, etc.)
+    - id: build_code_map
+      type: code
+      name: "Build Code Map"
+      language: "python"
+      inputs:
+        tree_response: "{{ fetch_repo_tree.tree_response }}"
+      code: |-
+        import json
+        data = inputs["tree_response"]
+        if isinstance(data, str):
+          data = json.loads(data)
+
+        values = data.get("values", [])
+
+        # Basic coarse-grained "code map"
+        #   - group files by top-level folder
+        #   - keep only important extensions (.py, .java, .js, .ts, .tsx, .go, .cs, .rb, .php, .md, .yml, .yaml)
+        important_ext = {".py", ".java", ".js", ".ts", ".tsx", ".go", ".cs", ".rb", ".php", ".kt", ".rs",
+                         ".md", ".yml", ".yaml", ".json", ".xml", ".sh", ".sql"}
+
+        def get_ext(name: str) -> str:
+          idx = name.rfind(".")
+          return name[idx:] if idx >= 0 else ""
+
+        code_map = {}
+        for item in values:
+          if item.get("type") != "file":
+            continue
+          path = item.get("path", "")
+          if not path:
+            continue
+
+          ext = get_ext(path.lower())
+          if ext not in important_ext:
+            continue
+
+          top = path.split("/")[0]
+          code_map.setdefault(top, []).append({
+            "path": path,
+            "extension": ext,
+            "size": item.get("size"),
+          })
+
+        outputs = {
+          "code_map": code_map,
+          "raw_values": values,
+        }
+      outputs:
+        code_map: "code_map"
+        raw_tree_values: "raw_values"
+
+    # 6) Agent / LLM node – deep repo analysis & doc planning
+    - id: analyze_repo_agent
+      type: llm
+      name: "ChartFlow Repo Analyzer Agent"
+      config:
+        model:
+          provider: "openai"          # change to your provider
+          name: "gpt-4o-mini"         # or any strong code-capable model
+        temperature: 0.2
+        max_tokens: 4096
+      inputs:
+        repo_url: "{{ start.repo_url }}"
+        code_map: "{{ build_code_map.code_map }}"
+        raw_tree_values: "{{ build_code_map.raw_tree_values }}"
+        commits_json: "{{ fetch_commits.commits_json }}"
+      prompt: |-
+        You are a **senior software architect and technical writer**.
+        Your job is to analyze a Bitbucket repository and design a *complete, highly structured README*.
+
+        Repository URL:
+        {{ repo_url }}
+
+        =========================
+        FILE TREE (CODE MAP)
+        =========================
+        {{ code_map }}
+
+        =========================
+        RAW TREE VALUES (BITBUCKET API)
+        =========================
+        {{ raw_tree_values }}
+
+        =========================
+        COMMITS JSON (RECENT HISTORY)
+        =========================
+        {{ commits_json }}
+
+        TASKS:
+
+        1. **Understand the project** from the file layout:
+           - Identify the main language(s).
+           - Detect modules / layers (API, service, domain, UI, infra, tests, etc.).
+           - Identify configuration, CI/CD, Docker, Helm, or infrastructure files if any.
+
+        2. **Infer the architecture & flow:**
+           - How requests/commands flow through layers.
+           - How major components interact.
+           - How data flows (DB, queues, external services, etc.).
+           - Any obvious patterns (DDD, hexagonal, microservices, monolith, etc.).
+
+        3. **Design README structure**:
+           Propose the final README sections and a concise bullet outline,
+           for example (modify as appropriate):
+           - Project Overview
+           - Architecture Overview
+           - Tech Stack
+           - Key Modules & Responsibilities
+           - Request / Data Flow (with **Mermaid diagrams**)
+           - Setup & Installation
+           - Configuration
+           - Running Locally
+           - Running in Docker / Kubernetes (if applicable)
+           - Testing & Quality
+           - Logging & Monitoring (if evident)
+           - Contributing & Code Style
+           - Future Enhancements / Extension Points
+
+        4. **Flow / Chart design (very important):**
+           - Describe at least one **Mermaid flowchart** representing the
+             main request or job flow.
+           - Describe at least one **Mermaid component diagram** or sequence diagram
+             showing important services/modules and their interactions.
+
+        OUTPUT FORMAT (JSON):
+        Return a **valid JSON** object with the following keys:
+        {
+          "repo_summary": "...high level description...",
+          "architecture_summary": "...high level architecture...",
+          "sections_outline": [
+            { "title": "Section title", "bullets": ["...", "..."] }
+          ],
+          "mermaid_flows": [
+            { "title": "Flow name", "type": "flowchart|sequence|graph", "code": "```mermaid\n...\n```" }
+          ],
+          "key_highlights": [
+            "... important technical points or design decisions ..."
+          ]
+        }
+
+      outputs:
+        repo_analysis_json: "text"
+
+    # 7) LLM node – Generate final README.md from analysis JSON
+    - id: generate_readme_md
+      type: llm
+      name: "Generate README.md"
+      config:
+        model:
+          provider: "openai"
+          name: "gpt-4o-mini"
+        temperature: 0.3
+        max_tokens: 8192
+      inputs:
+        repo_url: "{{ start.repo_url }}"
+        analysis_json: "{{ analyze_repo_agent.repo_analysis_json }}"
+      prompt: |-
+        You are an expert **developer advocate and technical writer**.
+        Based on the repository analysis below, generate a detailed and polished `README.md`.
+
+        =========================
+        REPO URL
+        =========================
+        {{ repo_url }}
+
+        =========================
+        ANALYSIS JSON
+        =========================
+        {{ analysis_json }}
+
+        REQUIREMENTS:
+
+        - Output **pure Markdown**, suitable for README.md (no extra commentary).
+        - Start with a clear project title and a one-paragraph overview.
+        - Use a clean section hierarchy with headings (##, ###, etc.).
+        - Include:
+          1. **Project Overview**
+          2. **Architecture Overview** (with a concise diagram explanation)
+          3. **Tech Stack**
+          4. **Key Modules & Responsibilities**
+          5. **Request / Data Flow**
+             - Embed at least one Mermaid diagram (flowchart/sequence/graph),
+               using fenced code blocks:
+               ```mermaid
+               ...
+               ```
+          6. **Setup & Installation**
+             - prerequisites
+             - cloning the repo
+             - installing dependencies
+          7. **Configuration**
+             - environment variables / config files
+             - any Bitbucket Pipelines / CI/CD notes if visible
+          8. **Running Locally**
+          9. **Running with Docker / Containers** (if relevant)
+          10. **Testing & Quality**
+          11. **Logging, Monitoring & Observability** (if applicable)
+          12. **Contributing**
+          13. **Future Enhancements / TODO**
+
+        - Convert the analysis_json content into **natural language**:
+          no raw JSON in the final README.
+        - Make assumptions explicit (e.g., "Based on the file names, this module likely handles...").
+        - Keep the tone professional, concise, and friendly.
+      outputs:
+        readme_markdown: "text"
+
+    # 8) End node – map generated README to workflow output
+    - id: end
+      type: end
+      name: "End"
+      inputs:
+        generated_readme: "{{ generate_readme_md.readme_markdown }}"
+
+  # Map internal node output to external workflow output
+  output_mappings:
+    generated_readme: "{{ end.generated_readme }}"

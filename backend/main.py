@@ -11,14 +11,14 @@ from pathlib import Path
 # Add parent directory to path to import shared modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from config import Config
-from models import (
+from cli.config import Config
+from cli.models import (
     get_engine, get_session,
     Repository, Commit, PullRequest, PRApproval, StaffDetails, AuthorStaffMapping
 )
 from backend.routers import (
     overview, commits, pull_requests, authors, staff,
-    tables, sql_executor, mappings, dashboard360
+    tables, sql_executor, mappings, dashboard360, analytics
 )
 
 # Initialize FastAPI app
@@ -54,6 +54,7 @@ app.include_router(tables.router, prefix="/api/tables", tags=["Tables"])
 app.include_router(sql_executor.router, prefix="/api/sql", tags=["SQL Executor"])
 app.include_router(mappings.router, prefix="/api/mappings", tags=["Author-Staff Mapping"])
 app.include_router(dashboard360.router, prefix="/api/dashboard360", tags=["360 Dashboards"])
+app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics"])
 
 # Root endpoint
 @app.get("/")

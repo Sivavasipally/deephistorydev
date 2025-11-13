@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react'
-import { Card, Table, Input, Select, DatePicker, Button, Space, message, Tag, Typography, Collapse, Row, Col } from 'antd'
+import { Card, Table, Input, Select, DatePicker, Button, Space, message, Tag, Typography, Collapse, Row, Col, Tooltip } from 'antd'
 import { SearchOutlined, DownloadOutlined, DownOutlined, FilterOutlined } from '@ant-design/icons'
 import { commitsAPI } from '../services/api'
 import dayjs from 'dayjs'
+import { formatFileTypes } from '../utils/fileTypeUtils'
 
 const { RangePicker } = DatePicker
-const { Title } = Typography
+const { Title, Text } = Typography
 
 const CommitsView = () => {
   const [commits, setCommits] = useState([])
@@ -76,6 +77,46 @@ const CommitsView = () => {
       width: 80,
     },
     {
+      title: 'File Types',
+      dataIndex: 'file_types',
+      key: 'file_types',
+      width: 180,
+      render: (fileTypes) => {
+        if (!fileTypes) return <Tag>-</Tag>
+        const formatted = formatFileTypes(fileTypes)
+        return (
+          <Space wrap size={[0, 4]}>
+            {formatted.slice(0, 3).map((ft, idx) => (
+              <Tag key={idx} color={ft.color} style={{ fontSize: 11 }}>
+                {ft.label}
+              </Tag>
+            ))}
+            {formatted.length > 3 && (
+              <Tooltip title={formatted.slice(3).map(ft => ft.label).join(', ')}>
+                <Tag style={{ fontSize: 11 }}>+{formatted.length - 3}</Tag>
+              </Tooltip>
+            )}
+          </Space>
+        )
+      },
+    },
+    {
+      title: 'Characters',
+      key: 'chars',
+      width: 140,
+      render: (_, record) => (
+        <Tooltip title={`Added: ${record.chars_added || 0} | Deleted: ${record.chars_deleted || 0}`}>
+          <Space size={4}>
+            <Text type="success" style={{ fontSize: 12 }}>+{record.chars_added || 0}</Text>
+            <Text type="secondary">/</Text>
+            <Text type="danger" style={{ fontSize: 12 }}>-{record.chars_deleted || 0}</Text>
+          </Space>
+        </Tooltip>
+      ),
+      sorter: (a, b) =>
+        ((a.chars_added || 0) + (a.chars_deleted || 0)) - ((b.chars_added || 0) + (b.chars_deleted || 0)),
+    },
+    {
       title: 'Repository',
       dataIndex: 'repository',
       key: 'repository',
@@ -83,7 +124,7 @@ const CommitsView = () => {
     },
   ]
 
-  const hasActiveFilters = filters.author
+  const hasActiveFilters = filters.author || filters.file_type
 
   return (
     <div>
@@ -110,6 +151,25 @@ const CommitsView = () => {
               prefix={<SearchOutlined />}
               onChange={(e) => setFilters({ ...filters, author: e.target.value })}
               style={{ width: 200 }}
+            />
+            <Select
+              placeholder="Filter by file type"
+              allowClear
+              style={{ width: 200 }}
+              onChange={(value) => setFilters({ ...filters, file_type: value })}
+              options={[
+                { label: 'All Files', value: null },
+                { label: '📝 Code Files', value: 'code' },
+                { label: '⚙️ Configuration', value: 'config' },
+                { label: '📚 Documentation', value: 'docs' },
+                { label: '☕ Java', value: 'java' },
+                { label: '📜 JavaScript', value: 'js' },
+                { label: '⚛️ React JSX', value: 'jsx' },
+                { label: '🔷 TypeScript', value: 'tsx' },
+                { label: '📋 YAML', value: 'yml' },
+                { label: '📄 XML', value: 'xml' },
+                { label: '🐍 Python', value: 'py' },
+              ]}
             />
             <Button type="primary" onClick={fetchCommits} loading={loading}>
               Search

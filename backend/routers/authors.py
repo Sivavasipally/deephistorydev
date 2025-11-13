@@ -10,8 +10,8 @@ from typing import List, Dict, Optional
 from datetime import datetime
 from pydantic import BaseModel
 
-from config import Config
-from models import get_engine, get_session, Commit, PullRequest, PRApproval, AuthorStaffMapping, StaffDetails
+from cli.config import Config
+from cli.models import get_engine, get_session, Commit, PullRequest, PRApproval, AuthorStaffMapping, StaffDetails
 
 router = APIRouter()
 

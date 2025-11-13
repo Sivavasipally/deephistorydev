@@ -7,8 +7,8 @@ from fastapi import APIRouter, HTTPException
 from sqlalchemy import func
 from typing import Dict
 
-from config import Config
-from models import get_engine, get_session, Repository, Commit, PullRequest, PRApproval
+from cli.config import Config
+from cli.models import get_engine, get_session, Repository, Commit, PullRequest, PRApproval
 
 router = APIRouter()
 

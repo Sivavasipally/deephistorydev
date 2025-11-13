@@ -6,8 +6,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from fastapi import APIRouter, HTTPException, Query
 from typing import Dict, List, Any
 
-from config import Config
-from models import get_engine, get_session, Repository, Commit, PullRequest, PRApproval, StaffDetails, AuthorStaffMapping
+from cli.config import Config
+from cli.models import get_engine, get_session, Repository, Commit, PullRequest, PRApproval, StaffDetails, AuthorStaffMapping
 
 router = APIRouter()
 

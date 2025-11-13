@@ -50,6 +50,9 @@ class Commit(Base):
     lines_added = Column(Integer, default=0, comment='Number of lines of code added in this commit')
     lines_deleted = Column(Integer, default=0, comment='Number of lines of code deleted in this commit')
     files_changed = Column(Integer, default=0, comment='Number of files modified in this commit')
+    chars_added = Column(Integer, default=0, comment='Number of characters added in this commit')
+    chars_deleted = Column(Integer, default=0, comment='Number of characters deleted in this commit')
+    file_types = Column(Text, comment='Comma-separated list of file types changed (e.g., "py,js,md")')
     branch = Column(String(255), default='master', comment='Git branch where this commit was made')
 
     repository = relationship("Repository", back_populates="commits")

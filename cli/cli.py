@@ -7,12 +7,12 @@ from pathlib import Path
 from tqdm import tqdm
 from datetime import datetime
 
-from config import Config
-from models import (
+from .config import Config
+from .models import (
     get_engine, init_database, get_session,
     Repository, Commit, PullRequest, PRApproval, StaffDetails
 )
-from git_analyzer import GitAnalyzer
+from .git_analyzer import GitAnalyzer
 
 
 class GitHistoryCLI:

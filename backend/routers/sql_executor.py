@@ -9,8 +9,8 @@ from typing import List, Dict, Any
 import requests
 import pandas as pd
 
-from config import Config
-from models import get_engine
+from cli.config import Config
+from cli.models import get_engine
 
 router = APIRouter()
 

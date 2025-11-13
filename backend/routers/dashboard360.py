@@ -10,8 +10,8 @@ from pydantic import BaseModel
 from sqlalchemy import func, and_, or_, case, extract, text, literal
 from sqlalchemy.orm import Session
 
-from config import Config
-from models import (
+from cli.config import Config
+from cli.models import (
     get_engine, get_session,
     Repository, Commit, PullRequest, PRApproval, StaffDetails, AuthorStaffMapping
 )

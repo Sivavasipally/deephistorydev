@@ -1,5 +1,4 @@
-Project Key,Slug Name,Clone URL (HTTP)
+project_key,slug_name,clone_url
 EXAMPLE1,hello-world,https://github.com/octocat/Hello-World.git
 EXAMPLE2,spoon-knife,https://github.com/octocat/Spoon-Knife.git
 EXAMPLE3,git-consortium,https://github.com/octocat/git-consortium.git
-EXAMPLE4,deephistorydev,https://github.com/Sivavasipally/deephistorydev.git

@@ -30,9 +30,10 @@ import {
   DownOutlined,
   FilterOutlined,
 } from '@ant-design/icons'
-import { Line, Column, Area, Heatmap, Scatter, Funnel } from '@ant-design/charts'
+import { Line, Column, Area, Heatmap, Scatter, Funnel, Pie } from '@ant-design/charts'
 import { authorsAPI, staffAPI, dashboard360API } from '../services/api'
 import dayjs from 'dayjs'
+import { getCategoryColor } from '../utils/fileTypeUtils'
 
 const { Title, Text } = Typography
 const { RangePicker } = DatePicker
@@ -64,6 +65,10 @@ const Dashboard360 = () => {
   const [commitHeatmapData, setCommitHeatmapData] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+
+  // Analytics data
+  const [characterMetrics, setCharacterMetrics] = useState(null)
+  const [fileTypeDistribution, setFileTypeDistribution] = useState([])
 
   // Active dashboard type
   const [dashboardType, setDashboardType] = useState('org')
@@ -181,11 +186,33 @@ const Dashboard360 = () => {
         const contributors = await dashboard360API.getTeamContributors({ ...params, limit: 50 })
         setOrgData({ summary, timeseries, contributors })
       }
+
+      // Fetch analytics data
+      await fetchAnalyticsData(params)
     } catch (err) {
       setError(err.message)
       message.error(`Failed to fetch dashboard data: ${err.message}`)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchAnalyticsData = async (params) => {
+    try {
+      const [charMetricsRes, distributionRes] = await Promise.all([
+        fetch(`/api/analytics/characters/metrics?${new URLSearchParams(params)}`),
+        fetch(`/api/analytics/file-types/distribution?${new URLSearchParams(params)}`)
+      ])
+
+      if (charMetricsRes.ok && distributionRes.ok) {
+        const charMetrics = await charMetricsRes.json()
+        const distribution = await distributionRes.json()
+
+        setCharacterMetrics(charMetrics)
+        setFileTypeDistribution(distribution)
+      }
+    } catch (err) {
+      console.error('Error fetching analytics:', err)
     }
   }
 
@@ -987,6 +1014,38 @@ const Dashboard360 = () => {
               <Text type="secondary" style={{ fontSize: 12 }}>SLA Target: 96 hrs</Text>
             </Card>
           </Col>
+          {characterMetrics && (
+            <>
+              <Col xs={24} sm={12} md={8}>
+                <Card>
+                  <Statistic
+                    title="💾 Characters Added"
+                    value={characterMetrics.total_chars_added}
+                    valueStyle={{ color: '#52c41a', fontSize: 28 }}
+                  />
+                </Card>
+              </Col>
+              <Col xs={24} sm={12} md={8}>
+                <Card>
+                  <Statistic
+                    title="🗑️ Characters Deleted"
+                    value={characterMetrics.total_chars_deleted}
+                    valueStyle={{ color: '#ff4d4f', fontSize: 28 }}
+                  />
+                </Card>
+              </Col>
+              <Col xs={24} sm={12} md={8}>
+                <Card>
+                  <Statistic
+                    title="📊 Code Churn"
+                    value={characterMetrics.total_churn}
+                    valueStyle={{ color: '#1890ff', fontSize: 28 }}
+                  />
+                  <Text type="secondary" style={{ fontSize: 12 }}>Total character changes</Text>
+                </Card>
+              </Col>
+            </>
+          )}
           <Col xs={24}>
             <Card>
               <Row gutter={16}>

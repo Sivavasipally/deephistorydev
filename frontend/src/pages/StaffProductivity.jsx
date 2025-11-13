@@ -32,9 +32,16 @@ import {
   DownOutlined,
   FilterOutlined,
 } from '@ant-design/icons'
-import { Line, Column, Area, Radar } from '@ant-design/charts'
+import { Line, Column, Area, Radar, Pie } from '@ant-design/charts'
 import { authorsAPI, staffAPI } from '../services/api'
 import dayjs from 'dayjs'
+import {
+  getTopFileTypes,
+  getCodeVsNonCodeRatio,
+  getLanguageExpertise,
+  getCategoryColor,
+  formatFileTypes
+} from '../utils/fileTypeUtils'
 
 const { Title, Text } = Typography
 const { RangePicker } = DatePicker
@@ -54,6 +61,11 @@ const StaffProductivity = () => {
   const [productivityData, setProductivityData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+
+  // Analytics Data
+  const [fileTypeStats, setFileTypeStats] = useState(null)
+  const [characterMetrics, setCharacterMetrics] = useState(null)
+  const [fileTypeDistribution, setFileTypeDistribution] = useState(null)
 
   useEffect(() => {
     fetchStaffList()
@@ -87,11 +99,76 @@ const StaffProductivity = () => {
 
       const data = await authorsAPI.getProductivity(selectedStaff.bank_id_1, params)
       setProductivityData(data)
+
+      // Fetch analytics data
+      await Promise.all([
+        fetchFileTypeAnalytics(),
+        fetchCharacterMetrics(),
+        fetchFileTypeDistribution()
+      ])
     } catch (err) {
       setError(err.message)
       message.error('Failed to fetch productivity data')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchFileTypeAnalytics = async () => {
+    if (!selectedStaff) return
+
+    try {
+      const params = new URLSearchParams({
+        staff_id: selectedStaff.bank_id_1,
+        limit: 10
+      })
+
+      if (dateRange[0]) params.append('start_date', dateRange[0].format('YYYY-MM-DD'))
+      if (dateRange[1]) params.append('end_date', dateRange[1].format('YYYY-MM-DD'))
+
+      const response = await fetch(`/api/analytics/file-types/top?${params}`)
+      const data = await response.json()
+      setFileTypeStats(data)
+    } catch (err) {
+      console.error('Error fetching file type stats:', err)
+    }
+  }
+
+  const fetchCharacterMetrics = async () => {
+    if (!selectedStaff) return
+
+    try {
+      const params = new URLSearchParams({
+        staff_id: selectedStaff.bank_id_1
+      })
+
+      if (dateRange[0]) params.append('start_date', dateRange[0].format('YYYY-MM-DD'))
+      if (dateRange[1]) params.append('end_date', dateRange[1].format('YYYY-MM-DD'))
+
+      const response = await fetch(`/api/analytics/characters/metrics?${params}`)
+      const data = await response.json()
+      setCharacterMetrics(data)
+    } catch (err) {
+      console.error('Error fetching character metrics:', err)
+    }
+  }
+
+  const fetchFileTypeDistribution = async () => {
+    if (!selectedStaff) return
+
+    try {
+      const params = new URLSearchParams({
+        staff_id: selectedStaff.bank_id_1
+      })
+
+      if (dateRange[0]) params.append('start_date', dateRange[0].format('YYYY-MM-DD'))
+      if (dateRange[1]) params.append('end_date', dateRange[1].format('YYYY-MM-DD'))
+
+      const response = await fetch(`/api/analytics/file-types/distribution?${params}`)
+      const data = await response.json()
+      setFileTypeDistribution(data)
+    } catch (err) {
+      console.error('Error fetching file type distribution:', err)
     }
   }
 
@@ -718,63 +795,94 @@ const StaffProductivity = () => {
 
           {/* Summary Statistics */}
           <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-            <Col xs={12} sm={8} md={4}>
+            <Col xs={12} sm={12} md={8} lg={4}>
               <Card>
                 <Statistic
                   title="Total Commits"
                   value={totalCommits}
                   prefix={<CodeOutlined />}
-                  valueStyle={{ color: '#1890ff' }}
+                  valueStyle={{ color: '#1890ff', fontSize: '18px' }}
                 />
               </Card>
             </Col>
-            <Col xs={12} sm={8} md={4}>
+            <Col xs={12} sm={12} md={8} lg={4}>
               <Card>
                 <Statistic
                   title="Lines Added"
                   value={totalLinesAdded}
                   prefix={<FileTextOutlined />}
-                  valueStyle={{ color: '#52c41a' }}
+                  valueStyle={{ color: '#52c41a', fontSize: '18px' }}
                 />
               </Card>
             </Col>
-            <Col xs={12} sm={8} md={4}>
+            <Col xs={12} sm={12} md={8} lg={4}>
               <Card>
                 <Statistic
                   title="Lines Deleted"
                   value={totalLinesDeleted}
                   prefix={<FileTextOutlined />}
-                  valueStyle={{ color: '#ff4d4f' }}
+                  valueStyle={{ color: '#ff4d4f', fontSize: '18px' }}
                 />
               </Card>
             </Col>
-            <Col xs={12} sm={8} md={4}>
+            <Col xs={12} sm={12} md={8} lg={4}>
+              <Card>
+                <Statistic
+                  title="Characters Added"
+                  value={characterMetrics?.total_chars_added || 0}
+                  valueStyle={{ color: '#52c41a', fontSize: '18px' }}
+                  prefix={<CodeOutlined />}
+                  suffix={
+                    <Tooltip title="Total characters added across all commits">
+                      <QuestionCircleOutlined style={{ fontSize: 12 }} />
+                    </Tooltip>
+                  }
+                />
+              </Card>
+            </Col>
+            <Col xs={12} sm={12} md={8} lg={4}>
+              <Card>
+                <Statistic
+                  title="Avg Chars/Commit"
+                  value={characterMetrics?.avg_chars_per_commit || 0}
+                  valueStyle={{ color: '#1890ff', fontSize: '18px' }}
+                  prefix={<FileTextOutlined />}
+                  precision={0}
+                  suffix={
+                    <Tooltip title="Average characters per commit">
+                      <QuestionCircleOutlined style={{ fontSize: 12 }} />
+                    </Tooltip>
+                  }
+                />
+              </Card>
+            </Col>
+            <Col xs={12} sm={12} md={8} lg={4}>
               <Card>
                 <Statistic
                   title="Total PRs"
                   value={totalPRs}
                   prefix={<BranchesOutlined />}
-                  valueStyle={{ color: '#722ed1' }}
+                  valueStyle={{ color: '#722ed1', fontSize: '18px' }}
                 />
               </Card>
             </Col>
-            <Col xs={12} sm={8} md={4}>
+            <Col xs={12} sm={12} md={8} lg={4}>
               <Card>
                 <Statistic
                   title="Repos Touched"
                   value={uniqueRepos}
                   prefix={<BranchesOutlined />}
-                  valueStyle={{ color: '#faad14' }}
+                  valueStyle={{ color: '#faad14', fontSize: '18px' }}
                 />
               </Card>
             </Col>
-            <Col xs={12} sm={8} md={4}>
+            <Col xs={12} sm={12} md={8} lg={4}>
               <Card>
                 <Statistic
-                  title="Avg Commits/{granularity}"
+                  title={`Avg Commits/${granularity}`}
                   value={(totalCommits / (productivityData.timeseries.commits.length || 1)).toFixed(1)}
                   prefix={<BarChartOutlined />}
-                  valueStyle={{ color: '#13c2c2' }}
+                  valueStyle={{ color: '#13c2c2', fontSize: '18px' }}
                 />
               </Card>
             </Col>
@@ -1151,6 +1259,247 @@ const StaffProductivity = () => {
                       }}
                     />
                   </Card>
+                ),
+              },
+              {
+                key: '6',
+                label: '📂 File Types & Languages',
+                children: (
+                  <div>
+                    {/* Code vs Config vs Docs Distribution */}
+                    <Card title="📊 Code vs Configuration vs Documentation" style={{ marginBottom: 24 }}>
+                      {fileTypeDistribution && fileTypeDistribution.length > 0 ? (
+                        <Column
+                          data={fileTypeDistribution}
+                          xField="category"
+                          yField="percentage"
+                          label={{
+                            position: 'top',
+                            formatter: (datum) => `${datum.percentage}%`,
+                          }}
+                          color={({ category }) => getCategoryColor(category)}
+                          columnStyle={{
+                            radius: [8, 8, 0, 0],
+                          }}
+                          tooltip={{
+                            customContent: (title, items) => {
+                              if (!items || items.length === 0) return null
+                              const data = items[0]?.data
+                              return (
+                                <div style={{ padding: '12px' }}>
+                                  <div style={{ fontWeight: 'bold', marginBottom: 8 }}>{data?.category}</div>
+                                  <div>Commits: {data?.commits}</div>
+                                  <div>Percentage: {data?.percentage}%</div>
+                                  <div>Chars Added: {data?.chars_added?.toLocaleString()}</div>
+                                  <div>Chars Deleted: {data?.chars_deleted?.toLocaleString()}</div>
+                                </div>
+                              )
+                            }
+                          }}
+                        />
+                      ) : (
+                        <Alert message="No file type distribution data available" type="info" />
+                      )}
+                    </Card>
+
+                    <Row gutter={[16, 16]}>
+                      {/* Top File Types Pie Chart */}
+                      <Col xs={24} lg={12}>
+                        <Card title="📁 Top File Types Modified">
+                          {fileTypeStats && fileTypeStats.length > 0 ? (
+                            <Pie
+                              data={fileTypeStats.map(ft => ({
+                                type: ft.file_type,
+                                value: ft.commits,
+                              }))}
+                              angleField="value"
+                              colorField="type"
+                              radius={0.8}
+                              innerRadius={0.6}
+                              label={{
+                                type: 'outer',
+                                content: '{name}\n{percentage}',
+                              }}
+                              statistic={{
+                                title: {
+                                  content: 'Total',
+                                },
+                                content: {
+                                  content: `${fileTypeStats.reduce((sum, ft) => sum + ft.commits, 0)} commits`,
+                                },
+                              }}
+                              interactions={[
+                                { type: 'element-selected' },
+                                { type: 'element-active' },
+                              ]}
+                            />
+                          ) : (
+                            <Alert message="No file type data available" type="info" />
+                          )}
+                        </Card>
+                      </Col>
+
+                      {/* Character Churn by File Type */}
+                      <Col xs={24} lg={12}>
+                        <Card title="📝 Character Changes by File Type">
+                          {fileTypeStats && fileTypeStats.length > 0 ? (
+                            <Column
+                              data={fileTypeStats.slice(0, 5).flatMap(ft => [
+                                { file_type: ft.file_type, type: 'Added', value: ft.chars_added },
+                                { file_type: ft.file_type, type: 'Deleted', value: ft.chars_deleted },
+                              ])}
+                              isGroup
+                              xField="file_type"
+                              yField="value"
+                              seriesField="type"
+                              color={['#52c41a', '#ff4d4f']}
+                              columnStyle={{
+                                radius: [4, 4, 0, 0],
+                              }}
+                              legend={{
+                                position: 'top-right',
+                              }}
+                              tooltip={{
+                                customContent: (title, items) => {
+                                  if (!items || items.length === 0) return null
+                                  return (
+                                    <div style={{ padding: '12px' }}>
+                                      <div style={{ fontWeight: 'bold', marginBottom: 8 }}>{title}</div>
+                                      {items.map(item => (
+                                        <div key={item.name} style={{ margin: '4px 0' }}>
+                                          <span style={{
+                                            display: 'inline-block',
+                                            width: 10,
+                                            height: 10,
+                                            background: item.color,
+                                            borderRadius: '50%',
+                                            marginRight: 8
+                                          }}></span>
+                                          <strong>{item.name}:</strong> {item.value?.toLocaleString()} chars
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )
+                                }
+                              }}
+                            />
+                          ) : (
+                            <Alert message="No character churn data available" type="info" />
+                          )}
+                        </Card>
+                      </Col>
+
+                      {/* File Type Breakdown Table */}
+                      <Col span={24}>
+                        <Card title="🔍 Detailed File Type Breakdown">
+                          {fileTypeStats && fileTypeStats.length > 0 ? (
+                            <div style={{ overflowX: 'auto' }}>
+                              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead>
+                                  <tr style={{ borderBottom: '2px solid #f0f0f0' }}>
+                                    <th style={{ padding: '12px 8px', textAlign: 'left' }}>File Type</th>
+                                    <th style={{ padding: '12px 8px', textAlign: 'right' }}>Commits</th>
+                                    <th style={{ padding: '12px 8px', textAlign: 'right' }}>Chars Added</th>
+                                    <th style={{ padding: '12px 8px', textAlign: 'right' }}>Chars Deleted</th>
+                                    <th style={{ padding: '12px 8px', textAlign: 'right' }}>Total Churn</th>
+                                    <th style={{ padding: '12px 8px', textAlign: 'right' }}>Lines Added</th>
+                                    <th style={{ padding: '12px 8px', textAlign: 'right' }}>Lines Deleted</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {fileTypeStats.map((ft, idx) => (
+                                    <tr key={idx} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                                      <td style={{ padding: '12px 8px' }}>
+                                        <Tag color="blue">{ft.file_type}</Tag>
+                                      </td>
+                                      <td style={{ padding: '12px 8px', textAlign: 'right' }}>{ft.commits}</td>
+                                      <td style={{ padding: '12px 8px', textAlign: 'right', color: '#52c41a' }}>
+                                        {ft.chars_added.toLocaleString()}
+                                      </td>
+                                      <td style={{ padding: '12px 8px', textAlign: 'right', color: '#ff4d4f' }}>
+                                        {ft.chars_deleted.toLocaleString()}
+                                      </td>
+                                      <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 'bold' }}>
+                                        {ft.total_churn.toLocaleString()}
+                                      </td>
+                                      <td style={{ padding: '12px 8px', textAlign: 'right' }}>
+                                        {ft.lines_added.toLocaleString()}
+                                      </td>
+                                      <td style={{ padding: '12px 8px', textAlign: 'right' }}>
+                                        {ft.lines_deleted.toLocaleString()}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : (
+                            <Alert message="No file type statistics available" type="info" />
+                          )}
+                        </Card>
+                      </Col>
+
+                      {/* Character Metrics Summary */}
+                      <Col span={24}>
+                        <Card title="📈 Character-Level Metrics Summary">
+                          {characterMetrics ? (
+                            <Row gutter={[16, 16]}>
+                              <Col xs={12} sm={8} md={6}>
+                                <Statistic
+                                  title="Total Characters Added"
+                                  value={characterMetrics.total_chars_added}
+                                  valueStyle={{ color: '#52c41a' }}
+                                  prefix={<CodeOutlined />}
+                                />
+                              </Col>
+                              <Col xs={12} sm={8} md={6}>
+                                <Statistic
+                                  title="Total Characters Deleted"
+                                  value={characterMetrics.total_chars_deleted}
+                                  valueStyle={{ color: '#ff4d4f' }}
+                                  prefix={<CodeOutlined />}
+                                />
+                              </Col>
+                              <Col xs={12} sm={8} md={6}>
+                                <Statistic
+                                  title="Total Code Churn"
+                                  value={characterMetrics.total_churn}
+                                  prefix={<BarChartOutlined />}
+                                />
+                              </Col>
+                              <Col xs={12} sm={8} md={6}>
+                                <Statistic
+                                  title="Avg Chars per Commit"
+                                  value={characterMetrics.avg_chars_per_commit}
+                                  precision={0}
+                                  prefix={<FileTextOutlined />}
+                                />
+                              </Col>
+                              <Col xs={12} sm={8} md={6}>
+                                <Statistic
+                                  title="Commits with Data"
+                                  value={characterMetrics.commits_with_data}
+                                  suffix={`/ ${characterMetrics.total_commits}`}
+                                />
+                              </Col>
+                              <Col xs={12} sm={8} md={6}>
+                                <Statistic
+                                  title="Coverage"
+                                  value={((characterMetrics.commits_with_data / characterMetrics.total_commits) * 100).toFixed(1)}
+                                  suffix="%"
+                                  valueStyle={{
+                                    color: (characterMetrics.commits_with_data / characterMetrics.total_commits) > 0.5 ? '#52c41a' : '#faad14'
+                                  }}
+                                />
+                              </Col>
+                            </Row>
+                          ) : (
+                            <Alert message="No character metrics available" type="info" />
+                          )}
+                        </Card>
+                      </Col>
+                    </Row>
+                  </div>
                 ),
               },
             ]}

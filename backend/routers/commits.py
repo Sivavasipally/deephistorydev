@@ -9,8 +9,8 @@ from typing import List, Optional
 from datetime import datetime
 from pydantic import BaseModel
 
-from config import Config
-from models import get_engine, get_session, Commit, Repository
+from cli.config import Config
+from cli.models import get_engine, get_session, Commit, Repository
 
 router = APIRouter()
 
@@ -26,6 +26,9 @@ class CommitDetail(BaseModel):
     lines_deleted: int
     total_lines: int
     files_changed: int
+    chars_added: int = 0
+    chars_deleted: int = 0
+    file_types: str = ""
     branch: str
     repository: str
     project_key: str
@@ -73,6 +76,9 @@ async def get_commits(
                 Commit.lines_deleted,
                 (Commit.lines_added + Commit.lines_deleted).label('total_lines'),
                 Commit.files_changed,
+                Commit.chars_added,
+                Commit.chars_deleted,
+                Commit.file_types,
                 Commit.branch,
                 Repository.slug_name,
                 Repository.project_key
@@ -111,6 +117,9 @@ async def get_commits(
                     lines_deleted=r.lines_deleted,
                     total_lines=r.total_lines,
                     files_changed=r.files_changed,
+                    chars_added=r.chars_added or 0,
+                    chars_deleted=r.chars_deleted or 0,
+                    file_types=r.file_types or "",
                     branch=r.branch,
                     repository=r.slug_name,
                     project_key=r.project_key

@@ -8,8 +8,8 @@ from pathlib import Path
 from git import Repo, GitCommandError
 from datetime import datetime
 from urllib.parse import urlparse, urlunparse, quote
-from models import Repository, Commit, PullRequest, PRApproval
-from bitbucket_api import BitbucketAPIClient
+from .models import Repository, Commit, PullRequest, PRApproval
+from .bitbucket_api import BitbucketAPIClient
 
 
 class GitAnalyzer:
@@ -118,20 +118,57 @@ class GitAnalyzer:
             repo: Git repository object
 
         Returns:
-            Dictionary with lines added, deleted, and files changed
+            Dictionary with lines added, deleted, files changed, characters, and file types
         """
         try:
             stats = commit.stats.total
+
+            # Extract file types and character counts
+            file_types = set()
+            chars_added = 0
+            chars_deleted = 0
+
+            # Get parent commit for diff
+            if commit.parents:
+                parent = commit.parents[0]
+                try:
+                    # Get diffs between parent and current commit
+                    diffs = parent.diff(commit, create_patch=True)
+
+                    for diff in diffs:
+                        # Extract file extension
+                        if diff.b_path:
+                            file_ext = diff.b_path.split('.')[-1] if '.' in diff.b_path else 'no-ext'
+                            file_types.add(file_ext)
+
+                        # Count characters in diff
+                        if diff.diff:
+                            diff_text = diff.diff.decode('utf-8', errors='ignore')
+                            for line in diff_text.split('\n'):
+                                if line.startswith('+') and not line.startswith('+++'):
+                                    chars_added += len(line) - 1  # Subtract the '+' character
+                                elif line.startswith('-') and not line.startswith('---'):
+                                    chars_deleted += len(line) - 1  # Subtract the '-' character
+                except Exception:
+                    # If diff fails, continue without character/file type data
+                    pass
+
             return {
                 'lines_added': stats.get('insertions', 0),
                 'lines_deleted': stats.get('deletions', 0),
-                'files_changed': stats.get('files', 0)
+                'files_changed': stats.get('files', 0),
+                'chars_added': chars_added,
+                'chars_deleted': chars_deleted,
+                'file_types': ','.join(sorted(file_types)) if file_types else ''
             }
         except Exception:
             return {
                 'lines_added': 0,
                 'lines_deleted': 0,
-                'files_changed': 0
+                'files_changed': 0,
+                'chars_added': 0,
+                'chars_deleted': 0,
+                'file_types': ''
             }
 
     def extract_commits(self, repo_path, branch='master'):
@@ -174,6 +211,9 @@ class GitAnalyzer:
                     'lines_added': stats['lines_added'],
                     'lines_deleted': stats['lines_deleted'],
                     'files_changed': stats['files_changed'],
+                    'chars_added': stats['chars_added'],
+                    'chars_deleted': stats['chars_deleted'],
+                    'file_types': stats['file_types'],
                     'branch': branch
                 }
                 commits_data.append(commit_data)

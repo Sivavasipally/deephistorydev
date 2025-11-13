@@ -4,8 +4,8 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from config import Config
-from models import get_engine, Base, AuthorStaffMapping
+from .config import Config
+from .models import get_engine, Base, AuthorStaffMapping
 from sqlalchemy import inspect, text
 
 def fix_mapping_table():

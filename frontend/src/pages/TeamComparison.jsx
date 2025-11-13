@@ -28,9 +28,10 @@ import {
   DownOutlined,
   FilterOutlined,
 } from '@ant-design/icons'
-import { Scatter, Radar, Column, Line } from '@ant-design/charts'
+import { Scatter, Radar, Column, Line, Pie } from '@ant-design/charts'
 import { authorsAPI, staffAPI } from '../services/api'
 import dayjs from 'dayjs'
+import { getCategoryColor } from '../utils/fileTypeUtils'
 
 const { Title, Text } = Typography
 const { RangePicker } = DatePicker
@@ -56,6 +57,10 @@ const TeamComparison = () => {
   // Data
   const [teamData, setTeamData] = useState([])
   const [timeSeriesData, setTimeSeriesData] = useState([])
+
+  // Analytics Data
+  const [teamFileTypeStats, setTeamFileTypeStats] = useState([])
+  const [teamCharacterMetrics, setTeamCharacterMetrics] = useState([])
 
   // Filter options (derived from staffList)
   const locationOptions = [...new Set(staffList.map(s => s.work_location).filter(Boolean))].map(loc => ({ label: loc, value: loc }))
@@ -215,11 +220,63 @@ const TeamComparison = () => {
       })
 
       setTeamData(transformedData)
+
+      // Fetch analytics data for team members
+      await fetchTeamAnalytics()
     } catch (err) {
       setError(err.message)
       message.error(`Failed to fetch team data: ${err.message}`)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchTeamAnalytics = async () => {
+    if (selectedStaff.length === 0) return
+
+    try {
+      const fileTypePromises = selectedStaff.map(async (staffId) => {
+        try {
+          const params = new URLSearchParams({
+            staff_id: staffId,
+            limit: 5
+          })
+
+          if (dateRange[0]) params.append('start_date', dateRange[0].format('YYYY-MM-DD'))
+          if (dateRange[1]) params.append('end_date', dateRange[1].format('YYYY-MM-DD'))
+
+          const [fileTypesRes, charMetricsRes, distributionRes] = await Promise.all([
+            fetch(`/api/analytics/file-types/top?${params}`),
+            fetch(`/api/analytics/characters/metrics?${new URLSearchParams({ staff_id: staffId })}`),
+            fetch(`/api/analytics/file-types/distribution?${new URLSearchParams({ staff_id: staffId })}`)
+          ])
+
+          const fileTypes = await fileTypesRes.json()
+          const charMetrics = await charMetricsRes.json()
+          const distribution = await distributionRes.json()
+
+          const staffInfo = staffList.find(s => s.bank_id_1 === staffId)
+
+          return {
+            staffId,
+            name: staffInfo?.staff_name || 'Unknown',
+            fileTypes,
+            charMetrics,
+            distribution
+          }
+        } catch (err) {
+          console.error(`Error fetching analytics for ${staffId}:`, err)
+          return null
+        }
+      })
+
+      const results = await Promise.all(fileTypePromises)
+      const validResults = results.filter(r => r !== null)
+
+      setTeamFileTypeStats(validResults)
+      setTeamCharacterMetrics(validResults)
+    } catch (err) {
+      console.error('Error fetching team analytics:', err)
     }
   }
 
@@ -1403,6 +1460,186 @@ const TeamComparison = () => {
               ]}
             />
           </Card>
+
+          {/* File Type & Character Analytics */}
+          {teamFileTypeStats.length > 0 && (
+            <>
+              <Card title="📂 File Type Distribution by Developer" style={{ marginBottom: 24 }}>
+                <Row gutter={[16, 16]}>
+                  {/* Character Metrics Comparison */}
+                  <Col span={24}>
+                    <Title level={5}>Character Changes Comparison</Title>
+                    {teamCharacterMetrics.length > 0 && (
+                      <Column
+                        data={teamCharacterMetrics.flatMap(member => [
+                          {
+                            name: member.name,
+                            type: 'Added',
+                            chars: member.charMetrics.total_chars_added
+                          },
+                          {
+                            name: member.name,
+                            type: 'Deleted',
+                            chars: member.charMetrics.total_chars_deleted
+                          }
+                        ])}
+                        isGroup
+                        xField="name"
+                        yField="chars"
+                        seriesField="type"
+                        color={['#52c41a', '#ff4d4f']}
+                        columnStyle={{
+                          radius: [4, 4, 0, 0],
+                        }}
+                        legend={{
+                          position: 'top-right',
+                        }}
+                        label={{
+                          position: 'top',
+                          formatter: (datum) => datum.chars > 1000 ? `${(datum.chars / 1000).toFixed(1)}K` : datum.chars
+                        }}
+                        tooltip={{
+                          customContent: (title, items) => {
+                            if (!items || items.length === 0) return null
+                            return (
+                              <div style={{ padding: '12px' }}>
+                                <div style={{ fontWeight: 'bold', marginBottom: 8 }}>{title}</div>
+                                {items.map(item => (
+                                  <div key={item.name} style={{ margin: '4px 0' }}>
+                                    <span style={{
+                                      display: 'inline-block',
+                                      width: 10,
+                                      height: 10,
+                                      background: item.color,
+                                      borderRadius: '50%',
+                                      marginRight: 8
+                                    }}></span>
+                                    <strong>{item.name}:</strong> {item.value?.toLocaleString()} chars
+                                  </div>
+                                ))}
+                              </div>
+                            )
+                          }
+                        }}
+                      />
+                    )}
+                  </Col>
+
+                  {/* Code vs Config vs Docs by Developer */}
+                  <Col span={24}>
+                    <Title level={5}>Code vs Configuration vs Documentation</Title>
+                    {teamCharacterMetrics.length > 0 && (
+                      <Column
+                        data={teamCharacterMetrics.flatMap(member =>
+                          member.distribution.map(dist => ({
+                            name: member.name,
+                            category: dist.category,
+                            percentage: dist.percentage
+                          }))
+                        )}
+                        isStack
+                        xField="name"
+                        yField="percentage"
+                        seriesField="category"
+                        color={({ category }) => getCategoryColor(category)}
+                        columnStyle={{
+                          radius: [8, 8, 0, 0],
+                        }}
+                        legend={{
+                          position: 'top-right',
+                        }}
+                        label={{
+                          position: 'middle',
+                          formatter: (datum) => `${datum.percentage}%`,
+                          style: {
+                            fill: '#fff',
+                            fontWeight: 'bold',
+                          },
+                        }}
+                        yAxis={{
+                          label: {
+                            formatter: (v) => `${v}%`
+                          }
+                        }}
+                        tooltip={{
+                          customContent: (title, items) => {
+                            if (!items || items.length === 0) return null
+                            return (
+                              <div style={{ padding: '12px' }}>
+                                <div style={{ fontWeight: 'bold', marginBottom: 8 }}>{title}</div>
+                                {items.map(item => {
+                                  const data = item.data
+                                  return (
+                                    <div key={item.name} style={{ margin: '4px 0' }}>
+                                      <span style={{
+                                        display: 'inline-block',
+                                        width: 10,
+                                        height: 10,
+                                        background: item.color,
+                                        borderRadius: '50%',
+                                        marginRight: 8
+                                      }}></span>
+                                      <strong>{data.category}:</strong> {data.percentage}%
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )
+                          }
+                        }}
+                      />
+                    )}
+                  </Col>
+
+                  {/* Summary Table */}
+                  <Col span={24}>
+                    <Title level={5}>Character Metrics Summary</Title>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '2px solid #f0f0f0' }}>
+                            <th style={{ padding: '12px 8px', textAlign: 'left' }}>Developer</th>
+                            <th style={{ padding: '12px 8px', textAlign: 'right' }}>Chars Added</th>
+                            <th style={{ padding: '12px 8px', textAlign: 'right' }}>Chars Deleted</th>
+                            <th style={{ padding: '12px 8px', textAlign: 'right' }}>Total Churn</th>
+                            <th style={{ padding: '12px 8px', textAlign: 'right' }}>Avg/Commit</th>
+                            <th style={{ padding: '12px 8px', textAlign: 'right' }}>Top File Type</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {teamCharacterMetrics.map((member, idx) => {
+                            const topFileType = member.fileTypes && member.fileTypes.length > 0
+                              ? member.fileTypes[0].file_type
+                              : 'N/A'
+                            return (
+                              <tr key={idx} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                                <td style={{ padding: '12px 8px', fontWeight: 'bold' }}>{member.name}</td>
+                                <td style={{ padding: '12px 8px', textAlign: 'right', color: '#52c41a' }}>
+                                  {member.charMetrics.total_chars_added.toLocaleString()}
+                                </td>
+                                <td style={{ padding: '12px 8px', textAlign: 'right', color: '#ff4d4f' }}>
+                                  {member.charMetrics.total_chars_deleted.toLocaleString()}
+                                </td>
+                                <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 'bold' }}>
+                                  {member.charMetrics.total_churn.toLocaleString()}
+                                </td>
+                                <td style={{ padding: '12px 8px', textAlign: 'right' }}>
+                                  {member.charMetrics.avg_chars_per_commit.toFixed(0)}
+                                </td>
+                                <td style={{ padding: '12px 8px', textAlign: 'right' }}>
+                                  <Tag color="blue">{topFileType}</Tag>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </Col>
+                </Row>
+              </Card>
+            </>
+          )}
 
           {/* Detailed Table */}
           <Card title="📋 Detailed Team Metrics" style={{ marginBottom: 24 }}>

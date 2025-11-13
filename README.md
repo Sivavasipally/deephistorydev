@@ -5,9 +5,10 @@ A comprehensive enterprise-grade application for analyzing Git repository histor
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                    GIT HISTORY DEEP ANALYZER                                 │
-│                         Version 3.0 (React Edition)                          │
+│                    Version 3.1 (Enhanced Analytics Edition)                  │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  Extract → Analyze → Map → Visualize → Export                              │
+│  🆕 Character-Level Tracking | File Type Analysis | Quarterly Granularity   │
 │                                                                              │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
 │  │   Git    │  │   PRs    │  │  Staff   │  │ Author   │  │  React   │    │
@@ -27,6 +28,7 @@ A comprehensive enterprise-grade application for analyzing Git repository histor
 
 ## Table of Contents
 
+- [What's New in v3.1](#whats-new-in-v31)
 - [Architecture Overview](#architecture-overview)
 - [Features](#features)
 - [Technology Stack](#technology-stack)
@@ -37,9 +39,41 @@ A comprehensive enterprise-grade application for analyzing Git repository histor
 - [Database Schema](#database-schema)
 - [Staff Integration](#staff-integration)
 - [Productivity Analytics](#productivity-analytics)
+- [CLI Utilities](#cli-utilities)
 - [Configuration](#configuration)
 - [Usage Examples](#usage-examples)
 - [Troubleshooting](#troubleshooting)
+
+---
+
+## What's New in v3.1
+
+### 🚀 Enhanced Commit Tracking
+- **Character-level metrics**: Track characters added/deleted per commit for fine-grained analysis
+- **File type tracking**: Identify which programming languages and file types are being modified
+- **Technology insights**: Automatic detection of file extensions (py, js, md, css, etc.)
+
+### 📊 Improved Dashboard Features
+- **Quarterly granularity**: New default time period for better quarterly reporting
+- **Combined metrics view**: Grouped bar charts showing commits, lines, and files by period
+- **File type analytics**: Visualize technology stack usage and language distribution
+- **Collapsible filters**: Cleaner UI with expandable filter sections
+
+### 🛠️ CLI Reorganization
+- **Modular structure**: All CLI tools organized in `cli/` package
+- **Utility scripts**: New tools for database management and data verification
+- **Migration support**: Seamless upgrade path for existing installations
+
+### 📈 Analytics Enhancements
+- **Character churn analysis**: Identify high-activity areas and refactoring patterns
+- **Language distribution**: Track which file types receive most commits
+- **Enhanced API**: All endpoints include new character and file type fields
+
+### 🔧 Developer Tools
+- `check_database.py` - Verify database status and field population
+- `view_commit_samples.py` - Inspect commit data with new fields
+- `update_existing_commits.py` - Backfill existing data with new metrics
+- `migrate_add_commit_details.py` - Database migration utility
 
 ---
 
@@ -73,6 +107,45 @@ A comprehensive enterprise-grade application for analyzing Git repository histor
 │  └────────────────────────────────────────────┘                   │
 │                                                                     │
 └────────────────────────────────────────────────────────────────────┘
+```
+
+### Project Structure
+
+```
+deephistorydev/
+├── cli/                    # CLI Package (Python modules)
+│   ├── __init__.py        # Package initialization
+│   ├── __main__.py        # CLI entry point
+│   ├── cli.py             # Main CLI interface
+│   ├── config.py          # Configuration management
+│   ├── models.py          # Database models
+│   ├── git_analyzer.py    # Git analysis logic
+│   ├── bitbucket_api.py   # Bitbucket integration
+│   ├── dashboard.py       # Legacy Streamlit dashboard
+│   ├── start_backend.py   # Backend server starter
+│   ├── requirements.txt   # Python dependencies
+│   └── README.md          # CLI documentation
+│
+├── backend/               # FastAPI Backend
+│   ├── main.py           # FastAPI application
+│   └── routers/          # API route handlers
+│       ├── overview.py
+│       ├── commits.py
+│       ├── pull_requests.py
+│       ├── staff.py
+│       └── ...
+│
+├── frontend/             # React Frontend (Vite)
+│   ├── src/
+│   │   ├── pages/       # Dashboard pages
+│   │   ├── components/  # React components
+│   │   └── App.jsx      # Main application
+│   ├── package.json
+│   └── vite.config.js
+│
+├── .env                  # Environment configuration
+├── .env.example          # Environment template
+└── README.md             # This file
 ```
 
 ---
@@ -118,11 +191,16 @@ A comprehensive enterprise-grade application for analyzing Git repository histor
 ### 📊 Staff Productivity Analytics (NEW)
 
 **Comprehensive developer assessment:**
-- ✅ **Time Granularity**: Daily | Weekly | Monthly | Yearly
+- ✅ **Time Granularity**: Daily | Weekly | Monthly | **Quarterly** (default)
 - ✅ **Metrics**: Commits, Lines changed, PRs, Repos touched, Files changed
+- ✅ **Enhanced Commit Tracking** 🆕:
+  - **Character counts**: Added/deleted characters per commit
+  - **File types**: Languages/extensions modified (py, js, md, etc.)
+  - **Technology insights**: Track which file types developers work with
 - ✅ **Charts**:
   - Commits over time (line chart)
   - Lines changed (stacked column)
+  - Combined metrics view (grouped bars by file type)
   - PR activity trend
   - Repository breakdown
   - Calendar heatmap (GitHub-style)
@@ -203,7 +281,7 @@ A comprehensive enterprise-grade application for analyzing Git repository histor
 
 ```bash
 # 1. Install Python dependencies
-pip install -r requirements.txt
+pip install -r cli/requirements.txt
 
 # 2. Create environment configuration
 cp .env.example .env
@@ -238,15 +316,15 @@ npm run build
 │                                                              │
 │  Step 1: Extract Git History                                │
 │  ───────────────────────────                                │
-│  $ python cli.py extract repositories.csv                   │
+│  $ python -m cli extract repositories.csv                   │
 │                                                              │
 │  Step 2: Import Staff Details                               │
 │  ──────────────────────────────────────                     │
-│  $ python cli.py import-staff staff_data.xlsx               │
+│  $ python -m cli import-staff staff_data.xlsx               │
 │                                                              │
 │  Step 3: Start Backend Server                               │
 │  ───────────────────────────                                │
-│  $ python start_backend.py                                  │
+│  $ python cli/start_backend.py                              │
 │  → Running on http://0.0.0.0:8000                          │
 │                                                              │
 │  Step 4: Start Frontend (New Terminal)                      │
@@ -276,7 +354,7 @@ npm run build
 
 ```bash
 # Terminal 1 - Backend
-python start_backend.py
+python cli/start_backend.py
 
 # Terminal 2 - Frontend
 cd frontend
@@ -315,11 +393,13 @@ python start_backend.py
 - **Export**: CSV download
 
 ### 3. Commits View
-**Detailed commit history**
+**Detailed commit history with enhanced tracking**
 - Searchable and filterable table
-- Author, date, message, lines changed
+- **Basic fields**: Author, date, message, lines changed
+- **Enhanced fields** 🆕: Character counts, file types
 - Repository and branch filters
 - Pagination and sorting
+- Export to CSV
 
 ### 4. Pull Requests View
 **PR tracking and analysis**
@@ -344,9 +424,9 @@ python start_backend.py
 ### 7. Staff Productivity 🆕 NEW
 **Individual developer performance**
 - **Staff Selection**: Required - searchable dropdown
-- **Time Granularity**: Daily | Weekly | Monthly | Yearly
+- **Time Granularity**: Daily | Weekly | Monthly | **Quarterly** (default)
 - **Date Range**: Optional filter
-- **Summary Stats**: 6 key metrics
+- **Summary Stats**: 6 key metrics including character-level changes
 - **Charts (5 tabs)**:
   1. Commits Over Time (line)
   2. Lines Changed (stacked column)
@@ -357,6 +437,7 @@ python start_backend.py
 - **Calendar Heatmap**: GitHub-style daily commits (daily view)
 - **CSV Export**: For all charts
 - **Staff-Based**: All Git identities aggregated by bank_id
+- **Enhanced Tracking** 🆕: Character counts and file type analysis per commit
 
 ### 8. Author-Staff Mapping ⭐ ENHANCED
 **Three-tab mapping interface**
@@ -468,6 +549,9 @@ GET  /api/tables/{table_name}/data        - Get table data
                             │ lines_added      │
                             │ lines_deleted    │
                             │ files_changed    │
+                            │ chars_added  🆕  │
+                            │ chars_deleted🆕  │
+                            │ file_types   🆕  │
                             └──────────────────┘
                                      │
                                      │
@@ -528,6 +612,43 @@ GET  /api/tables/{table_name}/data        - Get table data
               └─────────────────────────┘
 ```
 
+### Enhanced Commit Tracking 🆕
+
+**New fields added to commits table for deeper insights:**
+
+| Field | Type | Description | Use Case |
+|-------|------|-------------|----------|
+| `chars_added` | INTEGER | Characters added in commit | Fine-grained productivity metrics |
+| `chars_deleted` | INTEGER | Characters deleted in commit | Code churn analysis |
+| `file_types` | TEXT | Comma-separated extensions | Technology stack insights |
+
+**Benefits:**
+- **Language Distribution**: Track which programming languages are most active
+- **Technology Insights**: Identify which file types developers work with (py, js, md, etc.)
+- **Character-Level Metrics**: More granular productivity measurements beyond lines
+- **Code Quality Analysis**: High character churn might indicate refactoring
+
+**Example Data:**
+```json
+{
+  "commit_hash": "7fd1a60b01f9",
+  "lines_added": 26,
+  "lines_deleted": 0,
+  "chars_added": 1005,
+  "chars_deleted": 0,
+  "file_types": "css,md"
+}
+```
+
+**Migration:**
+```bash
+# For existing databases, run migration to add new columns
+python cli/migrate_add_commit_details.py
+
+# Update existing commits with new data
+python cli/update_existing_commits.py
+```
+
 ---
 
 ## Staff Integration
@@ -567,7 +688,7 @@ GET  /api/tables/{table_name}/data        - Get table data
 
 **Parameters**:
 - `bank_id` (path): Staff bank ID (required)
-- `granularity` (query): daily | weekly | monthly | yearly
+- `granularity` (query): daily | weekly | monthly | **quarterly** (default) | yearly
 - `start_date` (query): YYYY-MM-DD
 - `end_date` (query): YYYY-MM-DD
 - `repository_id` (query): Filter by repository
@@ -672,17 +793,23 @@ VITE_API_BASE_URL=http://localhost:8000
 ### Example 1: Basic Analysis Workflow
 
 ```bash
-# 1. Extract Git data
-python cli.py extract repositories.csv
+# 1. Extract Git data (with enhanced tracking)
+python -m cli extract repositories.csv
 
 # 2. Import staff data
-python cli.py import-staff staff.xlsx
+python -m cli import-staff staff.xlsx
 
-# 3. Start servers
-python start_backend.py          # Terminal 1
+# 3. (Optional) Migrate existing database
+python cli/migrate_add_commit_details.py
+
+# 4. (Optional) Update existing commits with new fields
+python cli/update_existing_commits.py
+
+# 5. Start servers
+python cli/start_backend.py      # Terminal 1
 cd frontend && npm run dev        # Terminal 2
 
-# 4. Open browser
+# 6. Open browser
 # → http://localhost:5173
 # → Navigate to "Author-Staff Mapping"
 # → Click "Auto-Match by Email"
@@ -696,12 +823,15 @@ cd frontend && npm run dev        # Terminal 2
 
 # 1. Go to "Staff Productivity" page
 # 2. Select staff member: "John Smith"
-# 3. Choose granularity: "Monthly"
-# 4. Set date range: Last 6 months
-# 5. View charts:
-#    - Commits trend
-#    - Lines changed
+# 3. Choose granularity: "Quarterly" (default)
+# 4. Set date range: Last year
+# 5. View enhanced metrics:
+#    - Commits trend over time
+#    - Lines changed (stacked view)
+#    - Character-level changes
+#    - File types modified (technology stack)
 #    - Repository distribution
+#    - Calendar heatmap
 # 6. Export CSV for reporting
 ```
 
@@ -717,6 +847,76 @@ cd frontend && npm run dev        # Terminal 2
 # 2. View aggregated team metrics
 # 3. Export CSV
 # 4. Analyze in Excel/BI tools
+```
+
+### Example 4: CLI Utilities
+
+```bash
+# Check database status and commit field population
+python cli/check_database.py
+
+# View sample commits with new fields
+python cli/view_commit_samples.py
+
+# Test API integration
+python test_api_fields.py
+
+# Update existing commits (after migration)
+python cli/update_existing_commits.py
+```
+
+---
+
+## CLI Utilities 🆕
+
+The `cli/` package includes several utility scripts for managing and analyzing data:
+
+### Database Management
+
+**check_database.py** - Database status checker
+```bash
+python cli/check_database.py
+# Shows:
+# - Repository count and commits per repo
+# - Field population statistics
+# - Auto-generates re-extraction CSV if needed
+```
+
+**migrate_add_commit_details.py** - Database migration
+```bash
+python cli/migrate_add_commit_details.py
+# Adds new columns: chars_added, chars_deleted, file_types
+# Safe to run multiple times (idempotent)
+```
+
+**update_existing_commits.py** - Batch update utility
+```bash
+python cli/update_existing_commits.py
+# Re-extracts all repositories
+# Updates existing commits with new fields
+# Shows progress with completion statistics
+```
+
+### Data Viewing
+
+**view_commit_samples.py** - Sample data viewer
+```bash
+python cli/view_commit_samples.py
+# Displays:
+# - Sample commits with all fields
+# - File type statistics
+# - Character change distributions
+```
+
+### Testing
+
+**test_api_fields.py** - API integration test
+```bash
+python test_api_fields.py
+# Verifies:
+# - Backend queries include new fields
+# - JSON serialization works correctly
+# - Sample output matches expected format
 ```
 
 ---
@@ -755,6 +955,34 @@ pip install -r requirements.txt
 
 **Issue**: Inactive staff appearing
 **Solution**: Update staff_status to 'Inactive' in database
+
+### Data Migration Issues 🆕
+
+**Issue**: New commit fields showing zeros or null
+**Solution**:
+```bash
+# Run migration first
+python cli/migrate_add_commit_details.py
+
+# Then update existing commits
+python cli/update_existing_commits.py
+```
+
+**Issue**: Some commits don't have character/file type data
+**Reason**: This is normal for:
+- Initial commits (no parent to diff against)
+- Merge commits without clear diffs
+- Binary file changes
+**Solution**: Not an error - expected behavior
+
+**Issue**: Update script fails on repository clone
+**Solution**:
+- Check network connectivity
+- Verify repository URLs are accessible
+- Ensure Git credentials are correct in .env
+
+**Issue**: Character counts seem incorrect
+**Solution**: Character counts exclude line markers (+/-) and file headers (+++/---), counting only actual content changes
 
 ---
 

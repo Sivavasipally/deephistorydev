@@ -194,3 +194,4 @@ frontend/package-lock.json
 # PCF deployment credentials
 credentials.json
 .cfconfig
+~$I.docx

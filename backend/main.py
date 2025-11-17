@@ -17,8 +17,9 @@ from cli.models import (
     Repository, Commit, PullRequest, PRApproval, StaffDetails, AuthorStaffMapping
 )
 from backend.routers import (
-    overview, commits, pull_requests, authors, staff,
-    tables, sql_executor, mappings, dashboard360, analytics
+    overview, commits, pull_requests, authors, staff, staff_metrics,
+    tables, sql_executor, mappings, dashboard360, analytics,
+    repository_metrics, team_metrics
 )
 
 # Initialize FastAPI app
@@ -50,11 +51,14 @@ app.include_router(commits.router, prefix="/api/commits", tags=["Commits"])
 app.include_router(pull_requests.router, prefix="/api/pull-requests", tags=["Pull Requests"])
 app.include_router(authors.router, prefix="/api/authors", tags=["Authors"])
 app.include_router(staff.router, prefix="/api/staff", tags=["Staff"])
+app.include_router(staff_metrics.router, prefix="/api/staff-metrics", tags=["Staff Metrics"])
 app.include_router(tables.router, prefix="/api/tables", tags=["Tables"])
 app.include_router(sql_executor.router, prefix="/api/sql", tags=["SQL Executor"])
 app.include_router(mappings.router, prefix="/api/mappings", tags=["Author-Staff Mapping"])
 app.include_router(dashboard360.router, prefix="/api/dashboard360", tags=["360 Dashboards"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics"])
+app.include_router(repository_metrics.router, prefix="/api/repository-metrics", tags=["Repository Metrics"])
+app.include_router(team_metrics.router, prefix="/api/team-metrics", tags=["Team Metrics"])
 
 # Root endpoint
 @app.get("/")

@@ -1,6 +1,6 @@
 """Database models for Git repository analysis."""
 
-from sqlalchemy import Column, Integer, String, DateTime, Date, Float, Text, ForeignKey, create_engine
+from sqlalchemy import Column, Integer, String, DateTime, Date, Float, Text, ForeignKey, create_engine, UniqueConstraint, Index, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from datetime import datetime
@@ -233,6 +233,368 @@ class AuthorStaffMapping(Base):
 
     def __repr__(self):
         return f"<AuthorStaffMapping(author='{self.author_name}', bank_id='{self.bank_id_1}')>"
+
+
+class StaffMetrics(Base):
+    """
+    Pre-calculated productivity metrics for staff members.
+    This table stores aggregated metrics computed during CLI extract phase,
+    eliminating the need for complex frontend calculations and improving performance.
+    Updated whenever new commits are extracted or staff mappings change.
+    """
+    __tablename__ = 'staff_metrics'
+    __table_args__ = {'comment': 'Pre-calculated productivity metrics for staff members - computed during extract phase for fast dashboard loading'}
+
+    # Primary Identification
+    id = Column(Integer, primary_key=True, comment='Unique identifier for the metric record')
+    bank_id_1 = Column(String(50), nullable=False, unique=True, index=True, comment='Bank ID from staff_details - links to employee (unique per staff)')
+    staff_id = Column(String(50), comment='Employee ID from staff_details')
+    staff_name = Column(String(255), comment='Staff member name from HR system')
+    email_address = Column(String(255), comment='Staff email address')
+
+    # Organizational Fields (denormalized for fast queries)
+    tech_unit = Column(String(255), comment='Technology unit from staff_details')
+    platform_name = Column(String(255), comment='Platform name from staff_details')
+    staff_type = Column(String(100), comment='Staff type from staff_details')
+    staff_status = Column(String(100), comment='Staff status from staff_details')
+    work_location = Column(String(255), comment='Work location from staff_details')
+    rank = Column(String(100), comment='Job rank from staff_details')
+    sub_platform = Column(String(255), comment='Sub-platform from staff_details')
+    staff_grouping = Column(String(100), comment='Staff grouping from staff_details')
+    reporting_manager_name = Column(String(255), comment='Reporting manager from staff_details')
+
+    # Commit Metrics
+    total_commits = Column(Integer, default=0, comment='Total number of commits by this staff member')
+    total_lines_added = Column(Integer, default=0, comment='Total lines of code added across all commits')
+    total_lines_deleted = Column(Integer, default=0, comment='Total lines of code deleted across all commits')
+    total_files_changed = Column(Integer, default=0, comment='Total number of files changed across all commits')
+    total_chars_added = Column(Integer, default=0, comment='Total characters added across all commits')
+    total_chars_deleted = Column(Integer, default=0, comment='Total characters deleted across all commits')
+
+    # Pull Request Metrics
+    total_prs_created = Column(Integer, default=0, comment='Total number of pull requests created by this staff member')
+    total_prs_merged = Column(Integer, default=0, comment='Total number of pull requests merged')
+    total_pr_approvals_given = Column(Integer, default=0, comment='Total number of PR approvals given by this staff member')
+
+    # Repository Metrics
+    repositories_touched = Column(Integer, default=0, comment='Number of unique repositories this staff has committed to')
+    repository_list = Column(Text, comment='Comma-separated list of repository names')
+
+    # Activity Timeline
+    first_commit_date = Column(DateTime, comment='Date of first commit by this staff member')
+    last_commit_date = Column(DateTime, comment='Date of most recent commit')
+    first_pr_date = Column(DateTime, comment='Date of first PR created')
+    last_pr_date = Column(DateTime, comment='Date of most recent PR created')
+
+    # Technology Insights
+    file_types_worked = Column(Text, comment='Comma-separated list of file types/extensions worked on (e.g., "py,js,md")')
+    primary_file_type = Column(String(50), comment='Most frequently modified file type')
+
+    # Metadata
+    last_calculated = Column(DateTime, default=datetime.utcnow, comment='Timestamp when metrics were last calculated')
+    calculation_version = Column(String(20), default='1.0', comment='Version of calculation logic used')
+
+    # Derived Metrics
+    avg_lines_per_commit = Column(Float, default=0.0, comment='Average lines changed per commit')
+    avg_files_per_commit = Column(Float, default=0.0, comment='Average files changed per commit')
+    code_churn_ratio = Column(Float, default=0.0, comment='Ratio of deleted to added lines (churn indicator)')
+
+    def __repr__(self):
+        return f"<StaffMetrics(bank_id='{self.bank_id_1}', staff_name='{self.staff_name}', commits={self.total_commits})>"
+
+
+class CommitMetrics(Base):
+    """Pre-calculated commit metrics by date/author/repository."""
+    __tablename__ = 'commit_metrics'
+
+    # Primary Key
+    id = Column(Integer, primary_key=True, comment='Unique record ID')
+
+    # Dimensions
+    commit_date = Column(Date, nullable=False, index=True, comment='Commit date (normalized to date only)')
+    repository_id = Column(Integer, ForeignKey('repositories.id'), nullable=False, index=True, comment='Repository FK')
+    author_email = Column(String(255), index=True, comment='Author email for grouping')
+    author_name = Column(String(255), comment='Author display name')
+    branch = Column(String(255), index=True, comment='Git branch name')
+
+    # Aggregated Metrics
+    commit_count = Column(Integer, default=0, comment='Number of commits')
+    total_lines_added = Column(Integer, default=0, comment='Total lines added')
+    total_lines_deleted = Column(Integer, default=0, comment='Total lines deleted')
+    total_files_changed = Column(Integer, default=0, comment='Total files modified')
+    total_chars_added = Column(Integer, default=0, comment='Total characters added')
+    total_chars_deleted = Column(Integer, default=0, comment='Total characters deleted')
+
+    # File Type Breakdown (JSON)
+    file_types_json = Column(Text, comment='JSON: {"py": 5, "js": 3, ...}')
+
+    # Metadata
+    last_calculated = Column(DateTime, default=datetime.utcnow, comment='Last calculation timestamp')
+    calculation_version = Column(String(20), default='1.0', comment='Calculator version')
+
+    # Unique constraint
+    __table_args__ = (
+        UniqueConstraint('commit_date', 'repository_id', 'author_email', 'branch', name='uq_commit_metrics'),
+        Index('idx_commit_metrics_date_repo', 'commit_date', 'repository_id'),
+    )
+
+    def __repr__(self):
+        return f"<CommitMetrics(date={self.commit_date}, author={self.author_name}, commits={self.commit_count})>"
+
+
+class PRMetrics(Base):
+    """Pre-calculated pull request metrics by date/author/repository."""
+    __tablename__ = 'pr_metrics'
+
+    # Primary Key
+    id = Column(Integer, primary_key=True, comment='Unique record ID')
+
+    # Dimensions
+    pr_date = Column(Date, nullable=False, index=True, comment='PR created date (normalized)')
+    repository_id = Column(Integer, ForeignKey('repositories.id'), nullable=False, index=True, comment='Repository FK')
+    author_email = Column(String(255), index=True, comment='PR author email')
+    author_name = Column(String(255), comment='PR author name')
+    state = Column(String(50), index=True, comment='PR state: OPEN, MERGED, DECLINED')
+
+    # Aggregated Metrics
+    pr_count = Column(Integer, default=0, comment='Number of PRs')
+    merged_count = Column(Integer, default=0, comment='Number of merged PRs')
+    declined_count = Column(Integer, default=0, comment='Number of declined PRs')
+    open_count = Column(Integer, default=0, comment='Number of open PRs')
+
+    total_lines_added = Column(Integer, default=0, comment='Total lines added in PRs')
+    total_lines_deleted = Column(Integer, default=0, comment='Total lines deleted in PRs')
+    total_commits_in_prs = Column(Integer, default=0, comment='Total commits within PRs')
+
+    # Timing Metrics
+    avg_time_to_merge_hours = Column(Float, default=0.0, comment='Average hours from creation to merge')
+    total_approvals_received = Column(Integer, default=0, comment='Total approvals received on PRs')
+
+    # Metadata
+    last_calculated = Column(DateTime, default=datetime.utcnow, comment='Last calculation timestamp')
+    calculation_version = Column(String(20), default='1.0', comment='Calculator version')
+
+    # Unique constraint
+    __table_args__ = (
+        UniqueConstraint('pr_date', 'repository_id', 'author_email', 'state', name='uq_pr_metrics'),
+        Index('idx_pr_metrics_date_repo', 'pr_date', 'repository_id'),
+    )
+
+    def __repr__(self):
+        return f"<PRMetrics(date={self.pr_date}, author={self.author_name}, prs={self.pr_count})>"
+
+
+class RepositoryMetrics(Base):
+    """Pre-calculated repository-level metrics."""
+    __tablename__ = 'repository_metrics'
+
+    # Primary Key
+    id = Column(Integer, primary_key=True, comment='Unique record ID')
+
+    # Dimensions
+    repository_id = Column(Integer, ForeignKey('repositories.id'), nullable=False, unique=True, index=True, comment='Repository FK')
+    project_key = Column(String(255), comment='Bitbucket project key (denormalized)')
+    slug_name = Column(String(255), comment='Repository slug (denormalized)')
+
+    # Commit Metrics
+    total_commits = Column(Integer, default=0, comment='Total commits in repository')
+    total_authors = Column(Integer, default=0, comment='Unique contributors count')
+    total_lines_added = Column(Integer, default=0, comment='Total lines added')
+    total_lines_deleted = Column(Integer, default=0, comment='Total lines deleted')
+    total_files_changed = Column(Integer, default=0, comment='Total files modified')
+
+    # PR Metrics
+    total_prs = Column(Integer, default=0, comment='Total pull requests')
+    total_prs_merged = Column(Integer, default=0, comment='Total merged PRs')
+    total_prs_open = Column(Integer, default=0, comment='Currently open PRs')
+    merge_rate = Column(Float, default=0.0, comment='PR merge rate percentage')
+
+    # Activity Timeline
+    first_commit_date = Column(DateTime, comment='First commit in repository')
+    last_commit_date = Column(DateTime, comment='Most recent commit')
+    first_pr_date = Column(DateTime, comment='First PR created')
+    last_pr_date = Column(DateTime, comment='Most recent PR')
+
+    # Activity Indicators
+    days_since_last_commit = Column(Integer, default=0, comment='Days since last activity')
+    is_active = Column(Boolean, default=True, comment='Active if commits in last 90 days')
+
+    # Top Contributors (JSON)
+    top_contributors_json = Column(Text, comment='JSON array of top 10 contributors')
+
+    # File Types (JSON)
+    file_types_json = Column(Text, comment='JSON: {"py": 150, "js": 80, ...}')
+
+    # Branch Stats
+    total_branches = Column(Integer, default=0, comment='Number of branches')
+    main_branch_name = Column(String(255), comment='Main branch name (master/main)')
+
+    # Metadata
+    last_calculated = Column(DateTime, default=datetime.utcnow, comment='Last calculation timestamp')
+    calculation_version = Column(String(20), default='1.0', comment='Calculator version')
+
+    def __repr__(self):
+        return f"<RepositoryMetrics(slug={self.slug_name}, commits={self.total_commits}, prs={self.total_prs})>"
+
+
+class AuthorMetrics(Base):
+    """Pre-calculated author-level metrics (before staff mapping)."""
+    __tablename__ = 'author_metrics'
+
+    # Primary Key
+    id = Column(Integer, primary_key=True, comment='Unique record ID')
+
+    # Dimensions
+    author_email = Column(String(255), nullable=False, unique=True, index=True, comment='Git author email (unique)')
+    author_name = Column(String(255), comment='Git author display name')
+
+    # Staff Mapping
+    bank_id_1 = Column(String(50), index=True, comment='Mapped staff bank ID (if mapped)')
+    is_mapped = Column(Boolean, default=False, comment='True if mapped to staff')
+
+    # Commit Metrics
+    total_commits = Column(Integer, default=0, comment='Total commits by author')
+    total_lines_added = Column(Integer, default=0, comment='Total lines added')
+    total_lines_deleted = Column(Integer, default=0, comment='Total lines deleted')
+    total_files_changed = Column(Integer, default=0, comment='Total files modified')
+    total_chars_added = Column(Integer, default=0, comment='Total characters added')
+    total_chars_deleted = Column(Integer, default=0, comment='Total characters deleted')
+
+    # PR Metrics
+    total_prs_created = Column(Integer, default=0, comment='PRs created by author')
+    total_prs_merged = Column(Integer, default=0, comment='PRs merged')
+    total_pr_approvals_given = Column(Integer, default=0, comment='Approvals given by author')
+
+    # Repository Metrics
+    repositories_touched = Column(Integer, default=0, comment='Number of repositories contributed to')
+    repository_list = Column(Text, comment='Comma-separated repository names')
+
+    # Activity Timeline
+    first_commit_date = Column(DateTime, comment='First commit by author')
+    last_commit_date = Column(DateTime, comment='Most recent commit')
+    first_pr_date = Column(DateTime, comment='First PR created')
+    last_pr_date = Column(DateTime, comment='Most recent PR')
+
+    # Technology Insights
+    file_types_worked = Column(Text, comment='JSON list of file types')
+    primary_file_type = Column(String(50), comment='Most common file extension')
+
+    # Derived Metrics
+    avg_lines_per_commit = Column(Float, default=0.0, comment='Average lines per commit')
+    avg_files_per_commit = Column(Float, default=0.0, comment='Average files per commit')
+    code_churn_ratio = Column(Float, default=0.0, comment='Lines deleted / lines added')
+
+    # Metadata
+    last_calculated = Column(DateTime, default=datetime.utcnow, comment='Last calculation timestamp')
+    calculation_version = Column(String(20), default='1.0', comment='Calculator version')
+
+    def __repr__(self):
+        return f"<AuthorMetrics(email={self.author_email}, commits={self.total_commits}, mapped={self.is_mapped})>"
+
+
+class TeamMetrics(Base):
+    """Pre-calculated team/platform/tech unit aggregations."""
+    __tablename__ = 'team_metrics'
+
+    # Primary Key
+    id = Column(Integer, primary_key=True, comment='Unique record ID')
+
+    # Dimensions
+    aggregation_level = Column(String(50), nullable=False, index=True, comment='Level: tech_unit, platform, rank, location')
+    aggregation_value = Column(String(255), nullable=False, index=True, comment='Value: "Tech Unit A", "Platform X", etc.')
+    time_period = Column(String(20), index=True, comment='Time period: all_time, 2024, 2024-Q1, 2024-01')
+
+    # Team Composition
+    total_staff = Column(Integer, default=0, comment='Total staff members')
+    active_contributors = Column(Integer, default=0, comment='Staff with commits')
+    active_rate = Column(Float, default=0.0, comment='Percentage of staff with commits')
+
+    # Commit Metrics
+    total_commits = Column(Integer, default=0, comment='Total commits by team')
+    total_lines_added = Column(Integer, default=0, comment='Total lines added')
+    total_lines_deleted = Column(Integer, default=0, comment='Total lines deleted')
+    total_files_changed = Column(Integer, default=0, comment='Total files modified')
+
+    # PR Metrics
+    total_prs_created = Column(Integer, default=0, comment='Total PRs created')
+    total_prs_merged = Column(Integer, default=0, comment='Total PRs merged')
+    total_pr_approvals = Column(Integer, default=0, comment='Total PR approvals given')
+    merge_rate = Column(Float, default=0.0, comment='PR merge rate percentage')
+
+    # Repository Metrics
+    repositories_touched = Column(Integer, default=0, comment='Repositories team contributed to')
+    repository_list = Column(Text, comment='Comma-separated repository names')
+
+    # Averages per Person
+    avg_commits_per_person = Column(Float, default=0.0, comment='Average commits per staff member')
+    avg_prs_per_person = Column(Float, default=0.0, comment='Average PRs per staff member')
+    avg_lines_per_person = Column(Float, default=0.0, comment='Average lines per staff member')
+
+    # Top Contributors (JSON)
+    top_contributors_json = Column(Text, comment='JSON array: [{"name": "...", "commits": 100}, ...]')
+
+    # Technology Insights
+    file_types_json = Column(Text, comment='JSON: {"py": 500, "js": 300, ...}')
+    primary_technologies = Column(Text, comment='Comma-separated top 5 file types')
+
+    # Metadata
+    last_calculated = Column(DateTime, default=datetime.utcnow, comment='Last calculation timestamp')
+    calculation_version = Column(String(20), default='1.0', comment='Calculator version')
+
+    # Unique constraint
+    __table_args__ = (
+        UniqueConstraint('aggregation_level', 'aggregation_value', 'time_period', name='uq_team_metrics'),
+        Index('idx_team_metrics_level_value', 'aggregation_level', 'aggregation_value'),
+    )
+
+    def __repr__(self):
+        return f"<TeamMetrics(level={self.aggregation_level}, value={self.aggregation_value}, period={self.time_period})>"
+
+
+class DailyMetrics(Base):
+    """Pre-calculated daily organization-wide metrics."""
+    __tablename__ = 'daily_metrics'
+
+    # Primary Key
+    id = Column(Integer, primary_key=True, comment='Unique record ID')
+
+    # Dimension
+    metric_date = Column(Date, nullable=False, unique=True, index=True, comment='Metrics date')
+
+    # Daily Activity
+    commits_today = Column(Integer, default=0, comment='Commits on this date')
+    authors_active_today = Column(Integer, default=0, comment='Unique authors with commits')
+    prs_created_today = Column(Integer, default=0, comment='PRs created')
+    prs_merged_today = Column(Integer, default=0, comment='PRs merged')
+    pr_approvals_today = Column(Integer, default=0, comment='PR approvals given')
+
+    # Code Volume
+    lines_added_today = Column(Integer, default=0, comment='Lines added')
+    lines_deleted_today = Column(Integer, default=0, comment='Lines deleted')
+    files_changed_today = Column(Integer, default=0, comment='Files modified')
+
+    # Repository Activity
+    repositories_active_today = Column(Integer, default=0, comment='Repositories with commits')
+
+    # Cumulative Metrics (up to this date)
+    cumulative_commits = Column(Integer, default=0, comment='Total commits up to date')
+    cumulative_prs = Column(Integer, default=0, comment='Total PRs up to date')
+    cumulative_authors = Column(Integer, default=0, comment='Total unique authors up to date')
+
+    # Day of Week Analysis
+    day_of_week = Column(String(10), comment='Monday, Tuesday, ...')
+    is_weekend = Column(Boolean, default=False, comment='True if Saturday/Sunday')
+
+    # Moving Averages (7-day and 30-day)
+    commits_7day_avg = Column(Float, default=0.0, comment='7-day moving average of commits')
+    commits_30day_avg = Column(Float, default=0.0, comment='30-day moving average of commits')
+
+    # Metadata
+    last_calculated = Column(DateTime, default=datetime.utcnow, comment='Last calculation timestamp')
+    calculation_version = Column(String(20), default='1.0', comment='Calculator version')
+
+    def __repr__(self):
+        return f"<DailyMetrics(date={self.metric_date}, commits={self.commits_today}, authors={self.authors_active_today})>"
 
 
 def get_engine(db_config):

@@ -10,9 +10,10 @@ from datetime import datetime
 from .config import Config
 from .models import (
     get_engine, init_database, get_session,
-    Repository, Commit, PullRequest, PRApproval, StaffDetails
+    Repository, Commit, PullRequest, PRApproval, StaffDetails, StaffMetrics
 )
 from .git_analyzer import GitAnalyzer
+from .staff_metrics_calculator import StaffMetricsCalculator
 
 
 class GitHistoryCLI:
@@ -254,6 +255,18 @@ class GitHistoryCLI:
         finally:
             session.close()
 
+        # Calculate staff metrics after extraction
+        click.echo("\n" + "=" * 60)
+        click.echo("Calculating Staff Metrics...")
+        click.echo("=" * 60)
+
+        metrics_session = get_session(self.engine)
+        try:
+            calculator = StaffMetricsCalculator(metrics_session)
+            metrics_summary = calculator.calculate_all_staff_metrics()
+        finally:
+            metrics_session.close()
+
         # Summary
         click.echo("\n" + "=" * 60)
         click.echo("Processing Complete!")
@@ -262,6 +275,7 @@ class GitHistoryCLI:
         click.echo(f"Total commits extracted: {total_commits}")
         click.echo(f"Total pull requests extracted: {total_prs}")
         click.echo(f"Total approvals extracted: {total_approvals}")
+        click.echo(f"Staff metrics calculated: {metrics_summary.get('processed', 0)}/{metrics_summary.get('total_staff', 0)}")
         click.echo("=" * 60)
 
 
@@ -506,6 +520,119 @@ def import_staff(file_path):
     except Exception as e:
         click.echo(f"Error reading file: {e}", err=True)
         sys.exit(1)
+
+
+@cli.command('calculate-metrics')
+@click.option('--all', 'calc_all', is_flag=True, help='Calculate all metric tables')
+@click.option('--staff', is_flag=True, help='Calculate staff_metrics only')
+@click.option('--commits', is_flag=True, help='Calculate commit_metrics only')
+@click.option('--prs', is_flag=True, help='Calculate pr_metrics only')
+@click.option('--repositories', is_flag=True, help='Calculate repository_metrics only')
+@click.option('--authors', is_flag=True, help='Calculate author_metrics only')
+@click.option('--teams', is_flag=True, help='Calculate team_metrics only')
+@click.option('--daily', is_flag=True, help='Calculate daily_metrics only')
+@click.option('--force', is_flag=True, help='Force recalculation (ignore timestamps)')
+def calculate_metrics(calc_all, staff, commits, prs, repositories, authors, teams, daily, force):
+    """Calculate pre-aggregated metrics for fast API queries.
+
+    This command calculates and stores metrics in dedicated tables to avoid
+    expensive real-time calculations. Metrics are automatically updated during
+    extract, but this command allows manual recalculation.
+
+    Examples:
+        # Calculate all metrics
+        python -m cli calculate-metrics --all
+
+        # Calculate only staff metrics
+        python -m cli calculate-metrics --staff
+
+        # Calculate multiple specific metrics
+        python -m cli calculate-metrics --commits --prs --repositories
+
+        # Force recalculation of all metrics
+        python -m cli calculate-metrics --all --force
+    """
+    from .unified_metrics_calculator import UnifiedMetricsCalculator
+
+    config = Config()
+    db_config = config.get_db_config()
+    engine = get_engine(db_config)
+    session = get_session(engine)
+
+    try:
+        click.echo("\n" + "=" * 80)
+        click.echo("METRICS CALCULATION")
+        click.echo("=" * 80)
+
+        calculator = UnifiedMetricsCalculator(session)
+
+        # Determine what to calculate
+        if calc_all or not any([staff, commits, prs, repositories, authors, teams, daily]):
+            # Calculate all if --all or no specific flags
+            click.echo("Calculating all metrics...")
+            summary = calculator.calculate_all_metrics(force=force)
+
+        else:
+            # Calculate only selected metrics
+            summary = {}
+
+            if staff:
+                click.echo("\n📊 Calculating Staff Metrics...")
+                staff_calc = StaffMetricsCalculator(session)
+                summary['Staff Metrics'] = staff_calc.calculate_all_staff_metrics()
+
+            if authors:
+                click.echo("\n👤 Calculating Author Metrics...")
+                summary['Author Metrics'] = calculator.calculate_author_metrics(force=force)
+
+            if repositories:
+                click.echo("\n📦 Calculating Repository Metrics...")
+                summary['Repository Metrics'] = calculator.calculate_repository_metrics(force=force)
+
+            if commits:
+                click.echo("\n💾 Calculating Commit Metrics...")
+                summary['Commit Metrics'] = calculator.calculate_commit_metrics(force=force)
+
+            if prs:
+                click.echo("\n🔀 Calculating PR Metrics...")
+                summary['PR Metrics'] = calculator.calculate_pr_metrics(force=force)
+
+            if teams:
+                click.echo("\n👥 Calculating Team Metrics...")
+                summary['Team Metrics'] = calculator.calculate_team_metrics(force=force)
+
+            if daily:
+                click.echo("\n📅 Calculating Daily Metrics...")
+                summary['Daily Metrics'] = calculator.calculate_daily_metrics(force=force)
+
+        # Print summary
+        click.echo("\n" + "=" * 80)
+        click.echo("CALCULATION SUMMARY")
+        click.echo("=" * 80)
+
+        for metric_type, result in summary.items():
+            if 'error' in result:
+                click.echo(f"❌ {metric_type}: ERROR - {result['error']}")
+            else:
+                processed = result.get('processed', 0)
+                created = result.get('created', 0)
+                updated = result.get('updated', 0)
+                click.echo(f"✅ {metric_type}: {processed} records processed ({created} created, {updated} updated)")
+
+        click.echo("=" * 80)
+        click.echo("\n✨ Metrics calculation complete!")
+        click.echo("\nNext steps:")
+        click.echo("  • Metrics are now available in the database")
+        click.echo("  • Backend APIs will use pre-calculated data for fast queries")
+        click.echo("  • Run 'python -m cli calculate-metrics --all' periodically to refresh")
+
+    except Exception as e:
+        click.echo(f"\n❌ Error during metrics calculation: {e}", err=True)
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+    finally:
+        session.close()
 
 
 if __name__ == '__main__':

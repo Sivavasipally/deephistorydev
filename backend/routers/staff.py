@@ -4,7 +4,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from fastapi import APIRouter, HTTPException, Query
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 
 from cli.config import Config
@@ -14,21 +14,21 @@ router = APIRouter()
 
 class StaffInfo(BaseModel):
     """Staff information model."""
-    bank_id_1: str
-    staff_id: str
-    staff_name: str
-    email_address: str
-    tech_unit: str
-    platform_name: str
-    staff_type: str
-    staff_status: str
-    work_location: str
-    rank: str
-    sub_platform: str
-    staff_grouping: str
-    reporting_manager_name: str
-    staff_start_date: str
-    staff_end_date: str
+    bank_id_1: Optional[str] = ""
+    staff_id: Optional[str] = ""
+    staff_name: Optional[str] = ""
+    email_address: Optional[str] = ""
+    tech_unit: Optional[str] = ""
+    platform_name: Optional[str] = ""
+    staff_type: Optional[str] = ""
+    staff_status: Optional[str] = ""
+    work_location: Optional[str] = ""
+    rank: Optional[str] = ""
+    sub_platform: Optional[str] = ""
+    staff_grouping: Optional[str] = ""
+    reporting_manager_name: Optional[str] = ""
+    staff_start_date: Optional[str] = ""
+    staff_end_date: Optional[str] = ""
 
 @router.get("/", response_model=List[StaffInfo])
 async def get_staff_list(

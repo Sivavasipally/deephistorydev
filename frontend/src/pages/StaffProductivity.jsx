@@ -42,6 +42,10 @@ import {
   getCategoryColor,
   formatFileTypes
 } from '../utils/fileTypeUtils'
+import {
+  exportMultipleSheetsToExcel,
+  prepareStaffProductivityExport
+} from '../utils/excelExport'
 
 const { Title, Text } = Typography
 const { RangePicker } = DatePicker
@@ -181,6 +185,19 @@ const StaffProductivity = () => {
   const handleClearFilters = () => {
     setDateRange([null, null])
     setGranularity('quarterly')
+  }
+
+  const handleExportToExcel = () => {
+    if (!productivityData) {
+      message.warning('No data available to export')
+      return
+    }
+
+    const sheets = prepareStaffProductivityExport(productivityData, fileTypeStats, characterMetrics)
+    const filename = `${productivityData.staff.name}_productivity_${dayjs().format('YYYYMMDD')}`
+
+    exportMultipleSheetsToExcel(sheets, filename)
+    message.success('Excel file exported successfully!')
   }
 
   const handleExportCSV = (dataType) => {
@@ -440,6 +457,15 @@ const StaffProductivity = () => {
                   Refresh
                 </Button>
                 <Button onClick={handleClearFilters}>Clear Filters</Button>
+                {productivityData && (
+                  <Button
+                    onClick={handleExportToExcel}
+                    icon={<DownloadOutlined />}
+                    type="default"
+                  >
+                    Export to Excel
+                  </Button>
+                )}
               </Space>
             </Col>
           </Row>

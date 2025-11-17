@@ -4,6 +4,7 @@ import { SearchOutlined, DownloadOutlined, DownOutlined, FilterOutlined } from '
 import { commitsAPI } from '../services/api'
 import dayjs from 'dayjs'
 import { formatFileTypes } from '../utils/fileTypeUtils'
+import { exportToExcel, prepareCommitsExport } from '../utils/excelExport'
 
 const { RangePicker } = DatePicker
 const { Title, Text } = Typography
@@ -27,6 +28,19 @@ const CommitsView = () => {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleExportToExcel = () => {
+    if (commits.length === 0) {
+      message.warning('No commits to export')
+      return
+    }
+
+    const exportData = prepareCommitsExport(commits)
+    const filename = `commits_export_${dayjs().format('YYYYMMDD')}`
+
+    exportToExcel(exportData, filename, 'Commits')
+    message.success('Excel file exported successfully!')
   }
 
   const columns = [
@@ -174,7 +188,14 @@ const CommitsView = () => {
             <Button type="primary" onClick={fetchCommits} loading={loading}>
               Search
             </Button>
-            <Button icon={<DownloadOutlined />}>Download CSV</Button>
+            {commits.length > 0 && (
+              <Button
+                icon={<DownloadOutlined />}
+                onClick={handleExportToExcel}
+              >
+                Export to Excel
+              </Button>
+            )}
           </Space>
         </Collapse.Panel>
       </Collapse>

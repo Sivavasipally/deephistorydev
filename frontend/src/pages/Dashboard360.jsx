@@ -29,11 +29,17 @@ import {
   TrophyOutlined,
   DownOutlined,
   FilterOutlined,
+  DownloadOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons'
 import { Line, Column, Area, Heatmap, Scatter, Funnel, Pie } from '@ant-design/charts'
 import { authorsAPI, staffAPI, dashboard360API } from '../services/api'
 import dayjs from 'dayjs'
 import { getCategoryColor } from '../utils/fileTypeUtils'
+import {
+  exportMultipleSheetsToExcel,
+  prepareDashboard360Export
+} from '../utils/excelExport'
 
 const { Title, Text } = Typography
 const { RangePicker } = DatePicker
@@ -231,6 +237,27 @@ const Dashboard360 = () => {
     setOrgData(null)
     setCodeReviewData(null)
     setCommitHeatmapData([])
+  }
+
+  const handleExportToExcel = () => {
+    if (dashboardType === 'org' && orgData) {
+      const sheets = prepareDashboard360Export(orgData, characterMetrics, fileTypeDistribution)
+      const filename = `organization_dashboard_${dayjs().format('YYYYMMDD')}`
+      exportMultipleSheetsToExcel(sheets, filename)
+      message.success('Excel file exported successfully!')
+    } else if (dashboardType === 'developer' && developerData) {
+      message.info('Developer export will use Staff Productivity page')
+    } else if (dashboardType === 'repo' && repoData) {
+      const sheets = [
+        { name: 'Summary', data: [repoData.summary] },
+        { name: 'Contributors', data: repoData.contributors }
+      ]
+      const filename = `repo_dashboard_${dayjs().format('YYYYMMDD')}`
+      exportMultipleSheetsToExcel(sheets, filename)
+      message.success('Excel file exported successfully!')
+    } else {
+      message.warning('No data available to export')
+    }
   }
 
   // Developer 360 Dashboard Components
@@ -1397,6 +1424,14 @@ const Dashboard360 = () => {
               <button onClick={handleClearFilters} className="secondary-button">
                 Clear Filters
               </button>
+              {(orgData || developerData || repoData) && (
+                <Button
+                  icon={<DownloadOutlined />}
+                  onClick={handleExportToExcel}
+                >
+                  Export to Excel
+                </Button>
+              )}
             </Space>
           </Col>
         </Row>

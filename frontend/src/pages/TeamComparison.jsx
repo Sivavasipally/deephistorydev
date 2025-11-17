@@ -27,11 +27,16 @@ import {
   FallOutlined,
   DownOutlined,
   FilterOutlined,
+  DownloadOutlined,
 } from '@ant-design/icons'
 import { Scatter, Radar, Column, Line, Pie } from '@ant-design/charts'
 import { authorsAPI, staffAPI } from '../services/api'
 import dayjs from 'dayjs'
 import { getCategoryColor } from '../utils/fileTypeUtils'
+import {
+  exportMultipleSheetsToExcel,
+  prepareTeamComparisonExport
+} from '../utils/excelExport'
 
 const { Title, Text } = Typography
 const { RangePicker } = DatePicker
@@ -291,6 +296,19 @@ const TeamComparison = () => {
     setFilterSubPlatform(null)
     setFilterStaffGrouping(null)
     setTeamData([])
+  }
+
+  const handleExportToExcel = () => {
+    if (teamData.length === 0) {
+      message.warning('No team data available to export')
+      return
+    }
+
+    const sheets = prepareTeamComparisonExport(teamData, teamCharacterMetrics)
+    const filename = `team_comparison_${dayjs().format('YYYYMMDD')}`
+
+    exportMultipleSheetsToExcel(sheets, filename)
+    message.success('Excel file exported successfully!')
   }
 
   // Get filtered staff list
@@ -632,6 +650,15 @@ const TeamComparison = () => {
                 Fetch Data
               </Button>
               <Button onClick={handleClearFilters}>Clear Filters</Button>
+              {teamData.length > 0 && (
+                <Button
+                  onClick={handleExportToExcel}
+                  icon={<DownloadOutlined />}
+                  type="default"
+                >
+                  Export to Excel
+                </Button>
+              )}
             </Space>
           </Col>
         </Row>

@@ -5,10 +5,10 @@ A comprehensive enterprise-grade application for analyzing Git repository histor
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                    GIT HISTORY DEEP ANALYZER                                 │
-│                    Version 3.2 (Full-Featured Enterprise Edition)                  │
+│                    Version 3.1 (Enhanced Analytics Edition)                  │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│  Extract → Analyze → Map → Visualize → Export → Report                              │
-│  🆕 Excel Export | Staff Details Page | Multilingual Support | UTF-8   │
+│  Extract → Analyze → Map → Visualize → Export                              │
+│  🆕 Character-Level Tracking | File Type Analysis | Quarterly Granularity   │
 │                                                                              │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
 │  │   Git    │  │   PRs    │  │  Staff   │  │ Author   │  │  React   │    │

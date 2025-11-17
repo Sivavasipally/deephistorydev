@@ -162,7 +162,7 @@ class StaffDetails(Base):
     platform_index = Column(String(50), comment='Index or code for the platform/product')
     platform_name = Column(String(255), comment='Name of the platform or product the staff works on')
     platform_unit = Column(String(255), comment='Unit within the platform organization')
-    platform_lead = Column(String(255), comment='Name of the platform lead or manager')
+    platform_lead = Column(String(500), comment='Name of the platform lead or manager')
     sub_platform = Column(String(255), comment='Sub-platform or component within the main platform')
     staff_grouping = Column(String(100), comment='Grouping classification for the staff member (e.g., by skill, project, team)')
 

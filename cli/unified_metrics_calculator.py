@@ -18,7 +18,7 @@ Usage:
 import json
 from datetime import datetime, timedelta
 from collections import Counter, defaultdict
-from sqlalchemy import func, distinct
+from sqlalchemy import func, distinct, case
 from sqlalchemy.orm import Session
 
 from .models import (
@@ -333,8 +333,8 @@ class UnifiedMetricsCalculator:
             # PR metrics
             pr_stats = self.session.query(
                 func.count(PullRequest.id).label('total_prs'),
-                func.sum(func.case((PullRequest.state == 'MERGED', 1), else_=0)).label('total_prs_merged'),
-                func.sum(func.case((PullRequest.state == 'OPEN', 1), else_=0)).label('total_prs_open'),
+                func.sum(case((PullRequest.state == 'MERGED', 1), else_=0)).label('total_prs_merged'),
+                func.sum(case((PullRequest.state == 'OPEN', 1), else_=0)).label('total_prs_open'),
                 func.min(PullRequest.created_date).label('first_pr_date'),
                 func.max(PullRequest.created_date).label('last_pr_date'),
             ).filter(PullRequest.repository_id == repo.id).first()
@@ -466,7 +466,7 @@ class UnifiedMetricsCalculator:
             # PR stats
             pr_stats = self.session.query(
                 func.count(PullRequest.id).label('total_prs_created'),
-                func.sum(func.case((PullRequest.state == 'MERGED', 1), else_=0)).label('total_prs_merged'),
+                func.sum(case((PullRequest.state == 'MERGED', 1), else_=0)).label('total_prs_merged'),
                 func.min(PullRequest.created_date).label('first_pr_date'),
                 func.max(PullRequest.created_date).label('last_pr_date'),
             ).filter(PullRequest.author_email == author.author_email).first()

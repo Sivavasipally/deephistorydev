@@ -30,10 +30,14 @@ class StaffInfo(BaseModel):
     staff_start_date: Optional[str] = ""
     staff_end_date: Optional[str] = ""
 
+    class Config:
+        from_attributes = True
+        extra = "ignore"  # Ignore extra fields from database
+
 @router.get("/", response_model=List[StaffInfo])
 async def get_staff_list(
     search: str = Query(None, description="Search by name or email"),
-    limit: int = Query(100, ge=1, le=1000)
+    limit: int = Query(100, ge=1, le=10000)  # Increased to 10000
 ):
     """Get staff list with optional search."""
     try:

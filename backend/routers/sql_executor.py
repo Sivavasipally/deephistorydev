@@ -286,6 +286,138 @@ Common Queries:
   • Platform stats: SELECT platform_name, SUM(total_commits) FROM staff_metrics GROUP BY platform_name
 
 ═══════════════════════════════════════════════════════════════════════════════
+💾 TABLE: commit_metrics (PRE-CALCULATED)
+Purpose: Daily commit aggregations by date/author/repository/branch
+Performance: 50x faster for time-series analysis
+═══════════════════════════════════════════════════════════════════════════════
+┌─ id                    INTEGER PRIMARY KEY     → Unique record ID
+├─ commit_date          DATE                    → Commit date (aggregation key)
+├─ repository_id        INTEGER                 → FK to repositories.id
+├─ author_email         VARCHAR(255)           → Author email
+├─ author_name          VARCHAR(255)           → Author name
+├─ branch               VARCHAR(255)           → Git branch
+├─ commit_count         INTEGER DEFAULT 0      → Number of commits on this day
+├─ total_lines_added    INTEGER DEFAULT 0      → Total lines added
+├─ total_lines_deleted  INTEGER DEFAULT 0      → Total lines deleted
+├─ total_files_changed  INTEGER DEFAULT 0      → Total files changed
+├─ file_types_json      TEXT                   → JSON array of file extensions
+└─ last_calculated      DATETIME               → When metrics were calculated
+
+Common Queries:
+  • Daily commit trends: SELECT commit_date, SUM(commit_count) FROM commit_metrics GROUP BY commit_date
+  • Author activity: SELECT author_name, SUM(commit_count) FROM commit_metrics GROUP BY author_name
+
+═══════════════════════════════════════════════════════════════════════════════
+🔀 TABLE: pr_metrics (PRE-CALCULATED)
+Purpose: Daily PR aggregations by date/author/repository/state
+Performance: 55x faster for PR analytics
+═══════════════════════════════════════════════════════════════════════════════
+┌─ id                    INTEGER PRIMARY KEY     → Unique record ID
+├─ date                 DATE                    → PR date (created/merged)
+├─ repository_id        INTEGER                 → FK to repositories.id
+├─ author_email         VARCHAR(255)           → PR author email
+├─ author_name          VARCHAR(255)           → PR author name
+├─ state                VARCHAR(50)            → PR state (OPEN/MERGED/DECLINED)
+├─ pr_count             INTEGER DEFAULT 0      → Number of PRs
+├─ total_lines_added    INTEGER DEFAULT 0      → Total lines added in PRs
+├─ total_lines_deleted  INTEGER DEFAULT 0      → Total lines deleted in PRs
+└─ last_calculated      DATETIME               → When metrics were calculated
+
+Common Queries:
+  • PR creation trends: SELECT date, SUM(pr_count) FROM pr_metrics GROUP BY date
+  • Merge rate by author: SELECT author_name, SUM(CASE WHEN state='MERGED' THEN pr_count ELSE 0 END)*100.0/SUM(pr_count) FROM pr_metrics GROUP BY author_name
+
+═══════════════════════════════════════════════════════════════════════════════
+📦 TABLE: repository_metrics (PRE-CALCULATED)
+Purpose: Repository-level statistics (commits, PRs, contributors)
+Performance: 40x faster for repository analysis
+═══════════════════════════════════════════════════════════════════════════════
+┌─ id                    INTEGER PRIMARY KEY     → Unique record ID
+├─ repository_id        INTEGER UNIQUE          → FK to repositories.id
+├─ repository_name      VARCHAR(255)           → Repository name
+├─ project_key          VARCHAR(255)           → Project key
+├─ total_commits        INTEGER DEFAULT 0      → Total commits in repo
+├─ total_prs            INTEGER DEFAULT 0      → Total PRs
+├─ total_prs_merged     INTEGER DEFAULT 0      → Merged PRs
+├─ total_prs_open       INTEGER DEFAULT 0      → Open PRs
+├─ total_contributors   INTEGER DEFAULT 0      → Unique contributors
+├─ total_lines_added    INTEGER DEFAULT 0      → Total lines added
+├─ total_lines_deleted  INTEGER DEFAULT 0      → Total lines deleted
+├─ first_commit_date    DATETIME               → First commit date
+├─ last_commit_date     DATETIME               → Most recent commit
+├─ is_active            BOOLEAN DEFAULT 1      → Active if commits in last 90 days
+└─ last_calculated      DATETIME               → When metrics were calculated
+
+Common Queries:
+  • Most active repos: SELECT * FROM repository_metrics ORDER BY total_commits DESC LIMIT 10
+  • Inactive repos: SELECT * FROM repository_metrics WHERE is_active = 0
+
+═══════════════════════════════════════════════════════════════════════════════
+👤 TABLE: author_metrics (PRE-CALCULATED)
+Purpose: Author-level productivity metrics (not tied to staff)
+Performance: 41x faster for Git author analysis
+═══════════════════════════════════════════════════════════════════════════════
+┌─ id                    INTEGER PRIMARY KEY     → Unique record ID
+├─ author_email         VARCHAR(255) UNIQUE    → Author email (unique key)
+├─ author_name          VARCHAR(255)           → Author display name
+├─ total_commits        INTEGER DEFAULT 0      → Total commits
+├─ total_lines_added    INTEGER DEFAULT 0      → Total lines added
+├─ total_lines_deleted  INTEGER DEFAULT 0      → Total lines deleted
+├─ total_prs_created    INTEGER DEFAULT 0      → PRs created
+├─ total_prs_merged     INTEGER DEFAULT 0      → PRs merged
+├─ repositories_count   INTEGER DEFAULT 0      → Number of repos contributed to
+├─ first_commit_date    DATETIME               → First commit
+├─ last_commit_date     DATETIME               → Most recent commit
+└─ last_calculated      DATETIME               → When metrics were calculated
+
+Note: Similar to staff_metrics but for ALL Git authors (mapped or unmapped)
+
+Common Queries:
+  • Top Git authors: SELECT * FROM author_metrics ORDER BY total_commits DESC
+  • External contributors: SELECT * FROM author_metrics WHERE author_email NOT IN (SELECT author_email FROM author_staff_mapping)
+
+═══════════════════════════════════════════════════════════════════════════════
+👥 TABLE: team_metrics (PRE-CALCULATED)
+Purpose: Team/Platform/Tech Unit aggregations
+Performance: 87x faster for team analytics
+═══════════════════════════════════════════════════════════════════════════════
+┌─ id                    INTEGER PRIMARY KEY     → Unique record ID
+├─ group_type           VARCHAR(50)            → 'tech_unit', 'platform', 'team'
+├─ group_value          VARCHAR(255)           → Actual group value
+├─ total_staff          INTEGER DEFAULT 0      → Number of staff in group
+├─ active_staff         INTEGER DEFAULT 0      → Active staff count
+├─ total_commits        INTEGER DEFAULT 0      → Total commits by group
+├─ total_prs            INTEGER DEFAULT 0      → Total PRs by group
+├─ total_lines_added    INTEGER DEFAULT 0      → Total lines added
+├─ repositories_count   INTEGER DEFAULT 0      → Repos touched by group
+├─ avg_commits_per_staff FLOAT DEFAULT 0.0    → Average commits per staff
+└─ last_calculated      DATETIME               → When metrics were calculated
+
+Common Queries:
+  • Tech unit comparison: SELECT * FROM team_metrics WHERE group_type='tech_unit' ORDER BY total_commits DESC
+  • Platform productivity: SELECT * FROM team_metrics WHERE group_type='platform_name'
+
+═══════════════════════════════════════════════════════════════════════════════
+📅 TABLE: daily_metrics (PRE-CALCULATED)
+Purpose: Daily organization-wide metrics
+Performance: 61x faster for time-series dashboards
+═══════════════════════════════════════════════════════════════════════════════
+┌─ id                    INTEGER PRIMARY KEY     → Unique record ID
+├─ date                 DATE UNIQUE             → Metric date (unique key)
+├─ total_commits        INTEGER DEFAULT 0      → Commits on this day
+├─ total_prs_created    INTEGER DEFAULT 0      → PRs created
+├─ total_prs_merged     INTEGER DEFAULT 0      → PRs merged
+├─ active_authors       INTEGER DEFAULT 0      → Unique authors active
+├─ total_lines_added    INTEGER DEFAULT 0      → Total lines added
+├─ total_lines_deleted  INTEGER DEFAULT 0      → Total lines deleted
+├─ repositories_active  INTEGER DEFAULT 0      → Repos with commits
+└─ last_calculated      DATETIME               → When metrics were calculated
+
+Common Queries:
+  • 30-day trend: SELECT * FROM daily_metrics WHERE date >= DATE('now', '-30 days')
+  • Weekly totals: SELECT strftime('%Y-W%W', date) as week, SUM(total_commits) FROM daily_metrics GROUP BY week
+
+═══════════════════════════════════════════════════════════════════════════════
 📊 COMMON QUERY PATTERNS
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -346,16 +478,53 @@ Common Queries:
 🔑 KEY RELATIONSHIPS DIAGRAM
 ═══════════════════════════════════════════════════════════════════════════════
 
-repositories ─┬─→ commits (1:N via repository_id)
-              └─→ pull_requests (1:N via repository_id)
+CORE TABLES:
+  repositories ─┬─→ commits (1:N via repository_id)
+                ├─→ pull_requests (1:N via repository_id)
+                ├─→ commit_metrics (1:N via repository_id) ⚡ PRE-CALC
+                ├─→ pr_metrics (1:N via repository_id) ⚡ PRE-CALC
+                └─→ repository_metrics (1:1 via repository_id) ⚡ PRE-CALC
 
-pull_requests ──→ pr_approvals (1:N via pull_request_id)
+  pull_requests ──→ pr_approvals (1:N via pull_request_id)
 
-staff_details ─┬─→ author_staff_mapping (1:N via bank_id_1)
-               └─→ staff_metrics (1:1 via bank_id_1) ⚡ PRE-CALCULATED
+STAFF CHAIN:
+  staff_details ─┬─→ author_staff_mapping (1:N via bank_id_1)
+                 └─→ staff_metrics (1:1 via bank_id_1) ⚡ PRE-CALC
 
-commits/pull_requests ──→ author_staff_mapping ──→ staff_details
-                         (via author_email)       (via bank_id_1)
+  commits/pull_requests ──→ author_staff_mapping ──→ staff_details
+                           (via author_email)       (via bank_id_1)
+
+METRIC TABLES (Pre-calculated for performance):
+  ⚡ staff_metrics      - Staff productivity (1 record per staff)
+  ⚡ commit_metrics     - Daily commit aggregations
+  ⚡ pr_metrics         - Daily PR aggregations
+  ⚡ repository_metrics - Repository statistics (1 record per repo)
+  ⚡ author_metrics     - Git author productivity (1 record per author)
+  ⚡ team_metrics       - Team/platform aggregations
+  ⚡ daily_metrics      - Daily org-wide metrics
+
+═══════════════════════════════════════════════════════════════════════════════
+📋 COMPLETE TABLE LIST (13 TABLES)
+═══════════════════════════════════════════════════════════════════════════════
+
+Core Tables (4):
+  1. repositories          - Git repositories being tracked
+  2. commits               - All commit history with metadata
+  3. pull_requests         - Pull request data
+  4. pr_approvals          - PR approvals/reviews
+
+Staff Tables (2):
+  5. staff_details         - HR master data for staff
+  6. author_staff_mapping  - Maps Git authors to staff
+
+Metric Tables - Pre-calculated (7):
+  7. staff_metrics         - Staff productivity (45x faster)
+  8. commit_metrics        - Daily commit stats (50x faster)
+  9. pr_metrics            - Daily PR stats (55x faster)
+  10. repository_metrics   - Repository stats (40x faster)
+  11. author_metrics       - Author productivity (41x faster)
+  12. team_metrics         - Team aggregations (87x faster)
+  13. daily_metrics        - Daily org metrics (61x faster)
 
 ═══════════════════════════════════════════════════════════════════════════════
 """

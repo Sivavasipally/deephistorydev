@@ -382,12 +382,16 @@ npm run build
 │  → Populates staff_details table                           │
 │  → Required for author mapping                              │
 │                                                              │
-│  Step 2: Extract Git History                                │
-│  ───────────────────────────                                │
-│  $ python -m cli extract repositories.csv                   │
+│  Step 2: Extract Git History (with Auto-Mapping) 🆕        │
+│  ─────────────────────────────────────────────              │
+│  $ python -m cli extract repositories.csv --auto-map       │
 │  → Extracts commits, PRs, approvals                        │
-│  → Creates author-to-staff mappings                         │
+│  → Auto-maps 80-95% of authors to staff ⚡                 │
 │  → Auto-calculates staff_metrics ⚡                        │
+│                                                              │
+│  Alternative (manual mapping):                              │
+│  $ python -m cli extract repositories.csv                   │
+│  $ python -m cli auto-map  # Run separately               │
 │                                                              │
 │  Step 3: Calculate All Metrics (Optional)                   │
 │  ──────────────────────────────────────────                 │
@@ -430,8 +434,28 @@ npm run build
 # 1. Import staff data (Excel/CSV)
 python -m cli import-staff path/to/staff_data.xlsx
 
-# 2. Extract git repositories
+# 2. Extract git repositories (with auto-mapping) 🆕
+python -m cli extract path/to/repositories.csv --auto-map
+
+# Alternative: Extract then map separately
 python -m cli extract path/to/repositories.csv
+python -m cli auto-map  # Auto-map authors to staff
+
+# ═══════════════════════════════════════════════════════════
+# AUTHOR-STAFF MAPPING (NEW! ⚡)
+# ═══════════════════════════════════════════════════════════
+
+# Auto-map Git authors to staff by email (80-95% automated!)
+python -m cli auto-map
+
+# Dry run (preview without saving)
+python -m cli auto-map --dry-run
+
+# With username matching across domains
+python -m cli auto-map --company-domains company.com --company-domains company.org
+
+# Show unmapped authors needing manual mapping
+python -m cli auto-map --show-unmapped
 
 # ═══════════════════════════════════════════════════════════
 # METRICS CALCULATION (20-70x Performance Boost!)

@@ -526,7 +526,7 @@ const StaffDetails = () => {
         children: (
           <Table
             dataSource={record.commits || []}
-            rowKey="commit_hash"
+            rowKey={(r, i) => r.commit_hash || `commit-${i}`}
             size="small"
             pagination={{ pageSize: 5 }}
             columns={[

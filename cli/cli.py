@@ -14,6 +14,7 @@ from .models import (
 )
 from .git_analyzer import GitAnalyzer
 from .staff_metrics_calculator import StaffMetricsCalculator
+from .auto_mapper import AutoMapper
 
 
 class GitHistoryCLI:
@@ -288,16 +289,45 @@ def cli():
 @cli.command('extract')
 @click.argument('csv_file', type=click.Path(exists=True))
 @click.option('--no-cleanup', is_flag=True, help='Keep cloned repositories')
-def extract_repos(csv_file, no_cleanup):
+@click.option('--auto-map', is_flag=True, help='Automatically map authors to staff by email after extraction')
+@click.option('--company-domains', multiple=True, help='Company email domains for username matching (e.g., company.com)')
+def extract_repos(csv_file, no_cleanup, auto_map, company_domains):
     """Extract Git history from repositories listed in CSV_FILE.
 
     The CSV file should contain columns:
     - Project Key
     - Slug Name
     - Clone URL (HTTP) / Self URL
+
+    Example usage:
+        python -m cli extract repos.csv --auto-map
+        python -m cli extract repos.csv --auto-map --company-domains company.com --company-domains company.org
     """
     git_cli = GitHistoryCLI()
     git_cli.run(csv_file, cleanup=not no_cleanup)
+
+    # Run auto-mapping if requested
+    if auto_map:
+        click.echo("\n" + "=" * 60)
+        click.echo("Running Automatic Author-Staff Mapping...")
+        click.echo("=" * 60)
+
+        config = Config()
+        db_config = config.get_db_config()
+        engine = get_engine(db_config)
+        session = get_session(engine)
+
+        try:
+            mapper = AutoMapper(session)
+            result = mapper.auto_map_all(
+                company_domains=list(company_domains) if company_domains else None,
+                dry_run=False
+            )
+
+            click.echo(f"\n[SUCCESS] Auto-mapping complete: {result['total_matched']} matched, {result['total_unmatched']} unmatched")
+
+        finally:
+            session.close()
 
 
 @cli.command('import-staff')
@@ -629,6 +659,91 @@ def calculate_metrics(calc_all, staff, commits, prs, repositories, authors, team
 
     except Exception as e:
         click.echo(f"\n[ERROR] Error during metrics calculation: {e}", err=True)
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+    finally:
+        session.close()
+
+
+@cli.command('auto-map')
+@click.option('--dry-run', is_flag=True, help='Show what would be mapped without saving')
+@click.option('--company-domains', multiple=True, help='Company email domains for username matching (e.g., company.com)')
+@click.option('--show-unmapped', is_flag=True, help='Show list of unmapped authors')
+def auto_map_authors(dry_run, company_domains, show_unmapped):
+    """Automatically map Git authors to staff members based on email.
+
+    This command will:
+    1. Find all Git authors from commits that are not yet mapped to staff
+    2. Try to match them to staff records using:
+       - Exact email match (e.g., john@company.com matches john@company.com)
+       - Username match (e.g., john@gmail.com matches john@company.com if --company-domains is used)
+    3. Create author-staff mappings for all matches
+
+    Examples:
+        # Dry run to see what would be mapped
+        python -m cli auto-map --dry-run
+
+        # Actually create mappings (exact email match only)
+        python -m cli auto-map
+
+        # Create mappings with username matching across domains
+        python -m cli auto-map --company-domains company.com --company-domains company.org
+
+        # Show unmapped authors that need manual mapping
+        python -m cli auto-map --show-unmapped
+    """
+    config = Config()
+    db_config = config.get_db_config()
+    engine = get_engine(db_config)
+    session = get_session(engine)
+
+    try:
+        mapper = AutoMapper(session)
+
+        # Check if staff data exists
+        from .models import StaffDetails
+        staff_count = session.query(StaffDetails).count()
+
+        if staff_count == 0:
+            click.echo("[ERROR] No staff data found in database!", err=True)
+            click.echo("Please import staff data first using: python -m cli import-staff <file>")
+            sys.exit(1)
+
+        click.echo(f"[INFO] Found {staff_count} staff records in database")
+
+        # Run auto-mapping
+        result = mapper.auto_map_all(
+            company_domains=list(company_domains) if company_domains else None,
+            dry_run=dry_run
+        )
+
+        # Show detailed unmapped list if requested
+        if show_unmapped and result['unmapped_authors']:
+            click.echo("\n" + "=" * 80)
+            click.echo("DETAILED UNMAPPED AUTHORS LIST")
+            click.echo("=" * 80)
+            click.echo("These authors need manual mapping:\n")
+
+            for author in result['unmapped_authors']:
+                click.echo(f"Author: {author['author_name']}")
+                click.echo(f"Email:  {author['author_email']}")
+                click.echo(f"Commits: {author['commit_count']}")
+                click.echo("-" * 40)
+
+            click.echo(f"\nTotal unmapped: {len(result['unmapped_authors'])}")
+            click.echo("\nTo manually map these authors:")
+            click.echo("1. Use the web UI at http://localhost:3000/author-mapping")
+            click.echo("2. Or use the Streamlit dashboard: python -m cli.dashboard")
+
+        if not dry_run and result['total_matched'] > 0:
+            click.echo("\n[SUCCESS] Mappings created successfully!")
+            click.echo("\nNext steps:")
+            click.echo("  - Recalculate staff metrics: python -m cli calculate-metrics --staff")
+            click.echo("  - View Staff Details page to see updated data")
+
+    except Exception as e:
+        click.echo(f"\n[ERROR] Error during auto-mapping: {e}", err=True)
         import traceback
         traceback.print_exc()
         sys.exit(1)

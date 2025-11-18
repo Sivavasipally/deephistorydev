@@ -5,7 +5,8 @@ from datetime import datetime, date
 from collections import Counter
 from .models import (
     StaffMetrics, StaffDetails, AuthorStaffMapping,
-    Commit, PullRequest, PRApproval, Repository
+    Commit, PullRequest, PRApproval, Repository,
+    CurrentYearStaffMetrics
 )
 
 
@@ -205,40 +206,6 @@ class StaffMetricsCalculator:
         staff_metric.file_types_worked = commit_metrics['file_types_worked']
         staff_metric.primary_file_type = commit_metrics['primary_file_type']
 
-        # Update additional staff details
-        staff_metric.staff_pc_code = staff.staff_pc_code
-        staff_metric.default_role = staff.default_role
-
-        # Calculate current year metrics
-        current_year = datetime.now().year
-        cy_metrics = self._calculate_current_year_metrics(author_names, current_year)
-
-        staff_metric.current_year = current_year
-        staff_metric.cy_total_commits = cy_metrics['total_commits']
-        staff_metric.cy_total_prs = cy_metrics['total_prs']
-        staff_metric.cy_total_approvals_given = cy_metrics['total_approvals_given']
-        staff_metric.cy_total_code_reviews_given = cy_metrics['total_code_reviews_given']
-        staff_metric.cy_total_code_reviews_received = cy_metrics['total_code_reviews_received']
-        staff_metric.cy_total_repositories = cy_metrics['total_repositories']
-        staff_metric.cy_total_files_changed = cy_metrics['total_files_changed']
-        staff_metric.cy_total_lines_changed = cy_metrics['total_lines_changed']
-        staff_metric.cy_total_chars = cy_metrics['total_chars']
-        staff_metric.cy_total_code_churn = cy_metrics['total_code_churn']
-        staff_metric.cy_different_file_types = cy_metrics['different_file_types']
-        staff_metric.cy_different_repositories = cy_metrics['different_repositories']
-        staff_metric.cy_different_project_keys = cy_metrics['different_project_keys']
-        staff_metric.cy_pct_code = cy_metrics['pct_code']
-        staff_metric.cy_pct_config = cy_metrics['pct_config']
-        staff_metric.cy_pct_documentation = cy_metrics['pct_documentation']
-        staff_metric.cy_avg_commits_monthly = cy_metrics['avg_commits_monthly']
-        staff_metric.cy_avg_prs_monthly = cy_metrics['avg_prs_monthly']
-        staff_metric.cy_avg_approvals_monthly = cy_metrics['avg_approvals_monthly']
-        staff_metric.cy_file_types_list = cy_metrics['file_types_list']
-        staff_metric.cy_repositories_list = cy_metrics['repositories_list']
-        staff_metric.cy_project_keys_list = cy_metrics['project_keys_list']
-        staff_metric.cy_start_date = cy_metrics['start_date']
-        staff_metric.cy_end_date = cy_metrics['end_date']
-
         # Update metadata
         staff_metric.last_calculated = datetime.utcnow()
         staff_metric.calculation_version = '2.0'
@@ -259,7 +226,77 @@ class StaffMetricsCalculator:
         else:
             staff_metric.code_churn_ratio = 0.0
 
+        # Now create/update the separate CurrentYearStaffMetrics record
+        self._save_current_year_metrics(staff, author_names)
+
         return action
+
+    def _save_current_year_metrics(self, staff, author_names):
+        """Save current year metrics to separate table.
+
+        Args:
+            staff: StaffDetails object
+            author_names: List of author names for this staff member
+        """
+        current_year = datetime.now().year
+        cy_metrics = self._calculate_current_year_metrics(author_names, current_year)
+
+        # Get or create CurrentYearStaffMetrics record
+        cy_staff_metric = self.session.query(CurrentYearStaffMetrics).filter(
+            CurrentYearStaffMetrics.bank_id_1 == staff.bank_id_1
+        ).first()
+
+        if not cy_staff_metric:
+            cy_staff_metric = CurrentYearStaffMetrics(bank_id_1=staff.bank_id_1)
+            self.session.add(cy_staff_metric)
+
+        # Update staff identification
+        cy_staff_metric.staff_name = staff.staff_name
+        cy_staff_metric.staff_email = staff.email_address
+        cy_staff_metric.staff_status = staff.staff_status
+        cy_staff_metric.staff_pc_code = staff.staff_pc_code
+        cy_staff_metric.default_role = staff.default_role
+
+        # Update current year context
+        cy_staff_metric.current_year = current_year
+        cy_staff_metric.cy_start_date = cy_metrics['start_date']
+        cy_staff_metric.cy_end_date = cy_metrics['end_date']
+
+        # Update activity totals
+        cy_staff_metric.cy_total_commits = cy_metrics['total_commits']
+        cy_staff_metric.cy_total_prs = cy_metrics['total_prs']
+        cy_staff_metric.cy_total_approvals_given = cy_metrics['total_approvals_given']
+        cy_staff_metric.cy_total_code_reviews_given = cy_metrics['total_code_reviews_given']
+        cy_staff_metric.cy_total_code_reviews_received = cy_metrics['total_code_reviews_received']
+        cy_staff_metric.cy_total_repositories = cy_metrics['total_repositories']
+        cy_staff_metric.cy_total_files_changed = cy_metrics['total_files_changed']
+        cy_staff_metric.cy_total_lines_changed = cy_metrics['total_lines_changed']
+        cy_staff_metric.cy_total_chars = cy_metrics['total_chars']
+        cy_staff_metric.cy_total_code_churn = cy_metrics['total_code_churn']
+
+        # Update diversity metrics
+        cy_staff_metric.cy_different_file_types = cy_metrics['different_file_types']
+        cy_staff_metric.cy_different_repositories = cy_metrics['different_repositories']
+        cy_staff_metric.cy_different_project_keys = cy_metrics['different_project_keys']
+
+        # Update file type distribution percentages
+        cy_staff_metric.cy_pct_code = cy_metrics['pct_code']
+        cy_staff_metric.cy_pct_config = cy_metrics['pct_config']
+        cy_staff_metric.cy_pct_documentation = cy_metrics['pct_documentation']
+
+        # Update monthly averages
+        cy_staff_metric.cy_avg_commits_monthly = cy_metrics['avg_commits_monthly']
+        cy_staff_metric.cy_avg_prs_monthly = cy_metrics['avg_prs_monthly']
+        cy_staff_metric.cy_avg_approvals_monthly = cy_metrics['avg_approvals_monthly']
+
+        # Update details lists
+        cy_staff_metric.cy_file_types_list = cy_metrics['file_types_list']
+        cy_staff_metric.cy_repositories_list = cy_metrics['repositories_list']
+        cy_staff_metric.cy_project_keys_list = cy_metrics['project_keys_list']
+
+        # Update metadata
+        cy_staff_metric.last_calculated = datetime.utcnow()
+        cy_staff_metric.calculation_version = '2.0'
 
     def _calculate_commit_metrics(self, author_names):
         """Calculate commit-related metrics for given authors.

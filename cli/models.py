@@ -305,12 +305,31 @@ class StaffMetrics(Base):
     avg_files_per_commit = Column(Float, default=0.0, comment='Average files changed per commit')
     code_churn_ratio = Column(Float, default=0.0, comment='Ratio of deleted to added lines (churn indicator)')
 
-    # Additional Staff Details
+    def __repr__(self):
+        return f"<StaffMetrics(bank_id='{self.bank_id_1}', staff_name='{self.staff_name}', commits={self.total_commits})>"
+
+
+class CurrentYearStaffMetrics(Base):
+    """Current year metrics for staff members (separate table)."""
+    __tablename__ = 'current_year_staff_metrics'
+
+    # Primary Key
+    id = Column(Integer, primary_key=True, comment='Auto-incrementing primary key')
+
+    # Staff Identification
+    bank_id_1 = Column(String(100), nullable=False, unique=True, index=True, comment='Primary staff identifier (bank ID)')
+    staff_name = Column(String(255), nullable=False, comment='Full name of the staff member')
+    staff_email = Column(String(255), comment='Staff email address')
+    staff_status = Column(String(50), comment='Staff status (Active/Inactive)')
     staff_pc_code = Column(String(100), comment='Staff PC code from staff_details')
     default_role = Column(String(255), comment='Default role from staff_details')
 
-    # Current Year Metrics (YYYY-01-01 to YYYY-12-31)
-    current_year = Column(Integer, comment='Year for which current year metrics are calculated')
+    # Current Year Context
+    current_year = Column(Integer, nullable=False, comment='Year for which current year metrics are calculated')
+    cy_start_date = Column(Date, comment='Start date for current year metrics')
+    cy_end_date = Column(Date, comment='End date for current year metrics')
+
+    # Activity Totals
     cy_total_commits = Column(Integer, default=0, comment='Total commits in current year')
     cy_total_prs = Column(Integer, default=0, comment='Total PRs created in current year')
     cy_total_approvals_given = Column(Integer, default=0, comment='Total PR approvals given in current year')
@@ -321,31 +340,33 @@ class StaffMetrics(Base):
     cy_total_lines_changed = Column(Integer, default=0, comment='Total lines (added+deleted) in current year')
     cy_total_chars = Column(Integer, default=0, comment='Total characters (added+deleted) in current year')
     cy_total_code_churn = Column(Integer, default=0, comment='Code churn (lines deleted) in current year')
+
+    # Diversity Metrics
     cy_different_file_types = Column(Integer, default=0, comment='Number of different file types worked in current year')
     cy_different_repositories = Column(Integer, default=0, comment='Number of different repositories in current year')
     cy_different_project_keys = Column(Integer, default=0, comment='Number of different project keys in current year')
 
-    # File Type Percentages (Current Year)
+    # File Type Distribution Percentages
     cy_pct_code = Column(Float, default=0.0, comment='Percentage of code files (java, js, jsx, tsx, sql, py, etc.)')
     cy_pct_config = Column(Float, default=0.0, comment='Percentage of config files (xml, json, yml, properties, config, no-extension)')
     cy_pct_documentation = Column(Float, default=0.0, comment='Percentage of documentation files (md)')
 
-    # Monthly Averages (Current Year)
+    # Monthly Averages
     cy_avg_commits_monthly = Column(Float, default=0.0, comment='Average commits per month in current year')
     cy_avg_prs_monthly = Column(Float, default=0.0, comment='Average PRs per month in current year')
     cy_avg_approvals_monthly = Column(Float, default=0.0, comment='Average approvals per month in current year')
 
-    # Additional Lists (Current Year)
+    # Details Lists
     cy_file_types_list = Column(Text, comment='Comma-separated list of file types in current year')
     cy_repositories_list = Column(Text, comment='Comma-separated list of repositories in current year')
     cy_project_keys_list = Column(Text, comment='Comma-separated list of project keys in current year')
 
-    # Date Range (Current Year)
-    cy_start_date = Column(Date, comment='Start date for current year metrics')
-    cy_end_date = Column(Date, comment='End date for current year metrics')
+    # Metadata
+    last_calculated = Column(DateTime, default=datetime.utcnow, comment='Timestamp when metrics were last calculated')
+    calculation_version = Column(String(20), default='1.0', comment='Version of calculation logic used')
 
     def __repr__(self):
-        return f"<StaffMetrics(bank_id='{self.bank_id_1}', staff_name='{self.staff_name}', commits={self.total_commits})>"
+        return f"<CurrentYearStaffMetrics(bank_id='{self.bank_id_1}', staff_name='{self.staff_name}', year={self.current_year}, commits={self.cy_total_commits})>"
 
 
 class CommitMetrics(Base):

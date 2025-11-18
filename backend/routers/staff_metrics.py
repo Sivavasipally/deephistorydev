@@ -8,7 +8,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 from cli.config import Config
-from cli.models import get_engine, get_session, StaffMetrics
+from cli.models import get_engine, get_session, StaffMetrics, CurrentYearStaffMetrics
 from cli.staff_metrics_calculator import StaffMetricsCalculator
 
 router = APIRouter()
@@ -75,12 +75,23 @@ class StaffMetricsResponse(BaseModel):
     avg_files_per_commit: float = 0.0
     code_churn_ratio: float = 0.0
 
-    # Additional Staff Details
+
+class CurrentYearStaffMetricsResponse(BaseModel):
+    """Current year staff metrics response model."""
+    # Staff Identification
+    bank_id_1: str
+    staff_name: Optional[str] = ""
+    staff_email: Optional[str] = ""
+    staff_status: Optional[str] = ""
     staff_pc_code: Optional[str] = ""
     default_role: Optional[str] = ""
 
-    # Current Year Metrics
+    # Current Year Context
     current_year: Optional[int] = None
+    cy_start_date: Optional[str] = None
+    cy_end_date: Optional[str] = None
+
+    # Activity Totals
     cy_total_commits: int = 0
     cy_total_prs: int = 0
     cy_total_approvals_given: int = 0
@@ -91,20 +102,30 @@ class StaffMetricsResponse(BaseModel):
     cy_total_lines_changed: int = 0
     cy_total_chars: int = 0
     cy_total_code_churn: int = 0
+
+    # Diversity Metrics
     cy_different_file_types: int = 0
     cy_different_repositories: int = 0
     cy_different_project_keys: int = 0
+
+    # File Type Distribution Percentages
     cy_pct_code: float = 0.0
     cy_pct_config: float = 0.0
     cy_pct_documentation: float = 0.0
+
+    # Monthly Averages
     cy_avg_commits_monthly: float = 0.0
     cy_avg_prs_monthly: float = 0.0
     cy_avg_approvals_monthly: float = 0.0
+
+    # Details Lists
     cy_file_types_list: Optional[str] = ""
     cy_repositories_list: Optional[str] = ""
     cy_project_keys_list: Optional[str] = ""
-    cy_start_date: Optional[str] = None
-    cy_end_date: Optional[str] = None
+
+    # Metadata
+    last_calculated: Optional[str] = None
+    calculation_version: Optional[str] = ""
 
 
 class StaffMetricsSummary(BaseModel):
@@ -224,34 +245,7 @@ async def get_all_staff_metrics(
                     calculation_version=r.calculation_version or "",
                     avg_lines_per_commit=r.avg_lines_per_commit,
                     avg_files_per_commit=r.avg_files_per_commit,
-                    code_churn_ratio=r.code_churn_ratio,
-                    staff_pc_code=r.staff_pc_code or "",
-                    default_role=r.default_role or "",
-                    current_year=r.current_year,
-                    cy_total_commits=r.cy_total_commits or 0,
-                    cy_total_prs=r.cy_total_prs or 0,
-                    cy_total_approvals_given=r.cy_total_approvals_given or 0,
-                    cy_total_code_reviews_given=r.cy_total_code_reviews_given or 0,
-                    cy_total_code_reviews_received=r.cy_total_code_reviews_received or 0,
-                    cy_total_repositories=r.cy_total_repositories or 0,
-                    cy_total_files_changed=r.cy_total_files_changed or 0,
-                    cy_total_lines_changed=r.cy_total_lines_changed or 0,
-                    cy_total_chars=r.cy_total_chars or 0,
-                    cy_total_code_churn=r.cy_total_code_churn or 0,
-                    cy_different_file_types=r.cy_different_file_types or 0,
-                    cy_different_repositories=r.cy_different_repositories or 0,
-                    cy_different_project_keys=r.cy_different_project_keys or 0,
-                    cy_pct_code=r.cy_pct_code or 0.0,
-                    cy_pct_config=r.cy_pct_config or 0.0,
-                    cy_pct_documentation=r.cy_pct_documentation or 0.0,
-                    cy_avg_commits_monthly=r.cy_avg_commits_monthly or 0.0,
-                    cy_avg_prs_monthly=r.cy_avg_prs_monthly or 0.0,
-                    cy_avg_approvals_monthly=r.cy_avg_approvals_monthly or 0.0,
-                    cy_file_types_list=r.cy_file_types_list or "",
-                    cy_repositories_list=r.cy_repositories_list or "",
-                    cy_project_keys_list=r.cy_project_keys_list or "",
-                    cy_start_date=str(r.cy_start_date) if r.cy_start_date else None,
-                    cy_end_date=str(r.cy_end_date) if r.cy_end_date else None
+                    code_churn_ratio=r.code_churn_ratio
                 )
                 for r in results
             ]
@@ -373,34 +367,7 @@ async def get_staff_metrics_by_id(bank_id: str):
                 calculation_version=metric.calculation_version or "",
                 avg_lines_per_commit=metric.avg_lines_per_commit,
                 avg_files_per_commit=metric.avg_files_per_commit,
-                code_churn_ratio=metric.code_churn_ratio,
-                staff_pc_code=metric.staff_pc_code or "",
-                default_role=metric.default_role or "",
-                current_year=metric.current_year,
-                cy_total_commits=metric.cy_total_commits or 0,
-                cy_total_prs=metric.cy_total_prs or 0,
-                cy_total_approvals_given=metric.cy_total_approvals_given or 0,
-                cy_total_code_reviews_given=metric.cy_total_code_reviews_given or 0,
-                cy_total_code_reviews_received=metric.cy_total_code_reviews_received or 0,
-                cy_total_repositories=metric.cy_total_repositories or 0,
-                cy_total_files_changed=metric.cy_total_files_changed or 0,
-                cy_total_lines_changed=metric.cy_total_lines_changed or 0,
-                cy_total_chars=metric.cy_total_chars or 0,
-                cy_total_code_churn=metric.cy_total_code_churn or 0,
-                cy_different_file_types=metric.cy_different_file_types or 0,
-                cy_different_repositories=metric.cy_different_repositories or 0,
-                cy_different_project_keys=metric.cy_different_project_keys or 0,
-                cy_pct_code=metric.cy_pct_code or 0.0,
-                cy_pct_config=metric.cy_pct_config or 0.0,
-                cy_pct_documentation=metric.cy_pct_documentation or 0.0,
-                cy_avg_commits_monthly=metric.cy_avg_commits_monthly or 0.0,
-                cy_avg_prs_monthly=metric.cy_avg_prs_monthly or 0.0,
-                cy_avg_approvals_monthly=metric.cy_avg_approvals_monthly or 0.0,
-                cy_file_types_list=metric.cy_file_types_list or "",
-                cy_repositories_list=metric.cy_repositories_list or "",
-                cy_project_keys_list=metric.cy_project_keys_list or "",
-                cy_start_date=str(metric.cy_start_date) if metric.cy_start_date else None,
-                cy_end_date=str(metric.cy_end_date) if metric.cy_end_date else None
+                code_churn_ratio=metric.code_churn_ratio
             )
 
         finally:
@@ -469,3 +436,153 @@ async def recalculate_all_staff_metrics():
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error recalculating all metrics: {str(e)}")
+
+
+# ========================================
+# Current Year Staff Metrics Endpoints
+# ========================================
+
+@router.get("/current-year", response_model=List[CurrentYearStaffMetricsResponse])
+async def get_all_current_year_staff_metrics(
+    search: str = Query(None, description="Search by name or email"),
+    staff_status: str = Query(None, description="Filter by status"),
+    limit: int = Query(10000, ge=1, le=10000),
+):
+    """Get current year metrics for all staff members."""
+    try:
+        config = Config()
+        db_config = config.get_db_config()
+        engine = get_engine(db_config)
+        session = get_session(engine)
+
+        try:
+            # Base query
+            query = session.query(CurrentYearStaffMetrics)
+
+            # Apply filters
+            if search:
+                query = query.filter(
+                    (CurrentYearStaffMetrics.staff_name.ilike(f'%{search}%')) |
+                    (CurrentYearStaffMetrics.staff_email.ilike(f'%{search}%'))
+                )
+
+            if staff_status:
+                query = query.filter(CurrentYearStaffMetrics.staff_status == staff_status)
+            else:
+                # Exclude inactive staff by default
+                query = query.filter(
+                    (CurrentYearStaffMetrics.staff_status != 'Inactive') |
+                    (CurrentYearStaffMetrics.staff_status.is_(None))
+                )
+
+            # Order by activity (most active first)
+            query = query.order_by(CurrentYearStaffMetrics.cy_total_commits.desc()).limit(limit)
+
+            results = query.all()
+
+            return [
+                CurrentYearStaffMetricsResponse(
+                    bank_id_1=r.bank_id_1,
+                    staff_name=r.staff_name or "",
+                    staff_email=r.staff_email or "",
+                    staff_status=r.staff_status or "",
+                    staff_pc_code=r.staff_pc_code or "",
+                    default_role=r.default_role or "",
+                    current_year=r.current_year,
+                    cy_start_date=str(r.cy_start_date) if r.cy_start_date else None,
+                    cy_end_date=str(r.cy_end_date) if r.cy_end_date else None,
+                    cy_total_commits=r.cy_total_commits or 0,
+                    cy_total_prs=r.cy_total_prs or 0,
+                    cy_total_approvals_given=r.cy_total_approvals_given or 0,
+                    cy_total_code_reviews_given=r.cy_total_code_reviews_given or 0,
+                    cy_total_code_reviews_received=r.cy_total_code_reviews_received or 0,
+                    cy_total_repositories=r.cy_total_repositories or 0,
+                    cy_total_files_changed=r.cy_total_files_changed or 0,
+                    cy_total_lines_changed=r.cy_total_lines_changed or 0,
+                    cy_total_chars=r.cy_total_chars or 0,
+                    cy_total_code_churn=r.cy_total_code_churn or 0,
+                    cy_different_file_types=r.cy_different_file_types or 0,
+                    cy_different_repositories=r.cy_different_repositories or 0,
+                    cy_different_project_keys=r.cy_different_project_keys or 0,
+                    cy_pct_code=r.cy_pct_code or 0.0,
+                    cy_pct_config=r.cy_pct_config or 0.0,
+                    cy_pct_documentation=r.cy_pct_documentation or 0.0,
+                    cy_avg_commits_monthly=r.cy_avg_commits_monthly or 0.0,
+                    cy_avg_prs_monthly=r.cy_avg_prs_monthly or 0.0,
+                    cy_avg_approvals_monthly=r.cy_avg_approvals_monthly or 0.0,
+                    cy_file_types_list=r.cy_file_types_list or "",
+                    cy_repositories_list=r.cy_repositories_list or "",
+                    cy_project_keys_list=r.cy_project_keys_list or "",
+                    last_calculated=str(r.last_calculated) if r.last_calculated else None,
+                    calculation_version=r.calculation_version or ""
+                )
+                for r in results
+            ]
+
+        finally:
+            session.close()
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching current year staff metrics: {str(e)}")
+
+
+@router.get("/current-year/{bank_id}", response_model=CurrentYearStaffMetricsResponse)
+async def get_current_year_staff_metrics_by_id(bank_id: str):
+    """Get current year metrics for a specific staff member by bank ID."""
+    try:
+        config = Config()
+        db_config = config.get_db_config()
+        engine = get_engine(db_config)
+        session = get_session(engine)
+
+        try:
+            metric = session.query(CurrentYearStaffMetrics).filter(
+                CurrentYearStaffMetrics.bank_id_1 == bank_id
+            ).first()
+
+            if not metric:
+                raise HTTPException(status_code=404, detail=f"Current year staff metrics not found for {bank_id}")
+
+            return CurrentYearStaffMetricsResponse(
+                bank_id_1=metric.bank_id_1,
+                staff_name=metric.staff_name or "",
+                staff_email=metric.staff_email or "",
+                staff_status=metric.staff_status or "",
+                staff_pc_code=metric.staff_pc_code or "",
+                default_role=metric.default_role or "",
+                current_year=metric.current_year,
+                cy_start_date=str(metric.cy_start_date) if metric.cy_start_date else None,
+                cy_end_date=str(metric.cy_end_date) if metric.cy_end_date else None,
+                cy_total_commits=metric.cy_total_commits or 0,
+                cy_total_prs=metric.cy_total_prs or 0,
+                cy_total_approvals_given=metric.cy_total_approvals_given or 0,
+                cy_total_code_reviews_given=metric.cy_total_code_reviews_given or 0,
+                cy_total_code_reviews_received=metric.cy_total_code_reviews_received or 0,
+                cy_total_repositories=metric.cy_total_repositories or 0,
+                cy_total_files_changed=metric.cy_total_files_changed or 0,
+                cy_total_lines_changed=metric.cy_total_lines_changed or 0,
+                cy_total_chars=metric.cy_total_chars or 0,
+                cy_total_code_churn=metric.cy_total_code_churn or 0,
+                cy_different_file_types=metric.cy_different_file_types or 0,
+                cy_different_repositories=metric.cy_different_repositories or 0,
+                cy_different_project_keys=metric.cy_different_project_keys or 0,
+                cy_pct_code=metric.cy_pct_code or 0.0,
+                cy_pct_config=metric.cy_pct_config or 0.0,
+                cy_pct_documentation=metric.cy_pct_documentation or 0.0,
+                cy_avg_commits_monthly=metric.cy_avg_commits_monthly or 0.0,
+                cy_avg_prs_monthly=metric.cy_avg_prs_monthly or 0.0,
+                cy_avg_approvals_monthly=metric.cy_avg_approvals_monthly or 0.0,
+                cy_file_types_list=metric.cy_file_types_list or "",
+                cy_repositories_list=metric.cy_repositories_list or "",
+                cy_project_keys_list=metric.cy_project_keys_list or "",
+                last_calculated=str(metric.last_calculated) if metric.last_calculated else None,
+                calculation_version=metric.calculation_version or ""
+            )
+
+        finally:
+            session.close()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching current year staff metrics: {str(e)}")

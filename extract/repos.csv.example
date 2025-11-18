@@ -1,0 +1,5 @@
+project_key,repo_slug
+PROJECT1,backend-api
+PROJECT1,frontend-app
+PROJECT2,mobile-app
+PROJECT2,data-pipeline

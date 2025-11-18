@@ -1,0 +1,8 @@
+# Python requirements
+sqlalchemy
+pymysql
+cryptography
+requests
+click
+python-dotenv
+gitpython

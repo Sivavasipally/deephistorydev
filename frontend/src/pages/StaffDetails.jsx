@@ -440,21 +440,24 @@ const StaffDetails = () => {
     }
 
     try {
-      // Fetch commits, PRs, and approvals only when row is expanded
-      const [commits, prs, approvals] = await Promise.all([
+      // Fetch commits and PRs only when row is expanded
+      // Note: Approvals count is already available from staff_metrics
+      const [commits, prs] = await Promise.all([
         commitsAPI.getCommits({ author: staffRecord.email_address, limit: 1000 }).catch(() => []),
         fetch(`/api/pull-requests?author=${staffRecord.email_address}&limit=1000`)
-          .then(res => res.json())
-          .catch(() => []),
-        fetch(`/api/pull-requests?reviewer=${staffRecord.email_address}&limit=1000`)
-          .then(res => res.json())
+          .then(res => {
+            if (!res.ok) {
+              throw new Error(`HTTP ${res.status}`)
+            }
+            return res.json()
+          })
           .catch(() => []),
       ])
 
       // Update the staff record with detailed data
       staffRecord.commits = commits || []
       staffRecord.pullRequests = prs || []
-      staffRecord.approvals = approvals || []
+      staffRecord.approvals = [] // Approvals details not available in current API
       staffRecord.detailsLoaded = true
 
       // Update the state to reflect the loaded data
@@ -530,7 +533,7 @@ const StaffDetails = () => {
         children: (
           <Table
             dataSource={Array.isArray(record.commits) ? record.commits : []}
-            rowKey={(r, i) => r?.commit_hash || `commit-${i}`}
+            rowKey={r => r?.commit_hash || r?.id || Math.random().toString()}
             size="small"
             pagination={{ pageSize: 5 }}
             columns={[
@@ -587,7 +590,7 @@ const StaffDetails = () => {
         children: (
           <Table
             dataSource={Array.isArray(record.pullRequests) ? record.pullRequests : []}
-            rowKey={(r, i) => r?.pr_number ? `pr-${r.pr_number}` : `pr-${i}`}
+            rowKey={r => r?.pr_number ? `pr-${r.pr_number}` : r?.id || Math.random().toString()}
             size="small"
             pagination={{ pageSize: 5 }}
             columns={[
@@ -635,46 +638,17 @@ const StaffDetails = () => {
         key: '4',
         label: `Approvals Given (${record.approvalCount})`,
         children: (
-          <Table
-            dataSource={Array.isArray(record.approvals) ? record.approvals : []}
-            rowKey={(r, i) => r?.pr_number ? `approval-${r.pr_number}-${i}` : `approval-${i}`}
-            size="small"
-            pagination={{ pageSize: 5 }}
-            columns={[
-              {
-                title: 'PR #',
-                dataIndex: 'pr_number',
-                key: 'pr_number',
-                width: 80,
-              },
-              {
-                title: 'PR Title',
-                dataIndex: 'title',
-                key: 'title',
-                ellipsis: true,
-              },
-              {
-                title: 'PR Author',
-                dataIndex: 'author',
-                key: 'author',
-                width: 150,
-              },
-              {
-                title: 'Review State',
-                dataIndex: 'review_state',
-                key: 'review_state',
-                width: 120,
-                render: state => <Tag>{state}</Tag>,
-              },
-              {
-                title: 'Reviewed Date',
-                dataIndex: 'reviewed_at',
-                key: 'reviewed_at',
-                width: 120,
-                render: date => (date ? dayjs(date).format('YYYY-MM-DD') : 'N/A'),
-              },
-            ]}
-          />
+          <Card>
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <Text type="secondary">
+                <strong>Total Approvals Given:</strong> {record.approvalCount}
+              </Text>
+              <Text type="secondary" style={{ fontSize: '12px' }}>
+                Note: Detailed approval history is available in the staff_metrics summary.
+                The approval count shows the total number of PR approvals this staff member has provided.
+              </Text>
+            </Space>
+          </Card>
         ),
       },
     ]

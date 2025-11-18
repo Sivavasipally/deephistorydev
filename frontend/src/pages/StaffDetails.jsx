@@ -17,6 +17,7 @@ import {
   Tabs,
   Tooltip,
   Badge,
+  Spin,
 } from 'antd'
 import {
   UserOutlined,
@@ -454,31 +455,66 @@ const StaffDetails = () => {
           .catch(() => []),
       ])
 
-      // Update the staff record with detailed data
-      staffRecord.commits = commits || []
-      staffRecord.pullRequests = prs || []
-      staffRecord.approvals = [] // Approvals details not available in current API
-      staffRecord.detailsLoaded = true
+      // Create updated record with new data (creates new object reference for React to detect change)
+      const updatedRecord = {
+        ...staffRecord,
+        commits: commits || [],
+        pullRequests: prs || [],
+        approvals: [], // Approvals details not available in current API
+        detailsLoaded: true,
+        detailsLoading: false,
+      }
 
-      // Update the state to reflect the loaded data
+      // Update the state to trigger re-render
       setStaffList(prevList =>
-        prevList.map(s => s.bank_id_1 === staffRecord.bank_id_1 ? staffRecord : s)
+        prevList.map(s => s.bank_id_1 === staffRecord.bank_id_1 ? updatedRecord : s)
       )
 
-      return staffRecord
+      return updatedRecord
     } catch (err) {
       console.error(`Error loading details for ${staffRecord.staff_name}:`, err)
       messageApi.error(`Failed to load details for ${staffRecord.staff_name}`)
-      return staffRecord
+
+      // Mark as loaded even on error to prevent infinite retry
+      const errorRecord = {
+        ...staffRecord,
+        commits: [],
+        pullRequests: [],
+        approvals: [],
+        detailsLoaded: true,
+        detailsLoading: false,
+        loadError: true,
+      }
+
+      setStaffList(prevList =>
+        prevList.map(s => s.bank_id_1 === staffRecord.bank_id_1 ? errorRecord : s)
+      )
+
+      return errorRecord
     }
   }
 
   // Expanded row render - shows detailed information
   const expandedRowRender = record => {
     // Load details when row is expanded
-    if (!record.detailsLoaded) {
+    if (!record.detailsLoaded && !record.detailsLoading) {
+      record.detailsLoading = true
       loadStaffDetails(record)
     }
+
+    // Show loading state while data is being fetched
+    const isLoading = !record.detailsLoaded
+
+    if (isLoading) {
+      return (
+        <div style={{ padding: '40px', textAlign: 'center' }}>
+          <Spin size="large" tip="Loading commits, pull requests, and approvals...">
+            <div style={{ minHeight: '100px' }} />
+          </Spin>
+        </div>
+      )
+    }
+
     const detailTabs = [
       {
         key: '1',

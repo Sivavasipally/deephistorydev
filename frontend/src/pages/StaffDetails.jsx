@@ -7,7 +7,7 @@ import {
   Tag,
   Typography,
   message,
-  Collapse,
+  App,
   Row,
   Col,
   Select,
@@ -40,6 +40,9 @@ const { Title, Text } = Typography
 const { Search } = Input
 
 const StaffDetails = () => {
+  // Use App context for message
+  const { message: messageApi } = App.useApp()
+
   // State
   const [staffList, setStaffList] = useState([])
   const [filteredStaff, setFilteredStaff] = useState([])
@@ -129,9 +132,9 @@ const StaffDetails = () => {
         zeroActivity,
       })
 
-      message.success(`Loaded ${totalStaff} staff members`)
+      messageApi.success(`Loaded ${totalStaff} staff members`)
     } catch (err) {
-      message.error('Failed to fetch staff data')
+      messageApi.error('Failed to fetch staff data')
       console.error(err)
     } finally {
       setLoading(false)
@@ -198,7 +201,7 @@ const StaffDetails = () => {
 
   const handleExportToExcel = () => {
     if (filteredStaff.length === 0) {
-      message.warning('No data to export')
+      messageApi.warning('No data to export')
       return
     }
 
@@ -298,7 +301,7 @@ const StaffDetails = () => {
 
     const filename = `staff_details_${dayjs().format('YYYYMMDD_HHmmss')}`
     exportMultipleSheetsToExcel(sheets, filename)
-    message.success('Excel file exported successfully!')
+    messageApi.success('Excel file exported successfully!')
   }
 
   // Get unique values for filters
@@ -461,7 +464,7 @@ const StaffDetails = () => {
       return staffRecord
     } catch (err) {
       console.error(`Error loading details for ${staffRecord.staff_name}:`, err)
-      message.error(`Failed to load details for ${staffRecord.staff_name}`)
+      messageApi.error(`Failed to load details for ${staffRecord.staff_name}`)
       return staffRecord
     }
   }
@@ -525,8 +528,8 @@ const StaffDetails = () => {
         label: `Commits (${record.commitCount})`,
         children: (
           <Table
-            dataSource={record.commits || []}
-            rowKey={(r, i) => r.commit_hash || `commit-${i}`}
+            dataSource={Array.isArray(record.commits) ? record.commits : []}
+            rowKey={(r, i) => r?.commit_hash || `commit-${i}`}
             size="small"
             pagination={{ pageSize: 5 }}
             columns={[
@@ -582,8 +585,8 @@ const StaffDetails = () => {
         label: `Pull Requests (${record.prCount})`,
         children: (
           <Table
-            dataSource={record.pullRequests || []}
-            rowKey={(r, i) => `pr-${i}`}
+            dataSource={Array.isArray(record.pullRequests) ? record.pullRequests : []}
+            rowKey={(r, i) => r?.pr_number ? `pr-${r.pr_number}` : `pr-${i}`}
             size="small"
             pagination={{ pageSize: 5 }}
             columns={[
@@ -632,8 +635,8 @@ const StaffDetails = () => {
         label: `Approvals Given (${record.approvalCount})`,
         children: (
           <Table
-            dataSource={record.approvals || []}
-            rowKey={(r, i) => `approval-${i}`}
+            dataSource={Array.isArray(record.approvals) ? record.approvals : []}
+            rowKey={(r, i) => r?.pr_number ? `approval-${r.pr_number}-${i}` : `approval-${i}`}
             size="small"
             pagination={{ pageSize: 5 }}
             columns={[

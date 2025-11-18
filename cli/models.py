@@ -305,6 +305,45 @@ class StaffMetrics(Base):
     avg_files_per_commit = Column(Float, default=0.0, comment='Average files changed per commit')
     code_churn_ratio = Column(Float, default=0.0, comment='Ratio of deleted to added lines (churn indicator)')
 
+    # Additional Staff Details
+    staff_pc_code = Column(String(100), comment='Staff PC code from staff_details')
+    default_role = Column(String(255), comment='Default role from staff_details')
+
+    # Current Year Metrics (YYYY-01-01 to YYYY-12-31)
+    current_year = Column(Integer, comment='Year for which current year metrics are calculated')
+    cy_total_commits = Column(Integer, default=0, comment='Total commits in current year')
+    cy_total_prs = Column(Integer, default=0, comment='Total PRs created in current year')
+    cy_total_approvals_given = Column(Integer, default=0, comment='Total PR approvals given in current year')
+    cy_total_code_reviews_given = Column(Integer, default=0, comment='Total code reviews given in current year (PRs reviewed)')
+    cy_total_code_reviews_received = Column(Integer, default=0, comment='Total code reviews received in current year (own PRs reviewed)')
+    cy_total_repositories = Column(Integer, default=0, comment='Number of unique repositories touched in current year')
+    cy_total_files_changed = Column(Integer, default=0, comment='Total files changed in current year')
+    cy_total_lines_changed = Column(Integer, default=0, comment='Total lines (added+deleted) in current year')
+    cy_total_chars = Column(Integer, default=0, comment='Total characters (added+deleted) in current year')
+    cy_total_code_churn = Column(Integer, default=0, comment='Code churn (lines deleted) in current year')
+    cy_different_file_types = Column(Integer, default=0, comment='Number of different file types worked in current year')
+    cy_different_repositories = Column(Integer, default=0, comment='Number of different repositories in current year')
+    cy_different_project_keys = Column(Integer, default=0, comment='Number of different project keys in current year')
+
+    # File Type Percentages (Current Year)
+    cy_pct_code = Column(Float, default=0.0, comment='Percentage of code files (java, js, jsx, tsx, sql, py, etc.)')
+    cy_pct_config = Column(Float, default=0.0, comment='Percentage of config files (xml, json, yml, properties, config, no-extension)')
+    cy_pct_documentation = Column(Float, default=0.0, comment='Percentage of documentation files (md)')
+
+    # Monthly Averages (Current Year)
+    cy_avg_commits_monthly = Column(Float, default=0.0, comment='Average commits per month in current year')
+    cy_avg_prs_monthly = Column(Float, default=0.0, comment='Average PRs per month in current year')
+    cy_avg_approvals_monthly = Column(Float, default=0.0, comment='Average approvals per month in current year')
+
+    # Additional Lists (Current Year)
+    cy_file_types_list = Column(Text, comment='Comma-separated list of file types in current year')
+    cy_repositories_list = Column(Text, comment='Comma-separated list of repositories in current year')
+    cy_project_keys_list = Column(Text, comment='Comma-separated list of project keys in current year')
+
+    # Date Range (Current Year)
+    cy_start_date = Column(Date, comment='Start date for current year metrics')
+    cy_end_date = Column(Date, comment='End date for current year metrics')
+
     def __repr__(self):
         return f"<StaffMetrics(bank_id='{self.bank_id_1}', staff_name='{self.staff_name}', commits={self.total_commits})>"
 

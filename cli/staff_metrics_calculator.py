@@ -1,7 +1,7 @@
 """Staff metrics calculator - computes pre-aggregated metrics during extract phase."""
 
-from sqlalchemy import func
-from datetime import datetime
+from sqlalchemy import func, extract
+from datetime import datetime, date
 from collections import Counter
 from .models import (
     StaffMetrics, StaffDetails, AuthorStaffMapping,
@@ -184,9 +184,43 @@ class StaffMetricsCalculator:
         staff_metric.file_types_worked = commit_metrics['file_types_worked']
         staff_metric.primary_file_type = commit_metrics['primary_file_type']
 
+        # Update additional staff details
+        staff_metric.staff_pc_code = staff.staff_pc_code
+        staff_metric.default_role = staff.default_role
+
+        # Calculate current year metrics
+        current_year = datetime.now().year
+        cy_metrics = self._calculate_current_year_metrics(author_names, current_year)
+
+        staff_metric.current_year = current_year
+        staff_metric.cy_total_commits = cy_metrics['total_commits']
+        staff_metric.cy_total_prs = cy_metrics['total_prs']
+        staff_metric.cy_total_approvals_given = cy_metrics['total_approvals_given']
+        staff_metric.cy_total_code_reviews_given = cy_metrics['total_code_reviews_given']
+        staff_metric.cy_total_code_reviews_received = cy_metrics['total_code_reviews_received']
+        staff_metric.cy_total_repositories = cy_metrics['total_repositories']
+        staff_metric.cy_total_files_changed = cy_metrics['total_files_changed']
+        staff_metric.cy_total_lines_changed = cy_metrics['total_lines_changed']
+        staff_metric.cy_total_chars = cy_metrics['total_chars']
+        staff_metric.cy_total_code_churn = cy_metrics['total_code_churn']
+        staff_metric.cy_different_file_types = cy_metrics['different_file_types']
+        staff_metric.cy_different_repositories = cy_metrics['different_repositories']
+        staff_metric.cy_different_project_keys = cy_metrics['different_project_keys']
+        staff_metric.cy_pct_code = cy_metrics['pct_code']
+        staff_metric.cy_pct_config = cy_metrics['pct_config']
+        staff_metric.cy_pct_documentation = cy_metrics['pct_documentation']
+        staff_metric.cy_avg_commits_monthly = cy_metrics['avg_commits_monthly']
+        staff_metric.cy_avg_prs_monthly = cy_metrics['avg_prs_monthly']
+        staff_metric.cy_avg_approvals_monthly = cy_metrics['avg_approvals_monthly']
+        staff_metric.cy_file_types_list = cy_metrics['file_types_list']
+        staff_metric.cy_repositories_list = cy_metrics['repositories_list']
+        staff_metric.cy_project_keys_list = cy_metrics['project_keys_list']
+        staff_metric.cy_start_date = cy_metrics['start_date']
+        staff_metric.cy_end_date = cy_metrics['end_date']
+
         # Update metadata
         staff_metric.last_calculated = datetime.utcnow()
-        staff_metric.calculation_version = '1.0'
+        staff_metric.calculation_version = '2.0'
 
         # Calculate derived metrics
         if staff_metric.total_commits > 0:
@@ -335,6 +369,139 @@ class StaffMetricsCalculator:
 
         return {
             'total_approvals': len(approvals)
+        }
+
+    def _calculate_current_year_metrics(self, author_names, year):
+        """Calculate metrics for the current year.
+
+        Args:
+            author_names: List of author names to aggregate
+            year: Year to calculate metrics for
+
+        Returns:
+            dict: Current year metrics
+        """
+        from datetime import date
+        from sqlalchemy import extract
+
+        # Define current year date range
+        start_date = date(year, 1, 1)
+        end_date = date(year, 12, 31)
+
+        # Query commits in current year
+        cy_commits = self.session.query(Commit).filter(
+            Commit.author_name.in_(author_names),
+            extract('year', Commit.commit_date) == year
+        ).all()
+
+        # Query PRs in current year
+        cy_prs = self.session.query(PullRequest).filter(
+            PullRequest.author_name.in_(author_names),
+            extract('year', PullRequest.created_date) == year
+        ).all()
+
+        # Query approvals given in current year
+        cy_approvals = self.session.query(PRApproval).filter(
+            PRApproval.approver_name.in_(author_names),
+            extract('year', PRApproval.approval_date) == year
+        ).all()
+
+        # Get unique PRs reviewed by this author (code reviews given)
+        cy_pr_reviews_given = self.session.query(PRApproval.pull_request_id).filter(
+            PRApproval.approver_name.in_(author_names),
+            extract('year', PRApproval.approval_date) == year
+        ).distinct().all()
+
+        # Get code reviews received (approvals on own PRs)
+        cy_pr_ids = [pr.id for pr in cy_prs]
+        cy_reviews_received = 0
+        if cy_pr_ids:
+            cy_reviews_received = self.session.query(PRApproval).filter(
+                PRApproval.pull_request_id.in_(cy_pr_ids)
+            ).count()
+
+        # Calculate commit metrics
+        total_commits = len(cy_commits)
+        total_files_changed = sum(c.files_changed or 0 for c in cy_commits)
+        total_lines_added = sum(c.lines_added or 0 for c in cy_commits)
+        total_lines_deleted = sum(c.lines_deleted or 0 for c in cy_commits)
+        total_lines_changed = total_lines_added + total_lines_deleted
+        total_chars = sum((c.chars_added or 0) + (c.chars_deleted or 0) for c in cy_commits)
+        total_code_churn = total_lines_deleted
+
+        # Get repository info
+        repo_ids = set(c.repository_id for c in cy_commits if c.repository_id)
+        repositories = self.session.query(Repository).filter(
+            Repository.id.in_(repo_ids)
+        ).all() if repo_ids else []
+
+        repo_names = [r.slug_name for r in repositories]
+        project_keys = list(set(r.project_key for r in repositories if r.project_key))
+
+        # Get file types
+        all_file_types = []
+        for c in cy_commits:
+            if c.file_types:
+                all_file_types.extend([ft.strip() for ft in c.file_types.split(',') if ft.strip()])
+
+        unique_file_types = list(set(all_file_types))
+
+        # Calculate file type percentages
+        total_file_count = len(all_file_types)
+        pct_code = 0.0
+        pct_config = 0.0
+        pct_documentation = 0.0
+
+        if total_file_count > 0:
+            code_extensions = {'java', 'js', 'jsx', 'tsx', 'ts', 'py', 'sql', 'cpp', 'c', 'h', 'cs', 'rb', 'go', 'php', 'swift', 'kt', 'scala', 'r'}
+            config_extensions = {'xml', 'json', 'yml', 'yaml', 'properties', 'config', 'conf', 'toml', 'ini', 'env', ''}
+            doc_extensions = {'md', 'txt', 'rst', 'adoc', 'asciidoc'}
+
+            code_count = sum(1 for ft in all_file_types if ft.lower() in code_extensions)
+            config_count = sum(1 for ft in all_file_types if ft.lower() in config_extensions)
+            doc_count = sum(1 for ft in all_file_types if ft.lower() in doc_extensions)
+
+            pct_code = round((code_count / total_file_count) * 100, 2)
+            pct_config = round((config_count / total_file_count) * 100, 2)
+            pct_documentation = round((doc_count / total_file_count) * 100, 2)
+
+        # Calculate monthly averages (assuming up to current month for current year)
+        from datetime import datetime
+        current_date = datetime.now()
+        if year == current_date.year:
+            months_elapsed = current_date.month
+        else:
+            months_elapsed = 12
+
+        avg_commits_monthly = round(total_commits / months_elapsed, 2) if months_elapsed > 0 else 0.0
+        avg_prs_monthly = round(len(cy_prs) / months_elapsed, 2) if months_elapsed > 0 else 0.0
+        avg_approvals_monthly = round(len(cy_approvals) / months_elapsed, 2) if months_elapsed > 0 else 0.0
+
+        return {
+            'total_commits': total_commits,
+            'total_prs': len(cy_prs),
+            'total_approvals_given': len(cy_approvals),
+            'total_code_reviews_given': len(cy_pr_reviews_given),
+            'total_code_reviews_received': cy_reviews_received,
+            'total_repositories': len(repo_names),
+            'total_files_changed': total_files_changed,
+            'total_lines_changed': total_lines_changed,
+            'total_chars': total_chars,
+            'total_code_churn': total_code_churn,
+            'different_file_types': len(unique_file_types),
+            'different_repositories': len(repo_names),
+            'different_project_keys': len(project_keys),
+            'pct_code': pct_code,
+            'pct_config': pct_config,
+            'pct_documentation': pct_documentation,
+            'avg_commits_monthly': avg_commits_monthly,
+            'avg_prs_monthly': avg_prs_monthly,
+            'avg_approvals_monthly': avg_approvals_monthly,
+            'file_types_list': ','.join(sorted(unique_file_types)),
+            'repositories_list': ','.join(sorted(repo_names)),
+            'project_keys_list': ','.join(sorted(project_keys)),
+            'start_date': start_date,
+            'end_date': end_date
         }
 
     def recalculate_after_mapping_change(self, bank_id):

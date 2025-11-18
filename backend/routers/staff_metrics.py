@@ -75,6 +75,37 @@ class StaffMetricsResponse(BaseModel):
     avg_files_per_commit: float = 0.0
     code_churn_ratio: float = 0.0
 
+    # Additional Staff Details
+    staff_pc_code: Optional[str] = ""
+    default_role: Optional[str] = ""
+
+    # Current Year Metrics
+    current_year: Optional[int] = None
+    cy_total_commits: int = 0
+    cy_total_prs: int = 0
+    cy_total_approvals_given: int = 0
+    cy_total_code_reviews_given: int = 0
+    cy_total_code_reviews_received: int = 0
+    cy_total_repositories: int = 0
+    cy_total_files_changed: int = 0
+    cy_total_lines_changed: int = 0
+    cy_total_chars: int = 0
+    cy_total_code_churn: int = 0
+    cy_different_file_types: int = 0
+    cy_different_repositories: int = 0
+    cy_different_project_keys: int = 0
+    cy_pct_code: float = 0.0
+    cy_pct_config: float = 0.0
+    cy_pct_documentation: float = 0.0
+    cy_avg_commits_monthly: float = 0.0
+    cy_avg_prs_monthly: float = 0.0
+    cy_avg_approvals_monthly: float = 0.0
+    cy_file_types_list: Optional[str] = ""
+    cy_repositories_list: Optional[str] = ""
+    cy_project_keys_list: Optional[str] = ""
+    cy_start_date: Optional[str] = None
+    cy_end_date: Optional[str] = None
+
 
 class StaffMetricsSummary(BaseModel):
     """Summary statistics for staff metrics."""
@@ -193,7 +224,34 @@ async def get_all_staff_metrics(
                     calculation_version=r.calculation_version or "",
                     avg_lines_per_commit=r.avg_lines_per_commit,
                     avg_files_per_commit=r.avg_files_per_commit,
-                    code_churn_ratio=r.code_churn_ratio
+                    code_churn_ratio=r.code_churn_ratio,
+                    staff_pc_code=r.staff_pc_code or "",
+                    default_role=r.default_role or "",
+                    current_year=r.current_year,
+                    cy_total_commits=r.cy_total_commits or 0,
+                    cy_total_prs=r.cy_total_prs or 0,
+                    cy_total_approvals_given=r.cy_total_approvals_given or 0,
+                    cy_total_code_reviews_given=r.cy_total_code_reviews_given or 0,
+                    cy_total_code_reviews_received=r.cy_total_code_reviews_received or 0,
+                    cy_total_repositories=r.cy_total_repositories or 0,
+                    cy_total_files_changed=r.cy_total_files_changed or 0,
+                    cy_total_lines_changed=r.cy_total_lines_changed or 0,
+                    cy_total_chars=r.cy_total_chars or 0,
+                    cy_total_code_churn=r.cy_total_code_churn or 0,
+                    cy_different_file_types=r.cy_different_file_types or 0,
+                    cy_different_repositories=r.cy_different_repositories or 0,
+                    cy_different_project_keys=r.cy_different_project_keys or 0,
+                    cy_pct_code=r.cy_pct_code or 0.0,
+                    cy_pct_config=r.cy_pct_config or 0.0,
+                    cy_pct_documentation=r.cy_pct_documentation or 0.0,
+                    cy_avg_commits_monthly=r.cy_avg_commits_monthly or 0.0,
+                    cy_avg_prs_monthly=r.cy_avg_prs_monthly or 0.0,
+                    cy_avg_approvals_monthly=r.cy_avg_approvals_monthly or 0.0,
+                    cy_file_types_list=r.cy_file_types_list or "",
+                    cy_repositories_list=r.cy_repositories_list or "",
+                    cy_project_keys_list=r.cy_project_keys_list or "",
+                    cy_start_date=str(r.cy_start_date) if r.cy_start_date else None,
+                    cy_end_date=str(r.cy_end_date) if r.cy_end_date else None
                 )
                 for r in results
             ]
@@ -282,9 +340,15 @@ async def get_staff_metrics_by_id(bank_id: str):
                 tech_unit=metric.tech_unit or "",
                 platform_name=metric.platform_name or "",
                 staff_type=metric.staff_type or "",
+                original_staff_type=metric.original_staff_type or "",
                 staff_status=metric.staff_status or "",
                 work_location=metric.work_location or "",
                 rank=metric.rank or "",
+                staff_level=metric.staff_level or "",
+                hr_role=metric.hr_role or "",
+                job_function=metric.job_function or "",
+                department_id=metric.department_id or "",
+                company_name=metric.company_name or "",
                 sub_platform=metric.sub_platform or "",
                 staff_grouping=metric.staff_grouping or "",
                 reporting_manager_name=metric.reporting_manager_name or "",
@@ -309,7 +373,34 @@ async def get_staff_metrics_by_id(bank_id: str):
                 calculation_version=metric.calculation_version or "",
                 avg_lines_per_commit=metric.avg_lines_per_commit,
                 avg_files_per_commit=metric.avg_files_per_commit,
-                code_churn_ratio=metric.code_churn_ratio
+                code_churn_ratio=metric.code_churn_ratio,
+                staff_pc_code=metric.staff_pc_code or "",
+                default_role=metric.default_role or "",
+                current_year=metric.current_year,
+                cy_total_commits=metric.cy_total_commits or 0,
+                cy_total_prs=metric.cy_total_prs or 0,
+                cy_total_approvals_given=metric.cy_total_approvals_given or 0,
+                cy_total_code_reviews_given=metric.cy_total_code_reviews_given or 0,
+                cy_total_code_reviews_received=metric.cy_total_code_reviews_received or 0,
+                cy_total_repositories=metric.cy_total_repositories or 0,
+                cy_total_files_changed=metric.cy_total_files_changed or 0,
+                cy_total_lines_changed=metric.cy_total_lines_changed or 0,
+                cy_total_chars=metric.cy_total_chars or 0,
+                cy_total_code_churn=metric.cy_total_code_churn or 0,
+                cy_different_file_types=metric.cy_different_file_types or 0,
+                cy_different_repositories=metric.cy_different_repositories or 0,
+                cy_different_project_keys=metric.cy_different_project_keys or 0,
+                cy_pct_code=metric.cy_pct_code or 0.0,
+                cy_pct_config=metric.cy_pct_config or 0.0,
+                cy_pct_documentation=metric.cy_pct_documentation or 0.0,
+                cy_avg_commits_monthly=metric.cy_avg_commits_monthly or 0.0,
+                cy_avg_prs_monthly=metric.cy_avg_prs_monthly or 0.0,
+                cy_avg_approvals_monthly=metric.cy_avg_approvals_monthly or 0.0,
+                cy_file_types_list=metric.cy_file_types_list or "",
+                cy_repositories_list=metric.cy_repositories_list or "",
+                cy_project_keys_list=metric.cy_project_keys_list or "",
+                cy_start_date=str(metric.cy_start_date) if metric.cy_start_date else None,
+                cy_end_date=str(metric.cy_end_date) if metric.cy_end_date else None
             )
 
         finally:

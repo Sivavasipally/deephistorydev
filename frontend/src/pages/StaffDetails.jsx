@@ -231,6 +231,42 @@ const StaffDetails = () => {
         'Total PRs': s.prCount,
         'Total Approvals': s.approvalCount,
         'Has Activity': s.hasActivity ? 'Yes' : 'No',
+        'Staff PC Code': s.staff_pc_code || '',
+        'Default Role': s.default_role || '',
+      })),
+    })
+
+    // Current Year Metrics Sheet
+    sheets.push({
+      name: 'Current Year Metrics',
+      data: filteredStaff.map(s => ({
+        'Staff Name': s.staff_name,
+        'Email': s.email_address,
+        'Current Year': s.current_year || new Date().getFullYear(),
+        'CY Total Commits': s.cy_total_commits || 0,
+        'CY Total PRs': s.cy_total_prs || 0,
+        'CY Approvals Given': s.cy_total_approvals_given || 0,
+        'CY Code Reviews Given': s.cy_total_code_reviews_given || 0,
+        'CY Code Reviews Received': s.cy_total_code_reviews_received || 0,
+        'CY Repositories': s.cy_total_repositories || 0,
+        'CY Files Changed': s.cy_total_files_changed || 0,
+        'CY Lines Changed': s.cy_total_lines_changed || 0,
+        'CY Characters Changed': s.cy_total_chars || 0,
+        'CY Code Churn': s.cy_total_code_churn || 0,
+        'CY Different File Types': s.cy_different_file_types || 0,
+        'CY Different Repositories': s.cy_different_repositories || 0,
+        'CY Different Project Keys': s.cy_different_project_keys || 0,
+        'CY % Code Files': s.cy_pct_code || 0,
+        'CY % Config Files': s.cy_pct_config || 0,
+        'CY % Documentation Files': s.cy_pct_documentation || 0,
+        'CY Avg Commits/Month': s.cy_avg_commits_monthly || 0,
+        'CY Avg PRs/Month': s.cy_avg_prs_monthly || 0,
+        'CY Avg Approvals/Month': s.cy_avg_approvals_monthly || 0,
+        'CY File Types List': s.cy_file_types_list || '',
+        'CY Repositories List': s.cy_repositories_list || '',
+        'CY Project Keys List': s.cy_project_keys_list || '',
+        'CY Start Date': s.cy_start_date || '',
+        'CY End Date': s.cy_end_date || '',
       })),
     })
 
@@ -527,9 +563,21 @@ const StaffDetails = () => {
             <Row gutter={[16, 16]}>
               <Col span={8}>
                 <Statistic
+                  title="Staff PC Code"
+                  value={currentRecord.staff_pc_code || 'N/A'}
+                  prefix={<IdcardOutlined />}
+                />
+              </Col>
+              <Col span={8}>
+                <Statistic
+                  title="Default Role"
+                  value={currentRecord.default_role || 'N/A'}
+                />
+              </Col>
+              <Col span={8}>
+                <Statistic
                   title="Staff Level"
                   value={currentRecord.staff_level || 'N/A'}
-                  prefix={<IdcardOutlined />}
                 />
               </Col>
               <Col span={8}>
@@ -563,6 +611,230 @@ const StaffDetails = () => {
                 />
               </Col>
             </Row>
+          </Card>
+        ),
+      },
+      {
+        key: '5',
+        label: `Current Year Metrics (${currentRecord.current_year || new Date().getFullYear()})`,
+        children: (
+          <Card>
+            <Space direction="vertical" size="large" style={{ width: '100%' }}>
+              {/* Activity Totals */}
+              <div>
+                <Title level={5}>Activity Totals</Title>
+                <Row gutter={[16, 16]}>
+                  <Col span={6}>
+                    <Statistic
+                      title="Total Commits"
+                      value={currentRecord.cy_total_commits || 0}
+                      prefix={<CodeOutlined />}
+                    />
+                  </Col>
+                  <Col span={6}>
+                    <Statistic
+                      title="Total PRs"
+                      value={currentRecord.cy_total_prs || 0}
+                      prefix={<BranchesOutlined />}
+                    />
+                  </Col>
+                  <Col span={6}>
+                    <Statistic
+                      title="Approvals Given"
+                      value={currentRecord.cy_total_approvals_given || 0}
+                      prefix={<CheckCircleOutlined />}
+                    />
+                  </Col>
+                  <Col span={6}>
+                    <Statistic
+                      title="Code Reviews Given"
+                      value={currentRecord.cy_total_code_reviews_given || 0}
+                    />
+                  </Col>
+                  <Col span={6}>
+                    <Statistic
+                      title="Code Reviews Received"
+                      value={currentRecord.cy_total_code_reviews_received || 0}
+                    />
+                  </Col>
+                  <Col span={6}>
+                    <Statistic
+                      title="Repositories"
+                      value={currentRecord.cy_total_repositories || 0}
+                    />
+                  </Col>
+                  <Col span={6}>
+                    <Statistic
+                      title="Files Changed"
+                      value={currentRecord.cy_total_files_changed || 0}
+                    />
+                  </Col>
+                  <Col span={6}>
+                    <Statistic
+                      title="Lines Changed"
+                      value={currentRecord.cy_total_lines_changed || 0}
+                    />
+                  </Col>
+                  <Col span={6}>
+                    <Statistic
+                      title="Characters Changed"
+                      value={currentRecord.cy_total_chars || 0}
+                    />
+                  </Col>
+                  <Col span={6}>
+                    <Statistic
+                      title="Code Churn"
+                      value={currentRecord.cy_total_code_churn || 0}
+                    />
+                  </Col>
+                </Row>
+              </div>
+
+              {/* Diversity Metrics */}
+              <div>
+                <Title level={5}>Diversity Metrics</Title>
+                <Row gutter={[16, 16]}>
+                  <Col span={8}>
+                    <Statistic
+                      title="Different File Types"
+                      value={currentRecord.cy_different_file_types || 0}
+                    />
+                  </Col>
+                  <Col span={8}>
+                    <Statistic
+                      title="Different Repositories"
+                      value={currentRecord.cy_different_repositories || 0}
+                    />
+                  </Col>
+                  <Col span={8}>
+                    <Statistic
+                      title="Different Project Keys"
+                      value={currentRecord.cy_different_project_keys || 0}
+                    />
+                  </Col>
+                </Row>
+              </div>
+
+              {/* File Type Distribution */}
+              <div>
+                <Title level={5}>File Type Distribution</Title>
+                <Row gutter={[16, 16]}>
+                  <Col span={8}>
+                    <Statistic
+                      title="Code Files %"
+                      value={(currentRecord.cy_pct_code || 0).toFixed(1)}
+                      suffix="%"
+                      valueStyle={{ color: '#3f8600' }}
+                    />
+                  </Col>
+                  <Col span={8}>
+                    <Statistic
+                      title="Configuration Files %"
+                      value={(currentRecord.cy_pct_config || 0).toFixed(1)}
+                      suffix="%"
+                      valueStyle={{ color: '#1890ff' }}
+                    />
+                  </Col>
+                  <Col span={8}>
+                    <Statistic
+                      title="Documentation Files %"
+                      value={(currentRecord.cy_pct_documentation || 0).toFixed(1)}
+                      suffix="%"
+                      valueStyle={{ color: '#722ed1' }}
+                    />
+                  </Col>
+                </Row>
+              </div>
+
+              {/* Monthly Averages */}
+              <div>
+                <Title level={5}>Monthly Averages</Title>
+                <Row gutter={[16, 16]}>
+                  <Col span={8}>
+                    <Statistic
+                      title="Avg Commits/Month"
+                      value={(currentRecord.cy_avg_commits_monthly || 0).toFixed(2)}
+                      prefix={<CodeOutlined />}
+                    />
+                  </Col>
+                  <Col span={8}>
+                    <Statistic
+                      title="Avg PRs/Month"
+                      value={(currentRecord.cy_avg_prs_monthly || 0).toFixed(2)}
+                      prefix={<BranchesOutlined />}
+                    />
+                  </Col>
+                  <Col span={8}>
+                    <Statistic
+                      title="Avg Approvals/Month"
+                      value={(currentRecord.cy_avg_approvals_monthly || 0).toFixed(2)}
+                      prefix={<CheckCircleOutlined />}
+                    />
+                  </Col>
+                </Row>
+              </div>
+
+              {/* Lists */}
+              <div>
+                <Title level={5}>Details</Title>
+                <Row gutter={[16, 16]}>
+                  <Col span={24}>
+                    <div>
+                      <Text strong>File Types:</Text>
+                      <div style={{ marginTop: 8 }}>
+                        {currentRecord.cy_file_types_list ? (
+                          currentRecord.cy_file_types_list.split(',').map(ft => (
+                            <Tag key={ft} color="blue">{ft}</Tag>
+                          ))
+                        ) : (
+                          <Text type="secondary">N/A</Text>
+                        )}
+                      </div>
+                    </div>
+                  </Col>
+                  <Col span={24}>
+                    <div>
+                      <Text strong>Repositories:</Text>
+                      <div style={{ marginTop: 8 }}>
+                        {currentRecord.cy_repositories_list ? (
+                          currentRecord.cy_repositories_list.split(',').map(repo => (
+                            <Tag key={repo} color="green">{repo}</Tag>
+                          ))
+                        ) : (
+                          <Text type="secondary">N/A</Text>
+                        )}
+                      </div>
+                    </div>
+                  </Col>
+                  <Col span={24}>
+                    <div>
+                      <Text strong>Project Keys:</Text>
+                      <div style={{ marginTop: 8 }}>
+                        {currentRecord.cy_project_keys_list ? (
+                          currentRecord.cy_project_keys_list.split(',').map(pk => (
+                            <Tag key={pk} color="purple">{pk}</Tag>
+                          ))
+                        ) : (
+                          <Text type="secondary">N/A</Text>
+                        )}
+                      </div>
+                    </div>
+                  </Col>
+                  <Col span={12}>
+                    <Statistic
+                      title="Period Start Date"
+                      value={currentRecord.cy_start_date ? dayjs(currentRecord.cy_start_date).format('YYYY-MM-DD') : 'N/A'}
+                    />
+                  </Col>
+                  <Col span={12}>
+                    <Statistic
+                      title="Period End Date"
+                      value={currentRecord.cy_end_date ? dayjs(currentRecord.cy_end_date).format('YYYY-MM-DD') : 'N/A'}
+                    />
+                  </Col>
+                </Row>
+              </div>
+            </Space>
           </Card>
         ),
       },

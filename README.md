@@ -5,10 +5,10 @@ A comprehensive enterprise-grade application for analyzing Git repository histor
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                    GIT HISTORY DEEP ANALYZER                                 │
-│                Version 3.3 (Performance-Optimized Enterprise Edition)        │
+│           Version 3.4 (Current Year Metrics & Performance Edition)           │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  Extract → Analyze → Map → Visualize → Export → Report                      │
-│  NEW: 20-70x Faster Queries | 6 Pre-Calc Metric Tables | Enhanced SQL Tool  │
+│  NEW: Current Year Analytics | 20-70x Faster | 27 Metric Fields | 6 Tables  │
 │                                                                              │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
 │  │   Git    │  │   PRs    │  │  Staff   │  │ Author   │  │  React   │    │
@@ -43,6 +43,50 @@ A comprehensive enterprise-grade application for analyzing Git repository histor
 - [Configuration](#configuration)
 - [Usage Examples](#usage-examples)
 - [Troubleshooting](#troubleshooting)
+
+---
+
+## What's New in v3.4 (Current Year Metrics Update)
+
+### 📊 Current Year Metrics Tracking (NEW!)
+
+**Enhanced Staff Metrics with Comprehensive Current Year Analytics**
+
+All staff metrics now include detailed current year (2025) performance tracking:
+
+**Current Year Metrics Include:**
+- **Activity Totals**: Commits, PRs, Approvals, Code Reviews (Given/Received), Repositories
+- **Code Metrics**: Files Changed, Lines Changed, Characters Changed, Code Churn
+- **Diversity Metrics**: Different File Types, Repositories, Project Keys
+- **File Type Distribution**: % Code, % Configuration, % Documentation files
+- **Monthly Averages**: Commits, PRs, Approvals per month (calculated for elapsed months)
+- **Technology Insights**: File types list, repositories list, project keys list
+- **Date Range**: Start and end dates for current year period
+
+**New Database Columns (27 fields)**:
+- `staff_pc_code`, `default_role` - Additional staff details
+- `current_year` - Year for metrics calculation
+- `cy_total_*` - Current year activity totals (10 fields)
+- `cy_different_*` - Current year diversity metrics (3 fields)
+- `cy_pct_*` - Current year file type percentages (3 fields)
+- `cy_avg_*_monthly` - Current year monthly averages (3 fields)
+- `cy_*_list` - Current year aggregated lists (3 fields)
+- `cy_start_date`, `cy_end_date` - Current year date range
+
+**Frontend Updates:**
+- New "Current Year Metrics (YYYY)" tab in Staff Details expanded view
+- Organized sections: Activity Totals, Diversity Metrics, File Type Distribution, Monthly Averages, Details
+- Color-coded statistics with visual indicators
+- Exported to Excel in separate "Current Year Metrics" sheet
+
+**Migration:**
+```bash
+# Database migration (automatically adds 27 new columns)
+python cli/migrate_staff_metrics.py
+
+# Recalculate metrics to populate current year data
+python -m cli calculate-metrics --staff
+```
 
 ---
 
@@ -569,8 +613,8 @@ python start_backend.py
 - Approval counts with medals (🥇🥈🥉)
 - Top 20 approvers
 
-### 7. Staff Productivity 🆕 NEW
-**Individual developer performance**
+### 7. Staff Productivity 🆕 NEW (Enhanced with Current Year Metrics)
+**Individual developer performance with comprehensive analytics**
 - **Staff Selection**: Required - searchable dropdown
 - **Time Granularity**: Daily | Weekly | Monthly | **Quarterly** (default)
 - **Date Range**: Optional filter
@@ -586,6 +630,13 @@ python start_backend.py
 - **CSV Export**: For all charts
 - **Staff-Based**: All Git identities aggregated by bank_id
 - **Enhanced Tracking** 🆕: Character counts and file type analysis per commit
+- **Current Year Metrics Tab** 🆕: Dedicated view for 2025 performance including:
+  - Activity totals (commits, PRs, reviews)
+  - Code metrics (files, lines, characters)
+  - Diversity metrics (file types, repositories, projects)
+  - File type distribution (% code, config, docs)
+  - Monthly averages
+  - Technology insights
 
 ### 8. Author-Staff Mapping ⭐ ENHANCED
 **Three-tab mapping interface**
@@ -657,6 +708,8 @@ GET  /api/pull-requests/top-approvers     - Top PR approvers
 ```
 GET  /api/staff/                          - List active staff
 GET  /api/staff/unmapped                  - List unmapped staff 🆕
+GET  /api/staff-metrics/                  - List all staff metrics (with current year data) 🆕
+GET  /api/staff-metrics/{bank_id}         - Get staff metrics by ID (with current year data) 🆕
 ```
 
 ### Mappings
@@ -1213,7 +1266,44 @@ python cli/update_existing_commits.py
 
 ## Version History
 
-### Version 3.0 (Current - React Edition)
+### Version 3.4 (Current - Current Year Metrics)
+
+**Major Features**:
+- ✅ **Current Year Metrics Tracking** - Comprehensive 2025 performance analytics
+- ✅ **27 New Database Columns** - Activity, diversity, file type, and monthly metrics
+- ✅ **Enhanced Staff Details Page** - New "Current Year Metrics" tab with organized sections
+- ✅ **Automatic Calculation** - Current year metrics computed during staff metrics calculation
+- ✅ **Excel Export** - Separate "Current Year Metrics" sheet in exports
+- ✅ **File Type Categorization** - Automatic classification into code/config/documentation
+- ✅ **Monthly Averages** - Dynamic calculation based on elapsed months
+- ✅ **Technology Insights** - File types, repositories, and project keys lists
+- ✅ **Code Review Tracking** - Distinguishes reviews given vs received
+
+**Database Changes**:
+- Added `staff_pc_code`, `default_role` fields
+- Added 10 current year activity total fields
+- Added 3 current year diversity metric fields
+- Added 3 current year file type percentage fields
+- Added 3 current year monthly average fields
+- Added 3 current year list fields (file types, repos, projects)
+- Added `cy_start_date`, `cy_end_date` date range fields
+
+**Technical Details**:
+- Migration script: `cli/migrate_staff_metrics.py`
+- Calculation logic in `cli/staff_metrics_calculator.py`
+- Backend API updated in `backend/routers/staff_metrics.py`
+- Frontend display in `frontend/src/pages/StaffDetails.jsx`
+
+### Version 3.3 (Performance Optimization)
+
+**Major Features**:
+- ✅ **20-70x Performance Boost** - Pre-calculated metric tables
+- ✅ **6 New Metric Tables** - commit_metrics, pr_metrics, repository_metrics, etc.
+- ✅ **New CLI Command** - `calculate-metrics` for metric computation
+- ✅ **Enhanced SQL Executor** - 360-line schema documentation
+- ✅ **Optimized Endpoints** - Fast repository and team metrics APIs
+
+### Version 3.0 (React Edition)
 
 **Major Features**:
 - ✅ Complete React + FastAPI rewrite
@@ -1280,10 +1370,12 @@ This project is provided as-is for educational and analytical purposes.
 
 ---
 
-**Version**: 3.0 (React Edition)
-**Last Updated**: 2025
+**Version**: 3.4 (Current Year Metrics Edition)
+**Last Updated**: 2025-11-18
 **Python**: 3.8+
 **Node.js**: 16+
 **Status**: Production Ready
 
 **Key Technologies**: React 18 | FastAPI | Ant Design | SQLAlchemy | Pydantic | Vite | GitPython
+
+**Latest Features**: Current Year Metrics (27 new fields) | Pre-calculated Performance (20-70x faster) | Staff Analytics

@@ -562,53 +562,69 @@ const StaffDetails = () => {
           <Card>
             <Row gutter={[16, 16]}>
               <Col span={8}>
-                <Statistic
-                  title="Staff PC Code"
-                  value={currentRecord.staff_pc_code || 'N/A'}
-                  prefix={<IdcardOutlined />}
-                />
+                <Tooltip title="Unique staff personal computer code identifier">
+                  <Statistic
+                    title="Staff PC Code"
+                    value={currentRecord.staff_pc_code || 'N/A'}
+                    prefix={<IdcardOutlined />}
+                  />
+                </Tooltip>
               </Col>
               <Col span={8}>
-                <Statistic
-                  title="Default Role"
-                  value={currentRecord.default_role || 'N/A'}
-                />
+                <Tooltip title="Primary role assigned to this staff member">
+                  <Statistic
+                    title="Default Role"
+                    value={currentRecord.default_role || 'N/A'}
+                  />
+                </Tooltip>
               </Col>
               <Col span={8}>
-                <Statistic
-                  title="Staff Level"
-                  value={currentRecord.staff_level || 'N/A'}
-                />
+                <Tooltip title="Hierarchical level of the staff member in the organization">
+                  <Statistic
+                    title="Staff Level"
+                    value={currentRecord.staff_level || 'N/A'}
+                  />
+                </Tooltip>
               </Col>
               <Col span={8}>
-                <Statistic
-                  title="HR Role"
-                  value={currentRecord.hr_role || 'N/A'}
-                />
+                <Tooltip title="Human Resources designated role category">
+                  <Statistic
+                    title="HR Role"
+                    value={currentRecord.hr_role || 'N/A'}
+                  />
+                </Tooltip>
               </Col>
               <Col span={8}>
-                <Statistic
-                  title="Job Function"
-                  value={currentRecord.job_function || 'N/A'}
-                />
+                <Tooltip title="Primary job function or responsibility area">
+                  <Statistic
+                    title="Job Function"
+                    value={currentRecord.job_function || 'N/A'}
+                  />
+                </Tooltip>
               </Col>
               <Col span={8}>
-                <Statistic
-                  title="Department ID"
-                  value={currentRecord.department_id || 'N/A'}
-                />
+                <Tooltip title="Department identification code">
+                  <Statistic
+                    title="Department ID"
+                    value={currentRecord.department_id || 'N/A'}
+                  />
+                </Tooltip>
               </Col>
               <Col span={8}>
-                <Statistic
-                  title="Company"
-                  value={currentRecord.company_name || 'N/A'}
-                />
+                <Tooltip title="Company or organization name">
+                  <Statistic
+                    title="Company"
+                    value={currentRecord.company_name || 'N/A'}
+                  />
+                </Tooltip>
               </Col>
               <Col span={8}>
-                <Statistic
-                  title="Original Type"
-                  value={currentRecord.original_staff_type || 'N/A'}
-                />
+                <Tooltip title="Original staff classification type">
+                  <Statistic
+                    title="Original Type"
+                    value={currentRecord.original_staff_type || 'N/A'}
+                  />
+                </Tooltip>
               </Col>
             </Row>
           </Card>
@@ -625,67 +641,87 @@ const StaffDetails = () => {
                 <Title level={5}>Activity Totals</Title>
                 <Row gutter={[16, 16]}>
                   <Col span={6}>
-                    <Statistic
-                      title="Total Commits"
-                      value={currentRecord.cy_total_commits || 0}
-                      prefix={<CodeOutlined />}
-                    />
+                    <Tooltip title="Total number of commits made in the current year">
+                      <Statistic
+                        title="Total Commits"
+                        value={currentRecord.cy_total_commits || 0}
+                        prefix={<CodeOutlined />}
+                      />
+                    </Tooltip>
                   </Col>
                   <Col span={6}>
-                    <Statistic
-                      title="Total PRs"
-                      value={currentRecord.cy_total_prs || 0}
-                      prefix={<BranchesOutlined />}
-                    />
+                    <Tooltip title="Total number of Pull Requests created in the current year">
+                      <Statistic
+                        title="Total PRs"
+                        value={currentRecord.cy_total_prs || 0}
+                        prefix={<BranchesOutlined />}
+                      />
+                    </Tooltip>
                   </Col>
                   <Col span={6}>
-                    <Statistic
-                      title="Approvals Given"
-                      value={currentRecord.cy_total_approvals_given || 0}
-                      prefix={<CheckCircleOutlined />}
-                    />
+                    <Tooltip title="Total number of PR approvals provided to other team members this year">
+                      <Statistic
+                        title="Approvals Given"
+                        value={currentRecord.cy_total_approvals_given || 0}
+                        prefix={<CheckCircleOutlined />}
+                      />
+                    </Tooltip>
                   </Col>
                   <Col span={6}>
-                    <Statistic
-                      title="Code Reviews Given"
-                      value={currentRecord.cy_total_code_reviews_given || 0}
-                    />
+                    <Tooltip title="Number of unique Pull Requests reviewed (distinct PRs where approval was given)">
+                      <Statistic
+                        title="Code Reviews Given"
+                        value={currentRecord.cy_total_code_reviews_given || 0}
+                      />
+                    </Tooltip>
                   </Col>
                   <Col span={6}>
-                    <Statistic
-                      title="Code Reviews Received"
-                      value={currentRecord.cy_total_code_reviews_received || 0}
-                    />
+                    <Tooltip title="Number of code reviews received on own Pull Requests this year">
+                      <Statistic
+                        title="Code Reviews Received"
+                        value={currentRecord.cy_total_code_reviews_received || 0}
+                      />
+                    </Tooltip>
                   </Col>
                   <Col span={6}>
-                    <Statistic
-                      title="Repositories"
-                      value={currentRecord.cy_total_repositories || 0}
-                    />
+                    <Tooltip title="Number of unique repositories contributed to this year">
+                      <Statistic
+                        title="Repositories"
+                        value={currentRecord.cy_total_repositories || 0}
+                      />
+                    </Tooltip>
                   </Col>
                   <Col span={6}>
-                    <Statistic
-                      title="Files Changed"
-                      value={currentRecord.cy_total_files_changed || 0}
-                    />
+                    <Tooltip title="Total number of files modified across all commits this year">
+                      <Statistic
+                        title="Files Changed"
+                        value={currentRecord.cy_total_files_changed || 0}
+                      />
+                    </Tooltip>
                   </Col>
                   <Col span={6}>
-                    <Statistic
-                      title="Lines Changed"
-                      value={currentRecord.cy_total_lines_changed || 0}
-                    />
+                    <Tooltip title="Total lines of code added and deleted (sum of additions and deletions)">
+                      <Statistic
+                        title="Lines Changed"
+                        value={currentRecord.cy_total_lines_changed || 0}
+                      />
+                    </Tooltip>
                   </Col>
                   <Col span={6}>
-                    <Statistic
-                      title="Characters Changed"
-                      value={currentRecord.cy_total_chars || 0}
-                    />
+                    <Tooltip title="Total characters added and deleted across all commits this year">
+                      <Statistic
+                        title="Characters Changed"
+                        value={currentRecord.cy_total_chars || 0}
+                      />
+                    </Tooltip>
                   </Col>
                   <Col span={6}>
-                    <Statistic
-                      title="Code Churn"
-                      value={currentRecord.cy_total_code_churn || 0}
-                    />
+                    <Tooltip title="Total lines of code deleted this year (measure of code removal/refactoring)">
+                      <Statistic
+                        title="Code Churn"
+                        value={currentRecord.cy_total_code_churn || 0}
+                      />
+                    </Tooltip>
                   </Col>
                 </Row>
               </div>
@@ -695,22 +731,28 @@ const StaffDetails = () => {
                 <Title level={5}>Diversity Metrics</Title>
                 <Row gutter={[16, 16]}>
                   <Col span={8}>
-                    <Statistic
-                      title="Different File Types"
-                      value={currentRecord.cy_different_file_types || 0}
-                    />
+                    <Tooltip title="Number of unique file extensions/types worked on (e.g., js, py, md, css)">
+                      <Statistic
+                        title="Different File Types"
+                        value={currentRecord.cy_different_file_types || 0}
+                      />
+                    </Tooltip>
                   </Col>
                   <Col span={8}>
-                    <Statistic
-                      title="Different Repositories"
-                      value={currentRecord.cy_different_repositories || 0}
-                    />
+                    <Tooltip title="Number of unique repositories contributed to this year">
+                      <Statistic
+                        title="Different Repositories"
+                        value={currentRecord.cy_different_repositories || 0}
+                      />
+                    </Tooltip>
                   </Col>
                   <Col span={8}>
-                    <Statistic
-                      title="Different Project Keys"
-                      value={currentRecord.cy_different_project_keys || 0}
-                    />
+                    <Tooltip title="Number of different project keys/codes worked on across repositories">
+                      <Statistic
+                        title="Different Project Keys"
+                        value={currentRecord.cy_different_project_keys || 0}
+                      />
+                    </Tooltip>
                   </Col>
                 </Row>
               </div>
@@ -720,28 +762,34 @@ const StaffDetails = () => {
                 <Title level={5}>File Type Distribution</Title>
                 <Row gutter={[16, 16]}>
                   <Col span={8}>
-                    <Statistic
-                      title="Code Files %"
-                      value={(currentRecord.cy_pct_code || 0).toFixed(1)}
-                      suffix="%"
-                      valueStyle={{ color: '#3f8600' }}
-                    />
+                    <Tooltip title="Percentage of commits to code files (java, js, jsx, tsx, ts, py, sql, etc.)">
+                      <Statistic
+                        title="Code Files %"
+                        value={(currentRecord.cy_pct_code || 0).toFixed(1)}
+                        suffix="%"
+                        valueStyle={{ color: '#3f8600' }}
+                      />
+                    </Tooltip>
                   </Col>
                   <Col span={8}>
-                    <Statistic
-                      title="Configuration Files %"
-                      value={(currentRecord.cy_pct_config || 0).toFixed(1)}
-                      suffix="%"
-                      valueStyle={{ color: '#1890ff' }}
-                    />
+                    <Tooltip title="Percentage of commits to configuration files (xml, json, yml, properties, etc.)">
+                      <Statistic
+                        title="Configuration Files %"
+                        value={(currentRecord.cy_pct_config || 0).toFixed(1)}
+                        suffix="%"
+                        valueStyle={{ color: '#1890ff' }}
+                      />
+                    </Tooltip>
                   </Col>
                   <Col span={8}>
-                    <Statistic
-                      title="Documentation Files %"
-                      value={(currentRecord.cy_pct_documentation || 0).toFixed(1)}
-                      suffix="%"
-                      valueStyle={{ color: '#722ed1' }}
-                    />
+                    <Tooltip title="Percentage of commits to documentation files (md, txt, rst, etc.)">
+                      <Statistic
+                        title="Documentation Files %"
+                        value={(currentRecord.cy_pct_documentation || 0).toFixed(1)}
+                        suffix="%"
+                        valueStyle={{ color: '#722ed1' }}
+                      />
+                    </Tooltip>
                   </Col>
                 </Row>
               </div>
@@ -751,25 +799,31 @@ const StaffDetails = () => {
                 <Title level={5}>Monthly Averages</Title>
                 <Row gutter={[16, 16]}>
                   <Col span={8}>
-                    <Statistic
-                      title="Avg Commits/Month"
-                      value={(currentRecord.cy_avg_commits_monthly || 0).toFixed(2)}
-                      prefix={<CodeOutlined />}
-                    />
+                    <Tooltip title="Average number of commits per month (calculated based on elapsed months in current year)">
+                      <Statistic
+                        title="Avg Commits/Month"
+                        value={(currentRecord.cy_avg_commits_monthly || 0).toFixed(2)}
+                        prefix={<CodeOutlined />}
+                      />
+                    </Tooltip>
                   </Col>
                   <Col span={8}>
-                    <Statistic
-                      title="Avg PRs/Month"
-                      value={(currentRecord.cy_avg_prs_monthly || 0).toFixed(2)}
-                      prefix={<BranchesOutlined />}
-                    />
+                    <Tooltip title="Average number of Pull Requests created per month this year">
+                      <Statistic
+                        title="Avg PRs/Month"
+                        value={(currentRecord.cy_avg_prs_monthly || 0).toFixed(2)}
+                        prefix={<BranchesOutlined />}
+                      />
+                    </Tooltip>
                   </Col>
                   <Col span={8}>
-                    <Statistic
-                      title="Avg Approvals/Month"
-                      value={(currentRecord.cy_avg_approvals_monthly || 0).toFixed(2)}
-                      prefix={<CheckCircleOutlined />}
-                    />
+                    <Tooltip title="Average number of PR approvals given per month this year">
+                      <Statistic
+                        title="Avg Approvals/Month"
+                        value={(currentRecord.cy_avg_approvals_monthly || 0).toFixed(2)}
+                        prefix={<CheckCircleOutlined />}
+                      />
+                    </Tooltip>
                   </Col>
                 </Row>
               </div>
@@ -780,7 +834,9 @@ const StaffDetails = () => {
                 <Row gutter={[16, 16]}>
                   <Col span={24}>
                     <div>
-                      <Text strong>File Types:</Text>
+                      <Tooltip title="List of all unique file extensions/types modified this year (sorted alphabetically)">
+                        <Text strong>File Types:</Text>
+                      </Tooltip>
                       <div style={{ marginTop: 8 }}>
                         {currentRecord.cy_file_types_list ? (
                           currentRecord.cy_file_types_list.split(',').map(ft => (
@@ -794,7 +850,9 @@ const StaffDetails = () => {
                   </Col>
                   <Col span={24}>
                     <div>
-                      <Text strong>Repositories:</Text>
+                      <Tooltip title="List of all repositories contributed to this year (sorted alphabetically)">
+                        <Text strong>Repositories:</Text>
+                      </Tooltip>
                       <div style={{ marginTop: 8 }}>
                         {currentRecord.cy_repositories_list ? (
                           currentRecord.cy_repositories_list.split(',').map(repo => (
@@ -808,7 +866,9 @@ const StaffDetails = () => {
                   </Col>
                   <Col span={24}>
                     <div>
-                      <Text strong>Project Keys:</Text>
+                      <Tooltip title="List of all project keys/codes worked on this year (sorted alphabetically)">
+                        <Text strong>Project Keys:</Text>
+                      </Tooltip>
                       <div style={{ marginTop: 8 }}>
                         {currentRecord.cy_project_keys_list ? (
                           currentRecord.cy_project_keys_list.split(',').map(pk => (
@@ -821,16 +881,20 @@ const StaffDetails = () => {
                     </div>
                   </Col>
                   <Col span={12}>
-                    <Statistic
-                      title="Period Start Date"
-                      value={currentRecord.cy_start_date ? dayjs(currentRecord.cy_start_date).format('YYYY-MM-DD') : 'N/A'}
-                    />
+                    <Tooltip title="Start date for current year metrics calculation (typically January 1st)">
+                      <Statistic
+                        title="Period Start Date"
+                        value={currentRecord.cy_start_date ? dayjs(currentRecord.cy_start_date).format('YYYY-MM-DD') : 'N/A'}
+                      />
+                    </Tooltip>
                   </Col>
                   <Col span={12}>
-                    <Statistic
-                      title="Period End Date"
-                      value={currentRecord.cy_end_date ? dayjs(currentRecord.cy_end_date).format('YYYY-MM-DD') : 'N/A'}
-                    />
+                    <Tooltip title="End date for current year metrics calculation (typically December 31st)">
+                      <Statistic
+                        title="Period End Date"
+                        value={currentRecord.cy_end_date ? dayjs(currentRecord.cy_end_date).format('YYYY-MM-DD') : 'N/A'}
+                      />
+                    </Tooltip>
                   </Col>
                 </Row>
               </div>

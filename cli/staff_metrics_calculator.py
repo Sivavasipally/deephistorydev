@@ -21,34 +21,50 @@ class StaffMetricsCalculator:
         self.session = session
 
     def calculate_all_staff_metrics(self):
-        """Calculate metrics for all mapped staff members.
+        """Calculate metrics for all active staff members (with or without mappings).
 
         Returns:
             dict: Summary of calculation results
         """
         print("[INFO] Calculating staff metrics...")
 
-        # Get all staff with mappings
-        mappings = self.session.query(AuthorStaffMapping).all()
+        # Get all active staff
+        all_staff = self.session.query(StaffDetails).filter(
+            StaffDetails.staff_status == 'Active'
+        ).all()
 
-        # Group by bank_id
-        bank_id_groups = {}
-        for mapping in mappings:
+        print(f"   Found {len(all_staff)} active staff members")
+
+        # Get all mappings
+        all_mappings = self.session.query(AuthorStaffMapping).all()
+
+        # Group mappings by bank_id
+        mapping_groups = {}
+        for mapping in all_mappings:
             if mapping.bank_id_1:
-                if mapping.bank_id_1 not in bank_id_groups:
-                    bank_id_groups[mapping.bank_id_1] = []
-                bank_id_groups[mapping.bank_id_1].append(mapping)
+                if mapping.bank_id_1 not in mapping_groups:
+                    mapping_groups[mapping.bank_id_1] = []
+                mapping_groups[mapping.bank_id_1].append(mapping)
 
-        total_staff = len(bank_id_groups)
+        total_staff = len(all_staff)
         processed = 0
         updated = 0
         created = 0
+        with_mappings = 0
+        without_mappings = 0
 
-        print(f"   Found {total_staff} unique staff members with mappings")
-
-        for bank_id, author_mappings in bank_id_groups.items():
+        for staff in all_staff:
+            bank_id = staff.bank_id_1
             try:
-                result = self.calculate_staff_metrics(bank_id, author_mappings)
+                # Get mappings for this staff member (if any)
+                author_mappings = mapping_groups.get(bank_id, [])
+
+                if author_mappings:
+                    with_mappings += 1
+                else:
+                    without_mappings += 1
+
+                result = self.calculate_staff_metrics(bank_id, author_mappings if author_mappings else None)
                 if result == 'created':
                     created += 1
                 elif result == 'updated':
@@ -70,11 +86,15 @@ class StaffMetricsCalculator:
             'processed': processed,
             'created': created,
             'updated': updated,
+            'with_mappings': with_mappings,
+            'without_mappings': without_mappings,
             'failed': total_staff - processed
         }
 
         print(f"\n[SUCCESS] Metrics calculation complete:")
-        print(f"   - Processed: {processed}/{total_staff}")
+        print(f"   - Processed: {processed}/{total_staff} active staff")
+        print(f"   - With mappings: {with_mappings}")
+        print(f"   - Without mappings: {without_mappings} (zero metrics)")
         print(f"   - Created: {created} new records")
         print(f"   - Updated: {updated} existing records")
         if summary['failed'] > 0:
@@ -92,16 +112,7 @@ class StaffMetricsCalculator:
         Returns:
             str: 'created' or 'updated' indicating the action taken
         """
-        # Get author mappings if not provided
-        if author_mappings is None:
-            author_mappings = self.session.query(AuthorStaffMapping).filter(
-                AuthorStaffMapping.bank_id_1 == bank_id
-            ).all()
-
-        if not author_mappings:
-            return None
-
-        # Get staff details
+        # Get staff details first
         staff = self.session.query(StaffDetails).filter(
             StaffDetails.bank_id_1 == bank_id
         ).first()
@@ -110,8 +121,18 @@ class StaffMetricsCalculator:
             print(f"   ⚠️  No staff details found for {bank_id}")
             return None
 
-        # Get all author names for this staff
-        author_names = [m.author_name for m in author_mappings]
+        # Get author mappings if not provided
+        if author_mappings is None:
+            author_mappings = self.session.query(AuthorStaffMapping).filter(
+                AuthorStaffMapping.bank_id_1 == bank_id
+            ).all()
+
+        # Get all author names for this staff (empty list if no mappings - will result in zero metrics)
+        author_names = [m.author_name for m in author_mappings] if author_mappings else []
+
+        # Log if no mappings exist
+        if not author_names:
+            print(f"   ℹ️  No author mappings found for {bank_id} ({staff.staff_name}) - creating record with zero metrics")
 
         # Calculate commit metrics
         commit_metrics = self._calculate_commit_metrics(author_names)

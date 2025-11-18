@@ -53,6 +53,24 @@ class UnifiedMetricsCalculator:
 
         summary = {}
 
+        # Calculate staff metrics first (if staff data exists)
+        print(f"\n{'-' * 80}")
+        print(f"[INFO] Staff Metrics")
+        print(f"{'-' * 80}")
+        try:
+            from .staff_metrics_calculator import StaffMetricsCalculator
+            staff_calc = StaffMetricsCalculator(self.session)
+            staff_result = staff_calc.calculate_all_staff_metrics()
+            summary["Staff Metrics"] = staff_result
+            print(f"   [SUCCESS] Staff Metrics: {staff_result.get('processed', 0)} records processed")
+            if staff_result.get('created', 0) > 0:
+                print(f"      - Created: {staff_result['created']}")
+            if staff_result.get('updated', 0) > 0:
+                print(f"      - Updated: {staff_result['updated']}")
+        except Exception as e:
+            print(f"   [WARNING] Staff Metrics: {e} (skipping - may need staff data imported first)")
+            summary["Staff Metrics"] = {"error": str(e), "processed": 0}
+
         # Calculate in optimal order (dependencies first)
         calculators = [
             ("Author Metrics", self.calculate_author_metrics),
@@ -64,22 +82,22 @@ class UnifiedMetricsCalculator:
         ]
 
         for name, calculator_func in calculators:
-            print(f"\n{'─' * 80}")
-            print(f"📊 {name}")
-            print(f"{'─' * 80}")
+            print(f"\n{'-' * 80}")
+            print(f"[INFO] {name}")
+            print(f"{'-' * 80}")
 
             try:
                 result = calculator_func(force=force)
                 summary[name] = result
 
-                print(f"   ✅ {name}: {result.get('processed', 0)} records processed")
+                print(f"   [SUCCESS] {name}: {result.get('processed', 0)} records processed")
                 if result.get('created', 0) > 0:
                     print(f"      - Created: {result['created']}")
                 if result.get('updated', 0) > 0:
                     print(f"      - Updated: {result['updated']}")
 
             except Exception as e:
-                print(f"   ❌ Error in {name}: {e}")
+                print(f"   [ERROR] Error in {name}: {e}")
                 import traceback
                 traceback.print_exc()
                 summary[name] = {"error": str(e), "processed": 0}

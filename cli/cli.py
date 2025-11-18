@@ -577,32 +577,32 @@ def calculate_metrics(calc_all, staff, commits, prs, repositories, authors, team
             summary = {}
 
             if staff:
-                click.echo("\n📊 Calculating Staff Metrics...")
+                click.echo("\n[INFO] Calculating Staff Metrics...")
                 staff_calc = StaffMetricsCalculator(session)
                 summary['Staff Metrics'] = staff_calc.calculate_all_staff_metrics()
 
             if authors:
-                click.echo("\n👤 Calculating Author Metrics...")
+                click.echo("\n[INFO] Calculating Author Metrics...")
                 summary['Author Metrics'] = calculator.calculate_author_metrics(force=force)
 
             if repositories:
-                click.echo("\n📦 Calculating Repository Metrics...")
+                click.echo("\n[INFO] Calculating Repository Metrics...")
                 summary['Repository Metrics'] = calculator.calculate_repository_metrics(force=force)
 
             if commits:
-                click.echo("\n💾 Calculating Commit Metrics...")
+                click.echo("\n[INFO] Calculating Commit Metrics...")
                 summary['Commit Metrics'] = calculator.calculate_commit_metrics(force=force)
 
             if prs:
-                click.echo("\n🔀 Calculating PR Metrics...")
+                click.echo("\n[INFO] Calculating PR Metrics...")
                 summary['PR Metrics'] = calculator.calculate_pr_metrics(force=force)
 
             if teams:
-                click.echo("\n👥 Calculating Team Metrics...")
+                click.echo("\n[INFO] Calculating Team Metrics...")
                 summary['Team Metrics'] = calculator.calculate_team_metrics(force=force)
 
             if daily:
-                click.echo("\n📅 Calculating Daily Metrics...")
+                click.echo("\n[INFO] Calculating Daily Metrics...")
                 summary['Daily Metrics'] = calculator.calculate_daily_metrics(force=force)
 
         # Print summary
@@ -612,22 +612,23 @@ def calculate_metrics(calc_all, staff, commits, prs, repositories, authors, team
 
         for metric_type, result in summary.items():
             if 'error' in result:
-                click.echo(f"❌ {metric_type}: ERROR - {result['error']}")
+                click.echo(f"[ERROR] {metric_type}: ERROR - {result['error']}")
             else:
                 processed = result.get('processed', 0)
                 created = result.get('created', 0)
                 updated = result.get('updated', 0)
-                click.echo(f"✅ {metric_type}: {processed} records processed ({created} created, {updated} updated)")
+                total = result.get('total_staff', processed)
+                click.echo(f"[SUCCESS] {metric_type}: {processed}/{total} records processed ({created} created, {updated} updated)")
 
         click.echo("=" * 80)
-        click.echo("\n✨ Metrics calculation complete!")
+        click.echo("\n[SUCCESS] Metrics calculation complete!")
         click.echo("\nNext steps:")
-        click.echo("  • Metrics are now available in the database")
-        click.echo("  • Backend APIs will use pre-calculated data for fast queries")
-        click.echo("  • Run 'python -m cli calculate-metrics --all' periodically to refresh")
+        click.echo("  - Metrics are now available in the database")
+        click.echo("  - Backend APIs will use pre-calculated data for fast queries")
+        click.echo("  - Run 'python -m cli calculate-metrics --all' periodically to refresh")
 
     except Exception as e:
-        click.echo(f"\n❌ Error during metrics calculation: {e}", err=True)
+        click.echo(f"\n[ERROR] Error during metrics calculation: {e}", err=True)
         import traceback
         traceback.print_exc()
         sys.exit(1)

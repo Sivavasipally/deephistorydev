@@ -26,7 +26,7 @@ class StaffMetricsCalculator:
         Returns:
             dict: Summary of calculation results
         """
-        print("🔄 Calculating staff metrics...")
+        print("[INFO] Calculating staff metrics...")
 
         # Get all staff with mappings
         mappings = self.session.query(AuthorStaffMapping).all()
@@ -73,7 +73,7 @@ class StaffMetricsCalculator:
             'failed': total_staff - processed
         }
 
-        print(f"\n✅ Metrics calculation complete:")
+        print(f"\n[SUCCESS] Metrics calculation complete:")
         print(f"   - Processed: {processed}/{total_staff}")
         print(f"   - Created: {created} new records")
         print(f"   - Updated: {updated} existing records")
@@ -142,9 +142,15 @@ class StaffMetricsCalculator:
         staff_metric.tech_unit = staff.tech_unit
         staff_metric.platform_name = staff.platform_name
         staff_metric.staff_type = staff.staff_type
+        staff_metric.original_staff_type = staff.original_staff_type
         staff_metric.staff_status = staff.staff_status
         staff_metric.work_location = staff.work_location
         staff_metric.rank = staff.rank
+        staff_metric.staff_level = staff.staff_level
+        staff_metric.hr_role = staff.hr_role
+        staff_metric.job_function = staff.job_function
+        staff_metric.department_id = staff.department_id
+        staff_metric.company_name = staff.company_name
         staff_metric.sub_platform = staff.sub_platform
         staff_metric.staff_grouping = staff.staff_grouping
         staff_metric.reporting_manager_name = staff.reporting_manager_name
@@ -340,13 +346,13 @@ class StaffMetricsCalculator:
         Returns:
             bool: True if successful
         """
-        print(f"🔄 Recalculating metrics for {bank_id}...")
+        print(f"[INFO] Recalculating metrics for {bank_id}...")
         try:
             self.calculate_staff_metrics(bank_id)
             self.session.commit()
-            print(f"✅ Metrics updated for {bank_id}")
+            print(f"[SUCCESS] Metrics updated for {bank_id}")
             return True
         except Exception as e:
-            print(f"❌ Error recalculating metrics for {bank_id}: {e}")
+            print(f"[ERROR] Error recalculating metrics for {bank_id}: {e}")
             self.session.rollback()
             return False

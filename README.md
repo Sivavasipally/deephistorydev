@@ -368,47 +368,110 @@ npm run build
 
 ## Quick Start
 
-### Complete Workflow
+### Complete Workflow (v3.4 - Updated)
 
 ```bash
 ┌─────────────────────────────────────────────────────────────┐
 │                    QUICK START GUIDE                         │
+│              ⚡ With Performance Optimization                │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
-│  Step 1: Extract Git History                                │
+│  Step 1: Import Staff Details (FIRST!)                      │
+│  ───────────────────────────────────                        │
+│  $ python -m cli import-staff staff_data.xlsx               │
+│  → Populates staff_details table                           │
+│  → Required for author mapping                              │
+│                                                              │
+│  Step 2: Extract Git History                                │
 │  ───────────────────────────                                │
 │  $ python -m cli extract repositories.csv                   │
+│  → Extracts commits, PRs, approvals                        │
+│  → Creates author-to-staff mappings                         │
+│  → Auto-calculates staff_metrics ⚡                        │
 │                                                              │
-│  Step 2: Import Staff Details                               │
-│  ──────────────────────────────────────                     │
-│  $ python -m cli import-staff staff_data.xlsx               │
+│  Step 3: Calculate All Metrics (Optional)                   │
+│  ──────────────────────────────────────────                 │
+│  $ python -m cli calculate-metrics --all                    │
+│  → Populates 7 metric tables for 20-70x faster queries    │
+│  → Run after extract or when data changes                   │
+│  → Use --force to recalculate existing metrics              │
 │                                                              │
-│  Step 3: Start Backend Server                               │
+│  Step 4: Start Backend Server                               │
 │  ───────────────────────────                                │
-│  $ python cli/start_backend.py                              │
-│  → Running on http://0.0.0.0:8000                          │
+│  $ python -m uvicorn backend.main:app --reload --port 8000  │
+│  → Running on http://localhost:8000                        │
+│  → API docs: http://localhost:8000/docs                    │
 │                                                              │
-│  Step 4: Start Frontend (New Terminal)                      │
+│  Step 5: Start Frontend (New Terminal)                      │
 │  ───────────────────────────────────────                    │
 │  $ cd frontend                                              │
 │  $ npm run dev                                              │
-│  → Running on http://localhost:5173                        │
+│  → Running on http://localhost:3000                        │
+│  → Optimized with pre-calculated metrics ⚡                │
 │                                                              │
-│  Step 5: Map Authors to Staff                               │
+│  Step 6: Verify & Explore                                   │
 │  ──────────────────────────                                 │
-│  → Open http://localhost:5173                              │
-│  → Navigate to "Author-Staff Mapping"                       │
-│  → Use "Auto-Match by Email"                                │
-│  → Map remaining authors (bulk or individual)               │
-│                                                              │
-│  Step 6: Analyze Productivity                               │
-│  ───────────────────────────────                            │
-│  → Navigate to "Staff Productivity"                         │
-│  → Select staff member                                      │
-│  → Choose time granularity                                  │
-│  → View charts and export data                              │
+│  → Open http://localhost:3000                              │
+│  → Check "Table Viewer" - all 13 tables                    │
+│  → Open "Staff Details" - loads in <1 second! ⚡          │
+│  → Use "Author-Staff Mapping" if needed                     │
+│  → Explore dashboards and analytics                         │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
+```
+
+### Quick Commands Reference
+
+```bash
+# ═══════════════════════════════════════════════════════════
+# DATA PREPARATION
+# ═══════════════════════════════════════════════════════════
+
+# 1. Import staff data (Excel/CSV)
+python -m cli import-staff path/to/staff_data.xlsx
+
+# 2. Extract git repositories
+python -m cli extract path/to/repositories.csv
+
+# ═══════════════════════════════════════════════════════════
+# METRICS CALCULATION (20-70x Performance Boost!)
+# ═══════════════════════════════════════════════════════════
+
+# Calculate all metric tables
+python -m cli calculate-metrics --all
+
+# Calculate specific metrics
+python -m cli calculate-metrics --staff              # Staff productivity
+python -m cli calculate-metrics --repositories       # Repository stats
+python -m cli calculate-metrics --teams              # Team aggregations
+python -m cli calculate-metrics --daily              # Daily trends
+
+# Force recalculation (ignore timestamps)
+python -m cli calculate-metrics --all --force
+
+# ═══════════════════════════════════════════════════════════
+# RUN SERVERS
+# ═══════════════════════════════════════════════════════════
+
+# Backend (Terminal 1)
+python -m uvicorn backend.main:app --reload --port 8000
+
+# Frontend (Terminal 2)
+cd frontend
+npm run dev
+
+# ═══════════════════════════════════════════════════════════
+# VERIFICATION
+# ═══════════════════════════════════════════════════════════
+
+# Check table counts
+python -c "from cli.config import Config; from cli.models import get_engine, get_session, StaffMetrics, CommitMetrics; config = Config(); engine = get_engine(config.get_db_config()); session = get_session(engine); print(f'staff_metrics: {session.query(StaffMetrics).count()}'); print(f'commit_metrics: {session.query(CommitMetrics).count()}')"
+
+# Verify backend API
+curl http://localhost:8000/api/tables/info
+
+# Open dashboards
+open http://localhost:3000
 ```
 
 ### Development Mode

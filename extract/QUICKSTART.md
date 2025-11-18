@@ -91,17 +91,6 @@ python -m cli extract repos.csv --branches main,develop
 python -m cli extract repos.csv --since 2024-01-01 --until 2024-12-31
 ```
 
-### Auto-Map Authors to Staff
-
-**Prerequisites:** Import staff data first
-```bash
-python -m cli import-staff staff.xlsx
-```
-
-**Then extract with auto-mapping:**
-```bash
-python -m cli extract repos.csv --auto-map --company-domains company.com
-```
 
 ## Output Example
 
@@ -191,17 +180,7 @@ LIMIT 10;
 
 After extraction:
 
-1. **Check Unmapped Authors** (if using auto-mapping):
-   ```bash
-   python -m cli auto-map --show-unmapped
-   ```
-
-2. **Calculate Staff Metrics**:
-   ```bash
-   python -m cli calculate-metrics --staff
-   ```
-
-3. **View Data**:
+1. **View Data**:
    - Use SQL queries to analyze the data
    - Connect BI tools to the database
    - Build dashboards

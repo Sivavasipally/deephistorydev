@@ -10,11 +10,9 @@ from datetime import datetime
 from .config import Config
 from .models import (
     get_engine, init_database, get_session,
-    Repository, Commit, PullRequest, PRApproval, StaffDetails, StaffMetrics
+    Repository, Commit, PullRequest, PRApproval, StaffDetails
 )
 from .git_analyzer import GitAnalyzer
-from .staff_metrics_calculator import StaffMetricsCalculator
-from .auto_mapper import AutoMapper
 
 
 class GitHistoryCLI:
@@ -213,12 +211,15 @@ class GitHistoryCLI:
 
         return commits_count, prs_count, approvals_count
 
-    def run(self, csv_path, cleanup=True):
+    def run(self, csv_path, cleanup=True, branches=None, since=None, until=None):
         """Run the CLI tool.
 
         Args:
             csv_path: Path to CSV file with repository information
             cleanup: Whether to cleanup cloned repositories after processing
+            branches: Comma-separated list of branches to extract
+            since: Start date for filtering commits
+            until: End date for filtering commits
         """
         click.echo("=" * 60)
         click.echo("Git History Extraction Tool")
@@ -256,17 +257,6 @@ class GitHistoryCLI:
         finally:
             session.close()
 
-        # Calculate staff metrics after extraction
-        click.echo("\n" + "=" * 60)
-        click.echo("Calculating Staff Metrics...")
-        click.echo("=" * 60)
-
-        metrics_session = get_session(self.engine)
-        try:
-            calculator = StaffMetricsCalculator(metrics_session)
-            metrics_summary = calculator.calculate_all_staff_metrics()
-        finally:
-            metrics_session.close()
 
         # Summary
         click.echo("\n" + "=" * 60)
@@ -276,7 +266,6 @@ class GitHistoryCLI:
         click.echo(f"Total commits extracted: {total_commits}")
         click.echo(f"Total pull requests extracted: {total_prs}")
         click.echo(f"Total approvals extracted: {total_approvals}")
-        click.echo(f"Staff metrics calculated: {metrics_summary.get('processed', 0)}/{metrics_summary.get('total_staff', 0)}")
         click.echo("=" * 60)
 
 
@@ -289,9 +278,10 @@ def cli():
 @cli.command('extract')
 @click.argument('csv_file', type=click.Path(exists=True))
 @click.option('--no-cleanup', is_flag=True, help='Keep cloned repositories')
-@click.option('--auto-map', is_flag=True, help='Automatically map authors to staff by email after extraction')
-@click.option('--company-domains', multiple=True, help='Company email domains for username matching (e.g., company.com)')
-def extract_repos(csv_file, no_cleanup, auto_map, company_domains):
+@click.option('--branches', help='Comma-separated list of branches to extract (default: all)')
+@click.option('--since', help='Start date (YYYY-MM-DD)')
+@click.option('--until', help='End date (YYYY-MM-DD)')
+def extract_repos(csv_file, no_cleanup, branches, since, until):
     """Extract Git history from repositories listed in CSV_FILE.
 
     The CSV file should contain columns:
@@ -300,455 +290,12 @@ def extract_repos(csv_file, no_cleanup, auto_map, company_domains):
     - Clone URL (HTTP) / Self URL
 
     Example usage:
-        python -m cli extract repos.csv --auto-map
-        python -m cli extract repos.csv --auto-map --company-domains company.com --company-domains company.org
+        python -m cli extract repos.csv
+        python -m cli extract repos.csv --branches main,develop
+        python -m cli extract repos.csv --since 2024-01-01 --until 2024-12-31
     """
     git_cli = GitHistoryCLI()
-    git_cli.run(csv_file, cleanup=not no_cleanup)
-
-    # Run auto-mapping if requested
-    if auto_map:
-        click.echo("\n" + "=" * 60)
-        click.echo("Running Automatic Author-Staff Mapping...")
-        click.echo("=" * 60)
-
-        config = Config()
-        db_config = config.get_db_config()
-        engine = get_engine(db_config)
-        session = get_session(engine)
-
-        try:
-            mapper = AutoMapper(session)
-            result = mapper.auto_map_all(
-                company_domains=list(company_domains) if company_domains else None,
-                dry_run=False
-            )
-
-            click.echo(f"\n[SUCCESS] Auto-mapping complete: {result['total_matched']} matched, {result['total_unmatched']} unmatched")
-
-        finally:
-            session.close()
-
-
-@cli.command('import-staff')
-@click.argument('file_path', type=click.Path(exists=True))
-def import_staff(file_path):
-    """Import staff details from Excel or CSV file.
-
-    The file should contain columns matching the staff details schema.
-    Supports both .xlsx and .csv formats.
-    """
-    import pandas as pd
-    from dateutil import parser
-
-    click.echo("=" * 60)
-    click.echo("Staff Details Import Tool")
-    click.echo("=" * 60)
-
-    # Initialize database
-    config = Config()
-    db_config = config.get_db_config()
-    engine = get_engine(db_config)
-    init_database(engine)
-
-    click.echo(f"Database: {db_config['type']}")
-    click.echo(f"File: {file_path}")
-    click.echo("=" * 60)
-
-    # Detect file type and read
-    file_path_obj = Path(file_path)
-    file_ext = file_path_obj.suffix.lower()
-
-    try:
-        if file_ext in ['.xlsx', '.xls']:
-            click.echo("\nReading Excel file...")
-            df = pd.read_excel(file_path)
-        elif file_ext == '.csv':
-            click.echo("\nReading CSV file...")
-            df = pd.read_csv(file_path)
-        else:
-            click.echo(f"Error: Unsupported file format '{file_ext}'. Use .xlsx or .csv", err=True)
-            sys.exit(1)
-
-        click.echo(f"Found {len(df)} rows")
-
-        # Column mapping from Excel/CSV names to database field names
-        column_mapping = {
-            '1BankID': 'bank_id_1',
-            'AS Of Date': 'as_of_date',
-            'Reporting Period': 'reporting_period',
-            'TechUnit': 'tech_unit',
-            'Staff First Name': 'staff_first_name',
-            'Staff Last Name': 'staff_last_name',
-            'Staff Name': 'staff_name',
-            'Staff Id': 'staff_id',
-            'Citizenship': 'citizenship',
-            'Original Staff Type': 'original_staff_type',
-            'Staff Type': 'staff_type',
-            'Staff Status': 'staff_status',
-            'Sub Status': 'sub_status',
-            'Movement Status': 'movement_status',
-            'Rank': 'rank',
-            'HR Role': 'hr_role',
-            'Staff Start Date': 'staff_start_date',
-            'Staff End Date': 'staff_end_date',
-            'Reporting Manager 1BankID': 'reporting_manager_1bank_id',
-            'Reporting Manager Staff Id': 'reporting_manager_staff_id',
-            'Reporting Manager Name': 'reporting_manager_name',
-            'Staff PCCode': 'staff_pc_code',
-            'Work Type1': 'work_type1',
-            'Work Type2': 'work_type2',
-            'Reporting Location': 'reporting_location',
-            'Work Location': 'work_location',
-            'Primary Seating': 'primary_seating',
-            'Company Name': 'company_name',
-            'Company Short Name': 'company_short_name',
-            'Last work day': 'last_work_day',
-            'Department ID': 'department_id',
-            'Gender': 'gender',
-            'HC included': 'hc_included',
-            'Reason for HC Included No': 'reason_for_hc_included_no',
-            'Email Address': 'email_address',
-            'Platform Index': 'platform_index',
-            'Platform Lead': 'platform_lead',
-            'Platform Name': 'platform_name',
-            'Platform Unit': 'platform_unit',
-            'Sub-platform': 'sub_platform',
-            'Staff Grouping': 'staff_grouping',
-            'Job Function': 'job_function',
-            'Default Role': 'default_role',
-            'Division': 'division',
-            'Staff Level': 'staff_level',
-            'People Cost Type': 'people_cost_type',
-            'FTE': 'fte',
-            'Effective Date': 'effective_date',
-            'Created By': 'created_by',
-            'Date Created': 'date_created',
-            'Modified By': 'modified_by',
-            'Date Modified': 'date_modified',
-            'Movement Date': 'movement_date',
-            'Reporting Manager PCcode': 'reporting_manager_pc_code',
-            'Contract start date': 'contract_start_date',
-            'Contract end date': 'contract_end_date',
-            'Original Tenure Start Date': 'original_tenure_start_date',
-            'Effective billing Date': 'effective_billing_date',
-            'Billing PC Code': 'billing_pc_code',
-            'Skill Set Type': 'skill_set_type',
-            'PO Number': 'po_number',
-            'MCR Number': 'mcr_number',
-            'Assignment ID': 'assignment_id'
-        }
-
-        # Date columns that need parsing
-        date_columns = [
-            'as_of_date', 'staff_start_date', 'staff_end_date', 'last_work_day',
-            'effective_date', 'date_created', 'date_modified', 'movement_date',
-            'contract_start_date', 'contract_end_date', 'original_tenure_start_date',
-            'effective_billing_date'
-        ]
-
-        # Rename columns to match database schema
-        df_renamed = df.rename(columns=column_mapping)
-
-        # Process data
-        session = get_session(engine)
-        imported_count = 0
-        updated_count = 0
-        skipped_count = 0
-
-        try:
-            for idx, row in tqdm(df_renamed.iterrows(), total=len(df_renamed), desc="Importing staff", unit="record"):
-                try:
-                    # Prepare data dictionary
-                    staff_data = {}
-
-                    for col in df_renamed.columns:
-                        if col in column_mapping.values():
-                            value = row[col]
-
-                            # Handle NaN/None values
-                            if pd.isna(value):
-                                staff_data[col] = None
-                            # Handle date columns
-                            elif col in date_columns:
-                                try:
-                                    if isinstance(value, str):
-                                        staff_data[col] = parser.parse(value).date()
-                                    elif hasattr(value, 'date'):
-                                        staff_data[col] = value.date()
-                                    else:
-                                        staff_data[col] = value
-                                except:
-                                    staff_data[col] = None
-                            # Handle FTE (float)
-                            elif col == 'fte':
-                                try:
-                                    staff_data[col] = float(value) if value else None
-                                except:
-                                    staff_data[col] = None
-                            # Handle datetime columns
-                            elif col in ['date_created', 'date_modified']:
-                                try:
-                                    if isinstance(value, str):
-                                        staff_data[col] = parser.parse(value)
-                                    else:
-                                        staff_data[col] = value
-                                except:
-                                    staff_data[col] = None
-                            else:
-                                staff_data[col] = str(value) if value else None
-
-                    # Check if record exists (by staff_id)
-                    staff_id = staff_data.get('staff_id')
-                    if staff_id:
-                        existing = session.query(StaffDetails).filter_by(staff_id=staff_id).first()
-
-                        if existing:
-                            # Update existing record
-                            for key, value in staff_data.items():
-                                setattr(existing, key, value)
-                            updated_count += 1
-                        else:
-                            # Create new record
-                            staff = StaffDetails(**staff_data)
-                            session.add(staff)
-                            imported_count += 1
-                    else:
-                        # No staff_id, still import but might be duplicate
-                        staff = StaffDetails(**staff_data)
-                        session.add(staff)
-                        imported_count += 1
-
-                    # Commit every 100 records
-                    if (idx + 1) % 100 == 0:
-                        session.commit()
-
-                except Exception as e:
-                    click.echo(f"\nWarning: Skipped row {idx + 1}: {e}")
-                    skipped_count += 1
-                    session.rollback()
-                    continue
-
-            # Final commit
-            session.commit()
-
-            click.echo("\n" + "=" * 60)
-            click.echo("Import Complete!")
-            click.echo("=" * 60)
-            click.echo(f"New records imported: {imported_count}")
-            click.echo(f"Records updated: {updated_count}")
-            click.echo(f"Records skipped: {skipped_count}")
-            click.echo(f"Total processed: {len(df_renamed)}")
-
-        except Exception as e:
-            click.echo(f"\nError during import: {e}", err=True)
-            session.rollback()
-            sys.exit(1)
-        finally:
-            session.close()
-
-    except Exception as e:
-        click.echo(f"Error reading file: {e}", err=True)
-        sys.exit(1)
-
-
-@cli.command('calculate-metrics')
-@click.option('--all', 'calc_all', is_flag=True, help='Calculate all metric tables')
-@click.option('--staff', is_flag=True, help='Calculate staff_metrics only')
-@click.option('--commits', is_flag=True, help='Calculate commit_metrics only')
-@click.option('--prs', is_flag=True, help='Calculate pr_metrics only')
-@click.option('--repositories', is_flag=True, help='Calculate repository_metrics only')
-@click.option('--authors', is_flag=True, help='Calculate author_metrics only')
-@click.option('--teams', is_flag=True, help='Calculate team_metrics only')
-@click.option('--daily', is_flag=True, help='Calculate daily_metrics only')
-@click.option('--force', is_flag=True, help='Force recalculation (ignore timestamps)')
-def calculate_metrics(calc_all, staff, commits, prs, repositories, authors, teams, daily, force):
-    """Calculate pre-aggregated metrics for fast API queries.
-
-    This command calculates and stores metrics in dedicated tables to avoid
-    expensive real-time calculations. Metrics are automatically updated during
-    extract, but this command allows manual recalculation.
-
-    Examples:
-        # Calculate all metrics
-        python -m cli calculate-metrics --all
-
-        # Calculate only staff metrics
-        python -m cli calculate-metrics --staff
-
-        # Calculate multiple specific metrics
-        python -m cli calculate-metrics --commits --prs --repositories
-
-        # Force recalculation of all metrics
-        python -m cli calculate-metrics --all --force
-    """
-    from .unified_metrics_calculator import UnifiedMetricsCalculator
-
-    config = Config()
-    db_config = config.get_db_config()
-    engine = get_engine(db_config)
-    session = get_session(engine)
-
-    try:
-        click.echo("\n" + "=" * 80)
-        click.echo("METRICS CALCULATION")
-        click.echo("=" * 80)
-
-        calculator = UnifiedMetricsCalculator(session)
-
-        # Determine what to calculate
-        if calc_all or not any([staff, commits, prs, repositories, authors, teams, daily]):
-            # Calculate all if --all or no specific flags
-            click.echo("Calculating all metrics...")
-            summary = calculator.calculate_all_metrics(force=force)
-
-        else:
-            # Calculate only selected metrics
-            summary = {}
-
-            if staff:
-                click.echo("\n[INFO] Calculating Staff Metrics...")
-                staff_calc = StaffMetricsCalculator(session)
-                summary['Staff Metrics'] = staff_calc.calculate_all_staff_metrics()
-
-            if authors:
-                click.echo("\n[INFO] Calculating Author Metrics...")
-                summary['Author Metrics'] = calculator.calculate_author_metrics(force=force)
-
-            if repositories:
-                click.echo("\n[INFO] Calculating Repository Metrics...")
-                summary['Repository Metrics'] = calculator.calculate_repository_metrics(force=force)
-
-            if commits:
-                click.echo("\n[INFO] Calculating Commit Metrics...")
-                summary['Commit Metrics'] = calculator.calculate_commit_metrics(force=force)
-
-            if prs:
-                click.echo("\n[INFO] Calculating PR Metrics...")
-                summary['PR Metrics'] = calculator.calculate_pr_metrics(force=force)
-
-            if teams:
-                click.echo("\n[INFO] Calculating Team Metrics...")
-                summary['Team Metrics'] = calculator.calculate_team_metrics(force=force)
-
-            if daily:
-                click.echo("\n[INFO] Calculating Daily Metrics...")
-                summary['Daily Metrics'] = calculator.calculate_daily_metrics(force=force)
-
-        # Print summary
-        click.echo("\n" + "=" * 80)
-        click.echo("CALCULATION SUMMARY")
-        click.echo("=" * 80)
-
-        for metric_type, result in summary.items():
-            if 'error' in result:
-                click.echo(f"[ERROR] {metric_type}: ERROR - {result['error']}")
-            else:
-                processed = result.get('processed', 0)
-                created = result.get('created', 0)
-                updated = result.get('updated', 0)
-                total = result.get('total_staff', processed)
-                click.echo(f"[SUCCESS] {metric_type}: {processed}/{total} records processed ({created} created, {updated} updated)")
-
-        click.echo("=" * 80)
-        click.echo("\n[SUCCESS] Metrics calculation complete!")
-        click.echo("\nNext steps:")
-        click.echo("  - Metrics are now available in the database")
-        click.echo("  - Backend APIs will use pre-calculated data for fast queries")
-        click.echo("  - Run 'python -m cli calculate-metrics --all' periodically to refresh")
-
-    except Exception as e:
-        click.echo(f"\n[ERROR] Error during metrics calculation: {e}", err=True)
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
-    finally:
-        session.close()
-
-
-@cli.command('auto-map')
-@click.option('--dry-run', is_flag=True, help='Show what would be mapped without saving')
-@click.option('--company-domains', multiple=True, help='Company email domains for username matching (e.g., company.com)')
-@click.option('--show-unmapped', is_flag=True, help='Show list of unmapped authors')
-def auto_map_authors(dry_run, company_domains, show_unmapped):
-    """Automatically map Git authors to staff members based on email.
-
-    This command will:
-    1. Find all Git authors from commits that are not yet mapped to staff
-    2. Try to match them to staff records using:
-       - Exact email match (e.g., john@company.com matches john@company.com)
-       - Username match (e.g., john@gmail.com matches john@company.com if --company-domains is used)
-    3. Create author-staff mappings for all matches
-
-    Examples:
-        # Dry run to see what would be mapped
-        python -m cli auto-map --dry-run
-
-        # Actually create mappings (exact email match only)
-        python -m cli auto-map
-
-        # Create mappings with username matching across domains
-        python -m cli auto-map --company-domains company.com --company-domains company.org
-
-        # Show unmapped authors that need manual mapping
-        python -m cli auto-map --show-unmapped
-    """
-    config = Config()
-    db_config = config.get_db_config()
-    engine = get_engine(db_config)
-    session = get_session(engine)
-
-    try:
-        mapper = AutoMapper(session)
-
-        # Check if staff data exists
-        from .models import StaffDetails
-        staff_count = session.query(StaffDetails).count()
-
-        if staff_count == 0:
-            click.echo("[ERROR] No staff data found in database!", err=True)
-            click.echo("Please import staff data first using: python -m cli import-staff <file>")
-            sys.exit(1)
-
-        click.echo(f"[INFO] Found {staff_count} staff records in database")
-
-        # Run auto-mapping
-        result = mapper.auto_map_all(
-            company_domains=list(company_domains) if company_domains else None,
-            dry_run=dry_run
-        )
-
-        # Show detailed unmapped list if requested
-        if show_unmapped and result['unmapped_authors']:
-            click.echo("\n" + "=" * 80)
-            click.echo("DETAILED UNMAPPED AUTHORS LIST")
-            click.echo("=" * 80)
-            click.echo("These authors need manual mapping:\n")
-
-            for author in result['unmapped_authors']:
-                click.echo(f"Author: {author['author_name']}")
-                click.echo(f"Email:  {author['author_email']}")
-                click.echo(f"Commits: {author['commit_count']}")
-                click.echo("-" * 40)
-
-            click.echo(f"\nTotal unmapped: {len(result['unmapped_authors'])}")
-            click.echo("\nTo manually map these authors:")
-            click.echo("1. Use the web UI at http://localhost:3000/author-mapping")
-            click.echo("2. Or use the Streamlit dashboard: python -m cli.dashboard")
-
-        if not dry_run and result['total_matched'] > 0:
-            click.echo("\n[SUCCESS] Mappings created successfully!")
-            click.echo("\nNext steps:")
-            click.echo("  - Recalculate staff metrics: python -m cli calculate-metrics --staff")
-            click.echo("  - View Staff Details page to see updated data")
-
-    except Exception as e:
-        click.echo(f"\n[ERROR] Error during auto-mapping: {e}", err=True)
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
-    finally:
-        session.close()
+    git_cli.run(csv_file, cleanup=not no_cleanup, branches=branches, since=since, until=until)
 
 
 if __name__ == '__main__':

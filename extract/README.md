@@ -79,11 +79,6 @@ python -m cli extract repos.csv
 
 ### With Options
 
-**Auto-map authors to staff by email:**
-```bash
-python -m cli extract repos.csv --auto-map
-```
-
 **Filter by branches:**
 ```bash
 python -m cli extract repos.csv --branches main,develop,release
@@ -94,16 +89,9 @@ python -m cli extract repos.csv --branches main,develop,release
 python -m cli extract repos.csv --since 2024-01-01 --until 2024-12-31
 ```
 
-**Username matching across domains:**
-```bash
-python -m cli extract repos.csv --auto-map --company-domains company.com
-```
-
 **Combined options:**
 ```bash
 python -m cli extract repos.csv \
-  --auto-map \
-  --company-domains company.com \
   --branches main,develop \
   --since 2024-01-01 \
   --until 2024-12-31
@@ -118,33 +106,10 @@ python -m cli extract <csv_file> [OPTIONS]
 ```
 
 **Options:**
+- `--no-cleanup` - Keep cloned repositories
 - `--branches TEXT` - Comma-separated list of branches to extract (default: all)
 - `--since TEXT` - Start date (YYYY-MM-DD)
 - `--until TEXT` - End date (YYYY-MM-DD)
-- `--auto-map` - Automatically map Git authors to staff by email
-- `--company-domains TEXT` - Company email domains for username matching (repeatable)
-
-### Auto-Mapping Commands
-
-**Preview auto-mapping (dry run):**
-```bash
-python -m cli auto-map --dry-run
-```
-
-**Create mappings:**
-```bash
-python -m cli auto-map
-```
-
-**With username matching:**
-```bash
-python -m cli auto-map --company-domains company.com
-```
-
-**Show unmapped authors:**
-```bash
-python -m cli auto-map --show-unmapped
-```
 
 ## What Gets Extracted
 
@@ -167,37 +132,11 @@ python -m cli auto-map --show-unmapped
 - Approvals and reviewers
 - Lines added/deleted in PR
 
-## Auto-Mapping Feature
-
-The auto-mapper automatically matches Git commit authors to staff members based on email addresses:
-
-**Two Strategies:**
-
-1. **Exact Email Match** (Primary)
-   - Matches `john@company.com` → `john@company.com`
-   - Coverage: 60-80% of authors
-
-2. **Username Match** (Secondary)
-   - Matches `john@gmail.com` → `john@company.com`
-   - Requires `--company-domains` parameter
-   - Coverage: Additional 10-20% of authors
-
-**Combined Coverage:** 80-95% automated mapping!
-
 ## Workflow Example
 
 ```bash
-# Step 1: Import staff data (if using auto-mapping)
-python -m cli import-staff staff_data.xlsx
-
-# Step 2: Extract with auto-mapping
-python -m cli extract repos.csv --auto-map --company-domains company.com
-
-# Step 3: Check unmapped authors
-python -m cli auto-map --show-unmapped
-
-# Step 4: Calculate staff metrics (if needed)
-python -m cli calculate-metrics --staff
+# Extract repository data
+python -m cli extract repos.csv
 ```
 
 ## Troubleshooting
@@ -217,10 +156,6 @@ python -m cli calculate-metrics --staff
 - The tool includes retry logic with exponential backoff
 - For large extractions, run in batches
 
-### No Authors Mapped
-- Ensure staff data is imported first: `python -m cli import-staff staff_data.xlsx`
-- Check that staff emails match Git commit emails
-- Use `--company-domains` for better coverage
 
 ## Files Structure
 
@@ -232,8 +167,7 @@ extract/
 │   ├── config.py             # Configuration management
 │   ├── models.py             # Database models
 │   ├── git_analyzer.py       # Git extraction logic
-│   ├── bitbucket_api.py      # Bitbucket API integration
-│   └── auto_mapper.py        # Auto-mapping functionality
+│   └── bitbucket_api.py      # Bitbucket API integration
 ├── .env.example              # Example configuration
 ├── repos.csv.example         # Example repository list
 ├── requirements.txt          # Python dependencies

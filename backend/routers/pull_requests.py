@@ -36,7 +36,8 @@ class PullRequestDetail(BaseModel):
 
 @router.get("/", response_model=List[PullRequestDetail])
 async def get_pull_requests(
-    author: Optional[str] = Query(None),
+    author: Optional[str] = Query(None, description="Filter by author name"),
+    author_email: Optional[str] = Query(None, description="Filter by author email"),
     repository: Optional[str] = Query(None),
     state: Optional[str] = Query(None),
     start_date: Optional[str] = Query(None),
@@ -79,6 +80,8 @@ async def get_pull_requests(
             # Apply filters
             if author:
                 query = query.filter(PullRequest.author_name.ilike(f"%{author}%"))
+            if author_email:
+                query = query.filter(PullRequest.author_email.ilike(f"%{author_email}%"))
             if repository:
                 query = query.filter(Repository.slug_name.ilike(f"%{repository}%"))
             if state:

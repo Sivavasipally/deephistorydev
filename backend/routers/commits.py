@@ -36,6 +36,7 @@ class CommitDetail(BaseModel):
 @router.get("/", response_model=List[CommitDetail])
 async def get_commits(
     author: Optional[str] = Query(None, description="Filter by author name"),
+    author_email: Optional[str] = Query(None, description="Filter by author email"),
     repository: Optional[str] = Query(None, description="Filter by repository"),
     branch: Optional[str] = Query(None, description="Filter by branch"),
     start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
@@ -48,6 +49,7 @@ async def get_commits(
 
     Args:
         author: Filter by author name
+        author_email: Filter by author email
         repository: Filter by repository slug
         branch: Filter by branch name
         start_date: Filter by start date
@@ -89,6 +91,8 @@ async def get_commits(
             # Apply filters
             if author:
                 query = query.filter(Commit.author_name.ilike(f"%{author}%"))
+            if author_email:
+                query = query.filter(Commit.author_email.ilike(f"%{author_email}%"))
             if repository:
                 query = query.filter(Repository.slug_name.ilike(f"%{repository}%"))
             if branch:

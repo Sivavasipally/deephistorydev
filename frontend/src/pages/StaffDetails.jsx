@@ -444,8 +444,8 @@ const StaffDetails = () => {
       // Fetch commits and PRs only when row is expanded
       // Note: Approvals count is already available from staff_metrics
       const [commits, prs] = await Promise.all([
-        commitsAPI.getCommits({ author: staffRecord.email_address, limit: 1000 }).catch(() => []),
-        fetch(`/api/pull-requests?author=${staffRecord.email_address}&limit=1000`)
+        commitsAPI.getCommits({ author_email: staffRecord.email_address, limit: 1000 }).catch(() => []),
+        fetch(`/api/pull-requests?author_email=${staffRecord.email_address}&limit=1000`)
           .then(res => {
             if (!res.ok) {
               throw new Error(`HTTP ${res.status}`)
@@ -496,14 +496,17 @@ const StaffDetails = () => {
 
   // Expanded row render - shows detailed information
   const expandedRowRender = record => {
+    // Get the latest record from state (to get updated data after async load)
+    const currentRecord = filteredStaff.find(s => s.bank_id_1 === record.bank_id_1) || record
+
     // Load details when row is expanded
-    if (!record.detailsLoaded && !record.detailsLoading) {
-      record.detailsLoading = true
-      loadStaffDetails(record)
+    if (!currentRecord.detailsLoaded && !currentRecord.detailsLoading) {
+      currentRecord.detailsLoading = true
+      loadStaffDetails(currentRecord)
     }
 
     // Show loading state while data is being fetched
-    const isLoading = !record.detailsLoaded
+    const isLoading = !currentRecord.detailsLoaded
 
     if (isLoading) {
       return (
@@ -525,38 +528,38 @@ const StaffDetails = () => {
               <Col span={8}>
                 <Statistic
                   title="Staff Level"
-                  value={record.staff_level || 'N/A'}
+                  value={currentRecord.staff_level || 'N/A'}
                   prefix={<IdcardOutlined />}
                 />
               </Col>
               <Col span={8}>
                 <Statistic
                   title="HR Role"
-                  value={record.hr_role || 'N/A'}
+                  value={currentRecord.hr_role || 'N/A'}
                 />
               </Col>
               <Col span={8}>
                 <Statistic
                   title="Job Function"
-                  value={record.job_function || 'N/A'}
+                  value={currentRecord.job_function || 'N/A'}
                 />
               </Col>
               <Col span={8}>
                 <Statistic
                   title="Department ID"
-                  value={record.department_id || 'N/A'}
+                  value={currentRecord.department_id || 'N/A'}
                 />
               </Col>
               <Col span={8}>
                 <Statistic
                   title="Company"
-                  value={record.company_name || 'N/A'}
+                  value={currentRecord.company_name || 'N/A'}
                 />
               </Col>
               <Col span={8}>
                 <Statistic
                   title="Original Type"
-                  value={record.original_staff_type || 'N/A'}
+                  value={currentRecord.original_staff_type || 'N/A'}
                 />
               </Col>
             </Row>
@@ -565,10 +568,10 @@ const StaffDetails = () => {
       },
       {
         key: '2',
-        label: `Commits (${record.commitCount})`,
+        label: `Commits (${currentRecord.commitCount})`,
         children: (
           <Table
-            dataSource={Array.isArray(record.commits) ? record.commits : []}
+            dataSource={Array.isArray(currentRecord.commits) ? currentRecord.commits : []}
             rowKey={r => r?.commit_hash || r?.id || Math.random().toString()}
             size="small"
             pagination={{ pageSize: 5 }}
@@ -622,10 +625,10 @@ const StaffDetails = () => {
       },
       {
         key: '3',
-        label: `Pull Requests (${record.prCount})`,
+        label: `Pull Requests (${currentRecord.prCount})`,
         children: (
           <Table
-            dataSource={Array.isArray(record.pullRequests) ? record.pullRequests : []}
+            dataSource={Array.isArray(currentRecord.pullRequests) ? currentRecord.pullRequests : []}
             rowKey={r => r?.pr_number ? `pr-${r.pr_number}` : r?.id || Math.random().toString()}
             size="small"
             pagination={{ pageSize: 5 }}
@@ -672,12 +675,12 @@ const StaffDetails = () => {
       },
       {
         key: '4',
-        label: `Approvals Given (${record.approvalCount})`,
+        label: `Approvals Given (${currentRecord.approvalCount})`,
         children: (
           <Card>
             <Space direction="vertical" style={{ width: '100%' }}>
               <Text type="secondary">
-                <strong>Total Approvals Given:</strong> {record.approvalCount}
+                <strong>Total Approvals Given:</strong> {currentRecord.approvalCount}
               </Text>
               <Text type="secondary" style={{ fontSize: '12px' }}>
                 Note: Detailed approval history is available in the staff_metrics summary.

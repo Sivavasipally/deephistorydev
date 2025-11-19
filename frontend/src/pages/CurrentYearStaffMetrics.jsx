@@ -57,7 +57,7 @@ const CurrentYearStaffMetrics = () => {
       const params = {}
       if (statusFilter) params.staff_status = statusFilter
 
-      const response = await axios.get('http://localhost:8000/staff-metrics/current-year', {
+      const response = await axios.get('http://localhost:8000/api/staff-metrics/current-year', {
         params
       })
       setStaff(response.data)

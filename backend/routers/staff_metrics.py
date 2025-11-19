@@ -309,135 +309,6 @@ async def get_staff_metrics_summary():
         raise HTTPException(status_code=500, detail=f"Error fetching summary: {str(e)}")
 
 
-@router.get("/{bank_id}", response_model=StaffMetricsResponse)
-async def get_staff_metrics_by_id(bank_id: str):
-    """Get metrics for a specific staff member by bank ID."""
-    try:
-        config = Config()
-        db_config = config.get_db_config()
-        engine = get_engine(db_config)
-        session = get_session(engine)
-
-        try:
-            metric = session.query(StaffMetrics).filter(
-                StaffMetrics.bank_id_1 == bank_id
-            ).first()
-
-            if not metric:
-                raise HTTPException(status_code=404, detail=f"Staff metrics not found for {bank_id}")
-
-            return StaffMetricsResponse(
-                bank_id_1=metric.bank_id_1,
-                staff_id=metric.staff_id or "",
-                staff_name=metric.staff_name or "",
-                email_address=metric.email_address or "",
-                tech_unit=metric.tech_unit or "",
-                platform_name=metric.platform_name or "",
-                staff_type=metric.staff_type or "",
-                original_staff_type=metric.original_staff_type or "",
-                staff_status=metric.staff_status or "",
-                work_location=metric.work_location or "",
-                rank=metric.rank or "",
-                staff_level=metric.staff_level or "",
-                hr_role=metric.hr_role or "",
-                job_function=metric.job_function or "",
-                department_id=metric.department_id or "",
-                company_name=metric.company_name or "",
-                sub_platform=metric.sub_platform or "",
-                staff_grouping=metric.staff_grouping or "",
-                reporting_manager_name=metric.reporting_manager_name or "",
-                total_commits=metric.total_commits,
-                total_lines_added=metric.total_lines_added,
-                total_lines_deleted=metric.total_lines_deleted,
-                total_files_changed=metric.total_files_changed,
-                total_chars_added=metric.total_chars_added,
-                total_chars_deleted=metric.total_chars_deleted,
-                total_prs_created=metric.total_prs_created,
-                total_prs_merged=metric.total_prs_merged,
-                total_pr_approvals_given=metric.total_pr_approvals_given,
-                repositories_touched=metric.repositories_touched,
-                repository_list=metric.repository_list or "",
-                first_commit_date=str(metric.first_commit_date) if metric.first_commit_date else None,
-                last_commit_date=str(metric.last_commit_date) if metric.last_commit_date else None,
-                first_pr_date=str(metric.first_pr_date) if metric.first_pr_date else None,
-                last_pr_date=str(metric.last_pr_date) if metric.last_pr_date else None,
-                file_types_worked=metric.file_types_worked or "",
-                primary_file_type=metric.primary_file_type or "",
-                last_calculated=str(metric.last_calculated) if metric.last_calculated else None,
-                calculation_version=metric.calculation_version or "",
-                avg_lines_per_commit=metric.avg_lines_per_commit,
-                avg_files_per_commit=metric.avg_files_per_commit,
-                code_churn_ratio=metric.code_churn_ratio
-            )
-
-        finally:
-            session.close()
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching staff metrics: {str(e)}")
-
-
-@router.post("/recalculate/{bank_id}")
-async def recalculate_staff_metrics(bank_id: str):
-    """Recalculate metrics for a specific staff member.
-
-    Useful after mapping changes or data updates.
-    """
-    try:
-        config = Config()
-        db_config = config.get_db_config()
-        engine = get_engine(db_config)
-        session = get_session(engine)
-
-        try:
-            calculator = StaffMetricsCalculator(session)
-            result = calculator.recalculate_after_mapping_change(bank_id)
-
-            if result:
-                return {"message": f"Metrics recalculated successfully for {bank_id}"}
-            else:
-                raise HTTPException(status_code=500, detail="Failed to recalculate metrics")
-
-        finally:
-            session.close()
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error recalculating metrics: {str(e)}")
-
-
-@router.post("/recalculate-all")
-async def recalculate_all_staff_metrics():
-    """Recalculate metrics for all staff members.
-
-    This is a potentially long-running operation.
-    Use after bulk mapping changes or major data updates.
-    """
-    try:
-        config = Config()
-        db_config = config.get_db_config()
-        engine = get_engine(db_config)
-        session = get_session(engine)
-
-        try:
-            calculator = StaffMetricsCalculator(session)
-            summary = calculator.calculate_all_staff_metrics()
-
-            return {
-                "message": "Metrics recalculated successfully for all staff",
-                "summary": summary
-            }
-
-        finally:
-            session.close()
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error recalculating all metrics: {str(e)}")
-
-
 # ========================================
 # Current Year Staff Metrics Endpoints
 # ========================================
@@ -586,3 +457,132 @@ async def get_current_year_staff_metrics_by_id(bank_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching current year staff metrics: {str(e)}")
+
+
+@router.get("/{bank_id}", response_model=StaffMetricsResponse)
+async def get_staff_metrics_by_id(bank_id: str):
+    """Get metrics for a specific staff member by bank ID."""
+    try:
+        config = Config()
+        db_config = config.get_db_config()
+        engine = get_engine(db_config)
+        session = get_session(engine)
+
+        try:
+            metric = session.query(StaffMetrics).filter(
+                StaffMetrics.bank_id_1 == bank_id
+            ).first()
+
+            if not metric:
+                raise HTTPException(status_code=404, detail=f"Staff metrics not found for {bank_id}")
+
+            return StaffMetricsResponse(
+                bank_id_1=metric.bank_id_1,
+                staff_id=metric.staff_id or "",
+                staff_name=metric.staff_name or "",
+                email_address=metric.email_address or "",
+                tech_unit=metric.tech_unit or "",
+                platform_name=metric.platform_name or "",
+                staff_type=metric.staff_type or "",
+                original_staff_type=metric.original_staff_type or "",
+                staff_status=metric.staff_status or "",
+                work_location=metric.work_location or "",
+                rank=metric.rank or "",
+                staff_level=metric.staff_level or "",
+                hr_role=metric.hr_role or "",
+                job_function=metric.job_function or "",
+                department_id=metric.department_id or "",
+                company_name=metric.company_name or "",
+                sub_platform=metric.sub_platform or "",
+                staff_grouping=metric.staff_grouping or "",
+                reporting_manager_name=metric.reporting_manager_name or "",
+                total_commits=metric.total_commits,
+                total_lines_added=metric.total_lines_added,
+                total_lines_deleted=metric.total_lines_deleted,
+                total_files_changed=metric.total_files_changed,
+                total_chars_added=metric.total_chars_added,
+                total_chars_deleted=metric.total_chars_deleted,
+                total_prs_created=metric.total_prs_created,
+                total_prs_merged=metric.total_prs_merged,
+                total_pr_approvals_given=metric.total_pr_approvals_given,
+                repositories_touched=metric.repositories_touched,
+                repository_list=metric.repository_list or "",
+                first_commit_date=str(metric.first_commit_date) if metric.first_commit_date else None,
+                last_commit_date=str(metric.last_commit_date) if metric.last_commit_date else None,
+                first_pr_date=str(metric.first_pr_date) if metric.first_pr_date else None,
+                last_pr_date=str(metric.last_pr_date) if metric.last_pr_date else None,
+                file_types_worked=metric.file_types_worked or "",
+                primary_file_type=metric.primary_file_type or "",
+                last_calculated=str(metric.last_calculated) if metric.last_calculated else None,
+                calculation_version=metric.calculation_version or "",
+                avg_lines_per_commit=metric.avg_lines_per_commit,
+                avg_files_per_commit=metric.avg_files_per_commit,
+                code_churn_ratio=metric.code_churn_ratio
+            )
+
+        finally:
+            session.close()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching staff metrics: {str(e)}")
+
+
+@router.post("/recalculate/{bank_id}")
+async def recalculate_staff_metrics(bank_id: str):
+    """Recalculate metrics for a specific staff member.
+
+    Useful after mapping changes or data updates.
+    """
+    try:
+        config = Config()
+        db_config = config.get_db_config()
+        engine = get_engine(db_config)
+        session = get_session(engine)
+
+        try:
+            calculator = StaffMetricsCalculator(session)
+            result = calculator.recalculate_after_mapping_change(bank_id)
+
+            if result:
+                return {"message": f"Metrics recalculated successfully for {bank_id}"}
+            else:
+                raise HTTPException(status_code=500, detail="Failed to recalculate metrics")
+
+        finally:
+            session.close()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error recalculating metrics: {str(e)}")
+
+
+@router.post("/recalculate-all")
+async def recalculate_all_staff_metrics():
+    """Recalculate metrics for all staff members.
+
+    This is a potentially long-running operation.
+    Use after bulk mapping changes or major data updates.
+    """
+    try:
+        config = Config()
+        db_config = config.get_db_config()
+        engine = get_engine(db_config)
+        session = get_session(engine)
+
+        try:
+            calculator = StaffMetricsCalculator(session)
+            summary = calculator.calculate_all_staff_metrics()
+
+            return {
+                "message": "Metrics recalculated successfully for all staff",
+                "summary": summary
+            }
+
+        finally:
+            session.close()
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error recalculating all metrics: {str(e)}")

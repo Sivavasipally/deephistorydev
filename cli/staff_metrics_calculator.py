@@ -291,6 +291,7 @@ class StaffMetricsCalculator:
         cy_staff_metric.cy_pct_code = cy_metrics['pct_code']
         cy_staff_metric.cy_pct_config = cy_metrics['pct_config']
         cy_staff_metric.cy_pct_documentation = cy_metrics['pct_documentation']
+        cy_staff_metric.cy_pct_others = cy_metrics['pct_others']
 
         # Update monthly averages
         cy_staff_metric.cy_avg_commits_monthly = cy_metrics['avg_commits_monthly']
@@ -522,19 +523,24 @@ class StaffMetricsCalculator:
         pct_code = 0.0
         pct_config = 0.0
         pct_documentation = 0.0
+        pct_others = 0.0
 
         if total_file_count > 0:
             code_extensions = {'java', 'js', 'jsx', 'tsx', 'ts', 'py', 'sql', 'cpp', 'c', 'h', 'cs', 'rb', 'go', 'php', 'swift', 'kt', 'scala', 'r'}
-            config_extensions = {'xml', 'json', 'yml', 'yaml', 'properties', 'config', 'conf', 'toml', 'ini', 'env', ''}
+            config_extensions = {'xml', 'json', 'yml', 'yaml', 'properties', 'config', 'conf', 'toml', 'ini', 'env'}
             doc_extensions = {'md', 'txt', 'rst', 'adoc', 'asciidoc'}
 
             code_count = sum(1 for ft in all_file_types if ft.lower() in code_extensions)
             config_count = sum(1 for ft in all_file_types if ft.lower() in config_extensions)
             doc_count = sum(1 for ft in all_file_types if ft.lower() in doc_extensions)
 
+            # Others includes no-extension files and any other extensions not classified above
+            others_count = total_file_count - (code_count + config_count + doc_count)
+
             pct_code = round((code_count / total_file_count) * 100, 2)
             pct_config = round((config_count / total_file_count) * 100, 2)
             pct_documentation = round((doc_count / total_file_count) * 100, 2)
+            pct_others = round((others_count / total_file_count) * 100, 2)
 
         # Calculate monthly averages (assuming up to current month for current year)
         from datetime import datetime
@@ -596,6 +602,7 @@ class StaffMetricsCalculator:
             'pct_code': pct_code,
             'pct_config': pct_config,
             'pct_documentation': pct_documentation,
+            'pct_others': pct_others,
             'avg_commits_monthly': avg_commits_monthly,
             'avg_prs_monthly': avg_prs_monthly,
             'avg_approvals_monthly': avg_approvals_monthly,

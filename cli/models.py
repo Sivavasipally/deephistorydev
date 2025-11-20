@@ -356,8 +356,9 @@ class CurrentYearStaffMetrics(Base):
 
     # File Type Distribution Percentages
     cy_pct_code = Column(Float, default=0.0, comment='Percentage of code files (java, js, jsx, tsx, sql, py, etc.)')
-    cy_pct_config = Column(Float, default=0.0, comment='Percentage of config files (xml, json, yml, properties, config, no-extension)')
+    cy_pct_config = Column(Float, default=0.0, comment='Percentage of config files (xml, json, yml, properties, config)')
     cy_pct_documentation = Column(Float, default=0.0, comment='Percentage of documentation files (md)')
+    cy_pct_others = Column(Float, default=0.0, comment='Percentage of other files (no-extension and unclassified)')
 
     # Monthly Averages
     cy_avg_commits_monthly = Column(Float, default=0.0, comment='Average commits per month in current year')

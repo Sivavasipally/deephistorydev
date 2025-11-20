@@ -219,17 +219,72 @@ const CurrentYearStaffMetrics = () => {
         // Convert blob to base64
         const reader = new FileReader()
         reader.readAsDataURL(blob)
-        reader.onloadend = () => {
+        reader.onloadend = async () => {
           const base64data = reader.result
 
-          // Create email content
+          // Create email content with HTML body including embedded image
           const subject = `Staff Metrics Report - ${currentRecord.staff_name} (${currentYear})`
-          const body = `
+
+          // Create HTML email body with embedded image
+          const htmlBody = `
+            <html>
+              <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <h2 style="color: #1890ff;">Staff Metrics Report for ${currentYear}</h2>
+
+                <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                  <h3 style="margin-top: 0; color: #555;">Staff Information</h3>
+                  <p><strong>Staff Name:</strong> ${currentRecord.staff_name}</p>
+                  <p><strong>Email:</strong> ${currentRecord.staff_email || 'N/A'}</p>
+                  <p><strong>Status:</strong> ${currentRecord.staff_status || 'N/A'}</p>
+                  <p><strong>Location:</strong> ${currentRecord.work_location || 'N/A'}</p>
+                  <p><strong>Staff Type:</strong> ${currentRecord.staff_type || 'N/A'}</p>
+                  <p><strong>Rank:</strong> ${currentRecord.rank || 'N/A'}</p>
+                </div>
+
+                <div style="background: #e6f7ff; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                  <h3 style="margin-top: 0; color: #1890ff;">Activity Summary</h3>
+                  <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                      <td style="padding: 8px; border-bottom: 1px solid #d9d9d9;"><strong>Total Commits:</strong></td>
+                      <td style="padding: 8px; border-bottom: 1px solid #d9d9d9; text-align: right;">${currentRecord.cy_total_commits || 0}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 8px; border-bottom: 1px solid #d9d9d9;"><strong>Total PRs:</strong></td>
+                      <td style="padding: 8px; border-bottom: 1px solid #d9d9d9; text-align: right;">${currentRecord.cy_total_prs || 0}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 8px; border-bottom: 1px solid #d9d9d9;"><strong>Total Approvals:</strong></td>
+                      <td style="padding: 8px; border-bottom: 1px solid #d9d9d9; text-align: right;">${currentRecord.cy_total_approvals_given || 0}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 8px; border-bottom: 1px solid #d9d9d9;"><strong>Repositories:</strong></td>
+                      <td style="padding: 8px; border-bottom: 1px solid #d9d9d9; text-align: right;">${currentRecord.cy_total_repositories || 0}</td>
+                    </tr>
+                  </table>
+                </div>
+
+                <h3>Detailed Metrics Screenshot:</h3>
+                <img src="${base64data}" alt="Staff Metrics Dashboard" style="max-width: 100%; height: auto; border: 1px solid #d9d9d9; border-radius: 5px; margin: 10px 0;" />
+
+                <hr style="margin: 30px 0; border: none; border-top: 1px solid #d9d9d9;" />
+                <p style="color: #888; font-size: 12px;">
+                  This report was generated automatically by the Staff Metrics Dashboard.<br />
+                  Generated on: ${new Date().toLocaleString()}
+                </p>
+              </body>
+            </html>
+          `.trim()
+
+          // Plain text body for fallback
+          const textBody = `
 Staff Metrics Report for ${currentYear}
 
 Staff Name: ${currentRecord.staff_name}
 Email: ${currentRecord.staff_email || 'N/A'}
 Status: ${currentRecord.staff_status || 'N/A'}
+Location: ${currentRecord.work_location || 'N/A'}
+Staff Type: ${currentRecord.staff_type || 'N/A'}
+Rank: ${currentRecord.rank || 'N/A'}
 
 Activity Summary:
 - Total Commits: ${currentRecord.cy_total_commits || 0}
@@ -237,30 +292,68 @@ Activity Summary:
 - Total Approvals: ${currentRecord.cy_total_approvals_given || 0}
 - Repositories: ${currentRecord.cy_total_repositories || 0}
 
-Please see the attached screenshot for detailed metrics.
+Please see the screenshot in the email body for detailed metrics.
 
 This report was generated automatically by the Staff Metrics Dashboard.
+Generated on: ${new Date().toLocaleString()}
           `.trim()
 
-          // Open Outlook with mailto link
-          const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
-          window.location.href = mailtoLink
+          // Try to use Outlook COM automation if available (Windows only)
+          try {
+            // For Windows Outlook COM automation
+            // Note: This requires the user to have Outlook installed and configured
+            const outlookAvailable = window.ActiveXObject || 'ActiveXObject' in window
 
-          message.success('Opening Outlook email client...')
-          message.info('Screenshot is in your clipboard - please paste it in the email')
+            if (outlookAvailable) {
+              // Try Outlook COM automation
+              const outlook = new ActiveXObject('Outlook.Application')
+              const mail = outlook.CreateItem(0)
+              mail.Subject = subject
+              mail.HTMLBody = htmlBody
+              mail.Display()
+              message.success('Outlook email created with embedded screenshot!')
+            } else {
+              throw new Error('ActiveX not available')
+            }
+          } catch (comError) {
+            // Fallback to mailto with text body and clipboard
+            const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(textBody)}`
+            window.location.href = mailtoLink
 
-          // Copy image to clipboard (if supported)
-          if (navigator.clipboard && navigator.clipboard.write) {
-            canvas.toBlob(async (blob) => {
+            message.success('Opening email client...')
+            message.info('Screenshot copied to clipboard - paste it in the email', 5)
+
+            // Copy HTML to clipboard as well
+            if (navigator.clipboard && navigator.clipboard.write) {
               try {
                 await navigator.clipboard.write([
-                  new ClipboardItem({ 'image/png': blob })
+                  new ClipboardItem({
+                    'image/png': blob,
+                    'text/html': new Blob([htmlBody], { type: 'text/html' })
+                  })
                 ])
-                message.success('Screenshot copied to clipboard')
-              } catch (err) {
-                console.error('Clipboard error:', err)
+                message.success('Screenshot and HTML copied to clipboard!')
+              } catch (clipErr) {
+                // Fallback to just copying the image
+                try {
+                  await navigator.clipboard.write([
+                    new ClipboardItem({ 'image/png': blob })
+                  ])
+                  message.success('Screenshot copied to clipboard!')
+                } catch (err) {
+                  console.error('Clipboard error:', err)
+
+                  // Final fallback: download the image
+                  const url = URL.createObjectURL(blob)
+                  const link = document.createElement('a')
+                  link.href = url
+                  link.download = `staff_metrics_${currentRecord.staff_name?.replace(/\s+/g, '_')}_${currentYear}.png`
+                  link.click()
+                  URL.revokeObjectURL(url)
+                  message.info('Screenshot downloaded - attach it to your email')
+                }
               }
-            })
+            }
           }
         }
       })
@@ -726,7 +819,7 @@ This report was generated automatically by the Staff Metrics Dashboard.
             <div>
               <Title level={5}><FileOutlined /> File Type Distribution</Title>
               <Row gutter={[16, 16]}>
-                <Col span={8}>
+                <Col span={6}>
                   <Tooltip title="Percentage of work on code files (java, js, jsx, tsx, ts, py, sql, etc.)">
                     <Statistic
                       title="% Code Files"
@@ -735,7 +828,7 @@ This report was generated automatically by the Staff Metrics Dashboard.
                     />
                   </Tooltip>
                 </Col>
-                <Col span={8}>
+                <Col span={6}>
                   <Tooltip title="Percentage of work on configuration files (xml, json, yml, properties, etc.)">
                     <Statistic
                       title="% Configuration"
@@ -744,11 +837,20 @@ This report was generated automatically by the Staff Metrics Dashboard.
                     />
                   </Tooltip>
                 </Col>
-                <Col span={8}>
+                <Col span={6}>
                   <Tooltip title="Percentage of work on documentation files (md, txt, etc.)">
                     <Statistic
                       title="% Documentation"
                       value={(currentRecord.cy_pct_documentation || 0).toFixed(1)}
+                      suffix="%"
+                    />
+                  </Tooltip>
+                </Col>
+                <Col span={6}>
+                  <Tooltip title="Percentage of work on other files (no-extension and unclassified)">
+                    <Statistic
+                      title="% Others"
+                      value={(currentRecord.cy_pct_others || 0).toFixed(1)}
                       suffix="%"
                     />
                   </Tooltip>
@@ -826,6 +928,17 @@ This report was generated automatically by the Staff Metrics Dashboard.
                         legend: {
                           position: 'top'
                         },
+                        label: {
+                          position: 'top',
+                          style: {
+                            fill: '#000',
+                            fontSize: 10,
+                            fontWeight: 'bold'
+                          },
+                          formatter: (datum) => {
+                            return datum.value > 0 ? datum.value : ''
+                          }
+                        },
                         xAxis: {
                           label: {
                             autoRotate: true,
@@ -841,7 +954,35 @@ This report was generated automatically by the Staff Metrics Dashboard.
                           }
                         },
                         tooltip: {
-                          shared: true
+                          shared: true,
+                          customContent: (title, items) => {
+                            if (!items || items.length === 0) return null
+
+                            // Get all data for this month
+                            const monthData = chartData.find(d => d.month === title)
+                            if (!monthData) return null
+
+                            return `
+                              <div style="padding: 12px; background: white; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
+                                <div style="font-weight: bold; margin-bottom: 8px; font-size: 14px;">${title}</div>
+                                <div style="display: flex; align-items: center; margin: 4px 0;">
+                                  <span style="width: 12px; height: 12px; background: #1890ff; border-radius: 2px; display: inline-block; margin-right: 8px;"></span>
+                                  <span style="flex: 1;">Commits:</span>
+                                  <span style="font-weight: bold; margin-left: 8px;">${monthData.commits}</span>
+                                </div>
+                                <div style="display: flex; align-items: center; margin: 4px 0;">
+                                  <span style="width: 12px; height: 12px; background: #52c41a; border-radius: 2px; display: inline-block; margin-right: 8px;"></span>
+                                  <span style="flex: 1;">PRs:</span>
+                                  <span style="font-weight: bold; margin-left: 8px;">${monthData.prs}</span>
+                                </div>
+                                <div style="display: flex; align-items: center; margin: 4px 0;">
+                                  <span style="width: 12px; height: 12px; background: #faad14; border-radius: 2px; display: inline-block; margin-right: 8px;"></span>
+                                  <span style="flex: 1;">Approvals:</span>
+                                  <span style="font-weight: bold; margin-left: 8px;">${monthData.approvals}</span>
+                                </div>
+                              </div>
+                            `
+                          }
                         }
                       }
 

@@ -120,6 +120,7 @@ class CurrentYearStaffMetricsResponse(BaseModel):
     cy_pct_code: float = 0.0
     cy_pct_config: float = 0.0
     cy_pct_documentation: float = 0.0
+    cy_pct_others: float = 0.0
 
     # Monthly Averages
     cy_avg_commits_monthly: float = 0.0
@@ -422,6 +423,7 @@ async def get_all_current_year_staff_metrics(
                     cy_pct_code=r.cy_pct_code or 0.0,
                     cy_pct_config=r.cy_pct_config or 0.0,
                     cy_pct_documentation=r.cy_pct_documentation or 0.0,
+                    cy_pct_others=r.cy_pct_others or 0.0,
                     cy_avg_commits_monthly=r.cy_avg_commits_monthly or 0.0,
                     cy_avg_prs_monthly=r.cy_avg_prs_monthly or 0.0,
                     cy_avg_approvals_monthly=r.cy_avg_approvals_monthly or 0.0,
@@ -493,6 +495,7 @@ async def get_current_year_staff_metrics_by_id(bank_id: str):
                 cy_pct_code=metric.cy_pct_code or 0.0,
                 cy_pct_config=metric.cy_pct_config or 0.0,
                 cy_pct_documentation=metric.cy_pct_documentation or 0.0,
+                cy_pct_others=metric.cy_pct_others or 0.0,
                 cy_avg_commits_monthly=metric.cy_avg_commits_monthly or 0.0,
                 cy_avg_prs_monthly=metric.cy_avg_prs_monthly or 0.0,
                 cy_avg_approvals_monthly=metric.cy_avg_approvals_monthly or 0.0,

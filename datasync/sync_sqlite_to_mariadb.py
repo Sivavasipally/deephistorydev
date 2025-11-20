@@ -19,7 +19,7 @@ from collections import defaultdict
 import json
 
 from cli.models import (
-    Repository, Commit, PullRequest, PRApproval, Author,
+    Repository, Commit, PullRequest, PRApproval,
     StaffDetails, AuthorStaffMapping, StaffMetrics, CurrentYearStaffMetrics
 )
 
@@ -48,7 +48,6 @@ class DataSyncManager:
             'commits': {'total': 0, 'synced': 0, 'skipped': 0, 'failed': 0},
             'pull_requests': {'total': 0, 'synced': 0, 'skipped': 0, 'failed': 0},
             'pr_approvals': {'total': 0, 'synced': 0, 'skipped': 0, 'failed': 0},
-            'authors': {'total': 0, 'synced': 0, 'skipped': 0, 'failed': 0},
             'staff_details': {'total': 0, 'synced': 0, 'skipped': 0, 'failed': 0},
             'author_mappings': {'total': 0, 'synced': 0, 'skipped': 0, 'failed': 0},
             'staff_metrics': {'total': 0, 'synced': 0, 'skipped': 0, 'failed': 0},
@@ -66,7 +65,7 @@ class DataSyncManager:
 
         required_tables = [
             'repositories', 'commits', 'pull_requests', 'pr_approvals',
-            'authors', 'staff_details', 'author_staff_mapping',
+            'staff_details', 'author_staff_mapping',
             'staff_metrics', 'current_year_staff_metrics'
         ]
 
@@ -132,50 +131,11 @@ class DataSyncManager:
               f"{self.stats['repositories']['skipped']} skipped, "
               f"{self.stats['repositories']['failed']} failed")
 
-    def sync_authors(self):
-        """Sync authors table."""
-        print("\n" + "=" * 80)
-        print("SYNCING AUTHORS")
-        print("=" * 80)
-
-        authors = self.sqlite_session.query(Author).all()
-        self.stats['authors']['total'] = len(authors)
-
-        print(f"\nFound {len(authors)} authors to sync")
-
-        for author in authors:
-            try:
-                # Check if already exists by email
-                existing = self.mariadb_session.query(Author).filter(
-                    Author.email == author.email
-                ).first()
-
-                if existing:
-                    self.id_mappings['authors'][author.id] = existing.id
-                    self.stats['authors']['skipped'] += 1
-                    continue
-
-                # Create new author
-                new_author = Author(
-                    name=author.name,
-                    email=author.email
-                )
-
-                self.mariadb_session.add(new_author)
-                self.mariadb_session.flush()
-
-                self.id_mappings['authors'][author.id] = new_author.id
-                self.stats['authors']['synced'] += 1
-
-            except Exception as e:
-                self.stats['authors']['failed'] += 1
-                print(f"  [ERROR] Failed to sync author '{author.email}': {str(e)}")
-                self.mariadb_session.rollback()
-
-        self.mariadb_session.commit()
-        print(f"\nAuthors: {self.stats['authors']['synced']} synced, "
-              f"{self.stats['authors']['skipped']} skipped, "
-              f"{self.stats['authors']['failed']} failed")
+    # NOTE: Author table removed from schema - authors are tracked in commits/prs
+    # def sync_authors(self):
+    #     """Sync authors table."""
+    #     # Author information is now derived from commit and PR author fields
+    #     pass
 
     def sync_commits(self):
         """Sync commits table with proper repository ID mapping."""
@@ -582,7 +542,7 @@ class DataSyncManager:
                     self.stats['current_year_metrics']['skipped'] += 1
                     continue
 
-                # Create new metric (copy all fields)
+                # Create new metric (copy all fields including new organizational and monthly fields)
                 new_metric = CurrentYearStaffMetrics(
                     bank_id_1=metric.bank_id_1,
                     staff_name=metric.staff_name,
@@ -590,9 +550,18 @@ class DataSyncManager:
                     staff_status=metric.staff_status,
                     staff_pc_code=metric.staff_pc_code,
                     default_role=metric.default_role,
+                    # Organizational fields
+                    work_location=getattr(metric, 'work_location', None),
+                    staff_type=getattr(metric, 'staff_type', None),
+                    rank=getattr(metric, 'rank', None),
+                    job_function=getattr(metric, 'job_function', None),
+                    sub_platform=getattr(metric, 'sub_platform', None),
+                    reporting_manager_name=getattr(metric, 'reporting_manager_name', None),
+                    # Current year context
                     current_year=metric.current_year,
                     cy_start_date=metric.cy_start_date,
                     cy_end_date=metric.cy_end_date,
+                    # Activity totals
                     cy_total_commits=metric.cy_total_commits,
                     cy_total_prs=metric.cy_total_prs,
                     cy_total_approvals_given=metric.cy_total_approvals_given,
@@ -603,18 +572,28 @@ class DataSyncManager:
                     cy_total_lines_changed=metric.cy_total_lines_changed,
                     cy_total_chars=metric.cy_total_chars,
                     cy_total_code_churn=metric.cy_total_code_churn,
+                    # Diversity metrics
                     cy_different_file_types=metric.cy_different_file_types,
                     cy_different_repositories=metric.cy_different_repositories,
                     cy_different_project_keys=metric.cy_different_project_keys,
+                    # File type distribution
                     cy_pct_code=metric.cy_pct_code,
                     cy_pct_config=metric.cy_pct_config,
                     cy_pct_documentation=metric.cy_pct_documentation,
+                    cy_pct_others=getattr(metric, 'cy_pct_others', 0.0),
+                    # Monthly averages
                     cy_avg_commits_monthly=metric.cy_avg_commits_monthly,
                     cy_avg_prs_monthly=metric.cy_avg_prs_monthly,
                     cy_avg_approvals_monthly=metric.cy_avg_approvals_monthly,
+                    # Details lists
                     cy_file_types_list=metric.cy_file_types_list,
                     cy_repositories_list=metric.cy_repositories_list,
                     cy_project_keys_list=metric.cy_project_keys_list,
+                    # Monthly breakdown (JSON)
+                    cy_monthly_commits=getattr(metric, 'cy_monthly_commits', None),
+                    cy_monthly_prs=getattr(metric, 'cy_monthly_prs', None),
+                    cy_monthly_approvals=getattr(metric, 'cy_monthly_approvals', None),
+                    # Metadata
                     last_calculated=metric.last_calculated,
                     calculation_version=metric.calculation_version
                 )
@@ -682,7 +661,7 @@ class DataSyncManager:
         try:
             # Sync in order respecting foreign key dependencies
             self.sync_repositories()
-            self.sync_authors()
+            # NOTE: Author table removed - author info now in commits/PRs directly
             self.sync_commits()
             self.sync_pull_requests()
             self.sync_pr_approvals()

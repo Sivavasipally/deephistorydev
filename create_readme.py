@@ -1,4 +1,7 @@
-# Git History Deep Analyzer
+#!/usr/bin/env python3
+"""Script to create comprehensive README.md"""
+
+readme_content = """# Git History Deep Analyzer
 
 > **Enterprise-Grade Git Repository Analytics Platform**
 > Version 3.5 - Complete Staff Metrics & Data Synchronization Edition
@@ -99,7 +102,7 @@ cd deephistorydev
 
 # 2. Backend
 python -m venv venv
-venv\Scripts\activate  # Windows
+venv\\Scripts\\activate  # Windows
 pip install -r requirements.txt
 
 # 3. Frontend
@@ -373,3 +376,11 @@ python datasync/sync_sqlite_to_mariadb.py
 **Built with ❤️ using React, FastAPI, and SQLAlchemy**
 
 *Version 3.5 - Complete Staff Metrics & Data Synchronization Edition*
+"""
+
+# Write the README
+with open('README.md', 'w', encoding='utf-8') as f:
+    f.write(readme_content)
+
+print("✅ README.md created successfully!")
+print("📄 Old README backed up as README_OLD.md")

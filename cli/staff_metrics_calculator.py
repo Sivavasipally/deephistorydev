@@ -257,6 +257,14 @@ class StaffMetricsCalculator:
         cy_staff_metric.staff_pc_code = staff.staff_pc_code
         cy_staff_metric.default_role = staff.default_role
 
+        # Update organizational fields
+        cy_staff_metric.work_location = staff.work_location
+        cy_staff_metric.staff_type = staff.staff_type
+        cy_staff_metric.rank = staff.rank
+        cy_staff_metric.job_function = staff.job_function
+        cy_staff_metric.sub_platform = staff.sub_platform
+        cy_staff_metric.reporting_manager_name = staff.reporting_manager_name
+
         # Update current year context
         cy_staff_metric.current_year = current_year
         cy_staff_metric.cy_start_date = cy_metrics['start_date']
@@ -293,6 +301,11 @@ class StaffMetricsCalculator:
         cy_staff_metric.cy_file_types_list = cy_metrics['file_types_list']
         cy_staff_metric.cy_repositories_list = cy_metrics['repositories_list']
         cy_staff_metric.cy_project_keys_list = cy_metrics['project_keys_list']
+
+        # Update monthly breakdown data
+        cy_staff_metric.cy_monthly_commits = cy_metrics['monthly_commits']
+        cy_staff_metric.cy_monthly_prs = cy_metrics['monthly_prs']
+        cy_staff_metric.cy_monthly_approvals = cy_metrics['monthly_approvals']
 
         # Update metadata
         cy_staff_metric.last_calculated = datetime.utcnow()
@@ -535,6 +548,37 @@ class StaffMetricsCalculator:
         avg_prs_monthly = round(len(cy_prs) / months_elapsed, 2) if months_elapsed > 0 else 0.0
         avg_approvals_monthly = round(len(cy_approvals) / months_elapsed, 2) if months_elapsed > 0 else 0.0
 
+        # Calculate monthly breakdown for charting
+        import json
+        monthly_commits = {}
+        monthly_prs = {}
+        monthly_approvals = {}
+
+        # Initialize all months
+        for month in range(1, 13):
+            month_key = f"{year}-{month:02d}"
+            monthly_commits[month_key] = 0
+            monthly_prs[month_key] = 0
+            monthly_approvals[month_key] = 0
+
+        # Count commits by month
+        for commit in cy_commits:
+            if commit.commit_date:
+                month_key = f"{commit.commit_date.year}-{commit.commit_date.month:02d}"
+                monthly_commits[month_key] = monthly_commits.get(month_key, 0) + 1
+
+        # Count PRs by month
+        for pr in cy_prs:
+            if pr.created_date:
+                month_key = f"{pr.created_date.year}-{pr.created_date.month:02d}"
+                monthly_prs[month_key] = monthly_prs.get(month_key, 0) + 1
+
+        # Count approvals by month
+        for approval in cy_approvals:
+            if approval.approval_date:
+                month_key = f"{approval.approval_date.year}-{approval.approval_date.month:02d}"
+                monthly_approvals[month_key] = monthly_approvals.get(month_key, 0) + 1
+
         return {
             'total_commits': total_commits,
             'total_prs': len(cy_prs),
@@ -558,6 +602,9 @@ class StaffMetricsCalculator:
             'file_types_list': ','.join(sorted(unique_file_types)),
             'repositories_list': ','.join(sorted(repo_names)),
             'project_keys_list': ','.join(sorted(project_keys)),
+            'monthly_commits': json.dumps(monthly_commits),
+            'monthly_prs': json.dumps(monthly_prs),
+            'monthly_approvals': json.dumps(monthly_approvals),
             'start_date': start_date,
             'end_date': end_date
         }

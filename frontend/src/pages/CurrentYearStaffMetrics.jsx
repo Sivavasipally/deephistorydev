@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   Table,
   Card,
@@ -29,10 +29,14 @@ import {
   BarChartOutlined,
   IdcardOutlined,
   TeamOutlined,
-  InfoCircleOutlined
+  InfoCircleOutlined,
+  CameraOutlined,
+  MailOutlined
 } from '@ant-design/icons'
 import axios from 'axios'
 import * as XLSX from 'xlsx'
+import { Column, Line } from '@ant-design/plots'
+import html2canvas from 'html2canvas'
 
 const { Title, Text } = Typography
 const { Option } = Select
@@ -42,20 +46,54 @@ const CurrentYearStaffMetrics = () => {
   const [loading, setLoading] = useState(false)
   const [searchText, setSearchText] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [locationFilter, setLocationFilter] = useState('')
+  const [staffTypeFilter, setStaffTypeFilter] = useState('')
+  const [rankFilter, setRankFilter] = useState('')
+  const [jobFunctionFilter, setJobFunctionFilter] = useState('')
+  const [subPlatformFilter, setSubPlatformFilter] = useState('')
+  const [managerFilter, setManagerFilter] = useState('')
   const [modalVisible, setModalVisible] = useState(false)
   const [currentRecord, setCurrentRecord] = useState(null)
+  const [filterOptions, setFilterOptions] = useState({
+    locations: [],
+    staff_types: [],
+    ranks: [],
+    job_functions: [],
+    sub_platforms: [],
+    reporting_managers: []
+  })
+  const modalRef = useRef(null)
 
   const currentYear = new Date().getFullYear()
 
   useEffect(() => {
+    fetchFilterOptions()
+  }, [])
+
+  useEffect(() => {
     fetchStaff()
-  }, [statusFilter])
+  }, [statusFilter, locationFilter, staffTypeFilter, rankFilter, jobFunctionFilter, subPlatformFilter, managerFilter])
+
+  const fetchFilterOptions = async () => {
+    try {
+      const response = await axios.get('http://localhost:8000/api/staff-metrics/current-year/filter-options/unique-values')
+      setFilterOptions(response.data)
+    } catch (error) {
+      console.error('Failed to fetch filter options:', error)
+    }
+  }
 
   const fetchStaff = async () => {
     setLoading(true)
     try {
       const params = {}
       if (statusFilter) params.staff_status = statusFilter
+      if (locationFilter) params.work_location = locationFilter
+      if (staffTypeFilter) params.staff_type = staffTypeFilter
+      if (rankFilter) params.rank = rankFilter
+      if (jobFunctionFilter) params.job_function = jobFunctionFilter
+      if (subPlatformFilter) params.sub_platform = subPlatformFilter
+      if (managerFilter) params.reporting_manager_name = managerFilter
 
       const response = await axios.get('http://localhost:8000/api/staff-metrics/current-year', {
         params
@@ -133,6 +171,103 @@ const CurrentYearStaffMetrics = () => {
 
     XLSX.writeFile(wb, `current_year_staff_metrics_${currentYear}.xlsx`)
     message.success('Excel file downloaded successfully')
+  }
+
+  const handleScreenshot = async () => {
+    if (!modalRef.current) {
+      message.error('Modal content not available')
+      return
+    }
+
+    try {
+      const canvas = await html2canvas(modalRef.current, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        logging: false
+      })
+
+      canvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `staff_metrics_${currentRecord?.staff_name?.replace(/\s+/g, '_')}_${currentYear}.png`
+        link.click()
+        URL.revokeObjectURL(url)
+        message.success('Screenshot saved successfully')
+      })
+    } catch (error) {
+      console.error('Screenshot error:', error)
+      message.error('Failed to capture screenshot')
+    }
+  }
+
+  const handleEmailOutlook = async () => {
+    if (!currentRecord) {
+      message.error('No staff record selected')
+      return
+    }
+
+    try {
+      // Capture screenshot first
+      const canvas = await html2canvas(modalRef.current, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        logging: false
+      })
+
+      canvas.toBlob(async (blob) => {
+        // Convert blob to base64
+        const reader = new FileReader()
+        reader.readAsDataURL(blob)
+        reader.onloadend = () => {
+          const base64data = reader.result
+
+          // Create email content
+          const subject = `Staff Metrics Report - ${currentRecord.staff_name} (${currentYear})`
+          const body = `
+Staff Metrics Report for ${currentYear}
+
+Staff Name: ${currentRecord.staff_name}
+Email: ${currentRecord.staff_email || 'N/A'}
+Status: ${currentRecord.staff_status || 'N/A'}
+
+Activity Summary:
+- Total Commits: ${currentRecord.cy_total_commits || 0}
+- Total PRs: ${currentRecord.cy_total_prs || 0}
+- Total Approvals: ${currentRecord.cy_total_approvals_given || 0}
+- Repositories: ${currentRecord.cy_total_repositories || 0}
+
+Please see the attached screenshot for detailed metrics.
+
+This report was generated automatically by the Staff Metrics Dashboard.
+          `.trim()
+
+          // Open Outlook with mailto link
+          const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+          window.location.href = mailtoLink
+
+          message.success('Opening Outlook email client...')
+          message.info('Screenshot is in your clipboard - please paste it in the email')
+
+          // Copy image to clipboard (if supported)
+          if (navigator.clipboard && navigator.clipboard.write) {
+            canvas.toBlob(async (blob) => {
+              try {
+                await navigator.clipboard.write([
+                  new ClipboardItem({ 'image/png': blob })
+                ])
+                message.success('Screenshot copied to clipboard')
+              } catch (err) {
+                console.error('Clipboard error:', err)
+              }
+            })
+          }
+        }
+      })
+    } catch (error) {
+      console.error('Email error:', error)
+      message.error('Failed to prepare email')
+    }
   }
 
   const columns = [
@@ -245,8 +380,8 @@ const CurrentYearStaffMetrics = () => {
             </Text>
           </div>
 
-          <Row gutter={16}>
-            <Col span={8}>
+          <Row gutter={[16, 16]}>
+            <Col span={12}>
               <Input
                 placeholder="Search by name, email, or bank ID..."
                 prefix={<SearchOutlined />}
@@ -254,19 +389,7 @@ const CurrentYearStaffMetrics = () => {
                 allowClear
               />
             </Col>
-            <Col span={6}>
-              <Select
-                placeholder="Filter by status"
-                style={{ width: '100%' }}
-                onChange={setStatusFilter}
-                allowClear
-              >
-                <Option value="">All Staff</Option>
-                <Option value="Active">Active</Option>
-                <Option value="Inactive">Inactive</Option>
-              </Select>
-            </Col>
-            <Col span={10} style={{ textAlign: 'right' }}>
+            <Col span={12} style={{ textAlign: 'right' }}>
               <Space>
                 <Button
                   icon={<ReloadOutlined />}
@@ -284,6 +407,115 @@ const CurrentYearStaffMetrics = () => {
                   Export to Excel
                 </Button>
               </Space>
+            </Col>
+          </Row>
+
+          <Divider orientation="left">Filters</Divider>
+          <Row gutter={[16, 16]}>
+            <Col span={6}>
+              <Select
+                placeholder="Staff Status"
+                style={{ width: '100%' }}
+                onChange={setStatusFilter}
+                allowClear
+              >
+                <Option value="">All Status</Option>
+                <Option value="Active">Active</Option>
+                <Option value="Inactive">Inactive</Option>
+              </Select>
+            </Col>
+            <Col span={6}>
+              <Select
+                placeholder="Location"
+                style={{ width: '100%' }}
+                onChange={setLocationFilter}
+                allowClear
+                showSearch
+              >
+                {filterOptions.locations?.map(loc => (
+                  <Option key={loc} value={loc}>{loc}</Option>
+                ))}
+              </Select>
+            </Col>
+            <Col span={6}>
+              <Select
+                placeholder="Staff Type"
+                style={{ width: '100%' }}
+                onChange={setStaffTypeFilter}
+                allowClear
+                showSearch
+              >
+                {filterOptions.staff_types?.map(type => (
+                  <Option key={type} value={type}>{type}</Option>
+                ))}
+              </Select>
+            </Col>
+            <Col span={6}>
+              <Select
+                placeholder="Rank"
+                style={{ width: '100%' }}
+                onChange={setRankFilter}
+                allowClear
+                showSearch
+              >
+                {filterOptions.ranks?.map(rank => (
+                  <Option key={rank} value={rank}>{rank}</Option>
+                ))}
+              </Select>
+            </Col>
+            <Col span={6}>
+              <Select
+                placeholder="Job Function"
+                style={{ width: '100%' }}
+                onChange={setJobFunctionFilter}
+                allowClear
+                showSearch
+              >
+                {filterOptions.job_functions?.map(jf => (
+                  <Option key={jf} value={jf}>{jf}</Option>
+                ))}
+              </Select>
+            </Col>
+            <Col span={6}>
+              <Select
+                placeholder="Sub Platform"
+                style={{ width: '100%' }}
+                onChange={setSubPlatformFilter}
+                allowClear
+                showSearch
+              >
+                {filterOptions.sub_platforms?.map(sp => (
+                  <Option key={sp} value={sp}>{sp}</Option>
+                ))}
+              </Select>
+            </Col>
+            <Col span={6}>
+              <Select
+                placeholder="Reporting Manager"
+                style={{ width: '100%' }}
+                onChange={setManagerFilter}
+                allowClear
+                showSearch
+              >
+                {filterOptions.reporting_managers?.map(mgr => (
+                  <Option key={mgr} value={mgr}>{mgr}</Option>
+                ))}
+              </Select>
+            </Col>
+            <Col span={6}>
+              <Button
+                onClick={() => {
+                  setStatusFilter('')
+                  setLocationFilter('')
+                  setStaffTypeFilter('')
+                  setRankFilter('')
+                  setJobFunctionFilter('')
+                  setSubPlatformFilter('')
+                  setManagerFilter('')
+                }}
+              >
+                Clear All Filters
+              </Button>
             </Col>
           </Row>
 
@@ -311,11 +543,24 @@ const CurrentYearStaffMetrics = () => {
         title={<><UserOutlined /> {currentRecord?.staff_name} - Current Year Metrics ({currentYear})</>}
         open={modalVisible}
         onCancel={() => setModalVisible(false)}
-        footer={null}
+        footer={
+          <Space>
+            <Button icon={<CameraOutlined />} onClick={handleScreenshot}>
+              Screenshot
+            </Button>
+            <Button icon={<MailOutlined />} type="primary" onClick={handleEmailOutlook}>
+              Email via Outlook
+            </Button>
+            <Button onClick={() => setModalVisible(false)}>
+              Close
+            </Button>
+          </Space>
+        }
         width={1200}
       >
         {currentRecord && (
-          <Space direction="vertical" size="large" style={{ width: '100%' }}>
+          <div ref={modalRef}>
+            <Space direction="vertical" size="large" style={{ width: '100%' }}>
             {/* Staff Information */}
             <div>
               <Title level={5}><InfoCircleOutlined /> Staff Information</Title>
@@ -542,6 +787,72 @@ const CurrentYearStaffMetrics = () => {
                   </Tooltip>
                 </Col>
               </Row>
+
+              {/* Monthly Progress Chart */}
+              {currentRecord.cy_monthly_commits && (
+                <div style={{ marginTop: 24 }}>
+                  <Title level={5}><BarChartOutlined /> Monthly Progress</Title>
+                  {(() => {
+                    try {
+                      const monthlyCommits = JSON.parse(currentRecord.cy_monthly_commits || '{}')
+                      const monthlyPrs = JSON.parse(currentRecord.cy_monthly_prs || '{}')
+                      const monthlyApprovals = JSON.parse(currentRecord.cy_monthly_approvals || '{}')
+
+                      const chartData = Object.keys(monthlyCommits).map(month => ({
+                        month,
+                        commits: monthlyCommits[month] || 0,
+                        prs: monthlyPrs[month] || 0,
+                        approvals: monthlyApprovals[month] || 0
+                      }))
+
+                      // Transform data for multi-series
+                      const transformedData = []
+                      chartData.forEach(item => {
+                        transformedData.push({ month: item.month, value: item.commits, type: 'Commits' })
+                        transformedData.push({ month: item.month, value: item.prs, type: 'PRs' })
+                        transformedData.push({ month: item.month, value: item.approvals, type: 'Approvals' })
+                      })
+
+                      const config = {
+                        data: transformedData,
+                        xField: 'month',
+                        yField: 'value',
+                        seriesField: 'type',
+                        isGroup: true,
+                        columnStyle: {
+                          radius: [4, 4, 0, 0],
+                        },
+                        color: ['#1890ff', '#52c41a', '#faad14'],
+                        legend: {
+                          position: 'top'
+                        },
+                        xAxis: {
+                          label: {
+                            autoRotate: true,
+                            autoHide: false,
+                            style: {
+                              fontSize: 10
+                            }
+                          }
+                        },
+                        yAxis: {
+                          title: {
+                            text: 'Count'
+                          }
+                        },
+                        tooltip: {
+                          shared: true
+                        }
+                      }
+
+                      return <Column {...config} height={300} />
+                    } catch (error) {
+                      console.error('Chart error:', error)
+                      return <Text type="secondary">Unable to display monthly chart</Text>
+                    }
+                  })()}
+                </div>
+              )}
             </div>
 
             <Divider />
@@ -577,6 +888,7 @@ const CurrentYearStaffMetrics = () => {
               </Row>
             </div>
           </Space>
+          </div>
         )}
       </Modal>
     </div>

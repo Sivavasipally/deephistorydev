@@ -324,6 +324,14 @@ class CurrentYearStaffMetrics(Base):
     staff_pc_code = Column(String(100), comment='Staff PC code from staff_details')
     default_role = Column(String(255), comment='Default role from staff_details')
 
+    # Organizational Fields (for filtering and grouping)
+    work_location = Column(String(255), comment='Work location from staff_details')
+    staff_type = Column(String(100), comment='Staff type from staff_details')
+    rank = Column(String(100), comment='Job rank from staff_details')
+    job_function = Column(String(255), comment='Job function from staff_details')
+    sub_platform = Column(String(255), comment='Sub-platform from staff_details')
+    reporting_manager_name = Column(String(255), comment='Reporting manager name from staff_details')
+
     # Current Year Context
     current_year = Column(Integer, nullable=False, comment='Year for which current year metrics are calculated')
     cy_start_date = Column(Date, comment='Start date for current year metrics')
@@ -360,6 +368,11 @@ class CurrentYearStaffMetrics(Base):
     cy_file_types_list = Column(Text, comment='Comma-separated list of file types in current year')
     cy_repositories_list = Column(Text, comment='Comma-separated list of repositories in current year')
     cy_project_keys_list = Column(Text, comment='Comma-separated list of project keys in current year')
+
+    # Monthly Breakdown (JSON format for charting)
+    cy_monthly_commits = Column(Text, comment='JSON: Monthly commits breakdown {month: count}')
+    cy_monthly_prs = Column(Text, comment='JSON: Monthly PRs breakdown {month: count}')
+    cy_monthly_approvals = Column(Text, comment='JSON: Monthly approvals breakdown {month: count}')
 
     # Metadata
     last_calculated = Column(DateTime, default=datetime.utcnow, comment='Timestamp when metrics were last calculated')

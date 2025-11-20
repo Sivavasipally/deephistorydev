@@ -86,6 +86,14 @@ class CurrentYearStaffMetricsResponse(BaseModel):
     staff_pc_code: Optional[str] = ""
     default_role: Optional[str] = ""
 
+    # Organizational Fields
+    work_location: Optional[str] = ""
+    staff_type: Optional[str] = ""
+    rank: Optional[str] = ""
+    job_function: Optional[str] = ""
+    sub_platform: Optional[str] = ""
+    reporting_manager_name: Optional[str] = ""
+
     # Current Year Context
     current_year: Optional[int] = None
     cy_start_date: Optional[str] = None
@@ -122,6 +130,11 @@ class CurrentYearStaffMetricsResponse(BaseModel):
     cy_file_types_list: Optional[str] = ""
     cy_repositories_list: Optional[str] = ""
     cy_project_keys_list: Optional[str] = ""
+
+    # Monthly Breakdown
+    cy_monthly_commits: Optional[str] = ""
+    cy_monthly_prs: Optional[str] = ""
+    cy_monthly_approvals: Optional[str] = ""
 
     # Metadata
     last_calculated: Optional[str] = None
@@ -317,9 +330,15 @@ async def get_staff_metrics_summary():
 async def get_all_current_year_staff_metrics(
     search: str = Query(None, description="Search by name or email"),
     staff_status: str = Query(None, description="Filter by status"),
+    work_location: str = Query(None, description="Filter by work location"),
+    staff_type: str = Query(None, description="Filter by staff type"),
+    rank: str = Query(None, description="Filter by rank"),
+    job_function: str = Query(None, description="Filter by job function"),
+    sub_platform: str = Query(None, description="Filter by sub platform"),
+    reporting_manager_name: str = Query(None, description="Filter by reporting manager"),
     limit: int = Query(10000, ge=1, le=10000),
 ):
-    """Get current year metrics for all staff members."""
+    """Get current year metrics for all staff members with multiple filter options."""
     try:
         config = Config()
         db_config = config.get_db_config()
@@ -346,6 +365,25 @@ async def get_all_current_year_staff_metrics(
                     (CurrentYearStaffMetrics.staff_status.is_(None))
                 )
 
+            # Apply organizational filters
+            if work_location:
+                query = query.filter(CurrentYearStaffMetrics.work_location == work_location)
+
+            if staff_type:
+                query = query.filter(CurrentYearStaffMetrics.staff_type == staff_type)
+
+            if rank:
+                query = query.filter(CurrentYearStaffMetrics.rank == rank)
+
+            if job_function:
+                query = query.filter(CurrentYearStaffMetrics.job_function == job_function)
+
+            if sub_platform:
+                query = query.filter(CurrentYearStaffMetrics.sub_platform == sub_platform)
+
+            if reporting_manager_name:
+                query = query.filter(CurrentYearStaffMetrics.reporting_manager_name.ilike(f'%{reporting_manager_name}%'))
+
             # Order by activity (most active first)
             query = query.order_by(CurrentYearStaffMetrics.cy_total_commits.desc()).limit(limit)
 
@@ -359,6 +397,12 @@ async def get_all_current_year_staff_metrics(
                     staff_status=r.staff_status or "",
                     staff_pc_code=r.staff_pc_code or "",
                     default_role=r.default_role or "",
+                    work_location=r.work_location or "",
+                    staff_type=r.staff_type or "",
+                    rank=r.rank or "",
+                    job_function=r.job_function or "",
+                    sub_platform=r.sub_platform or "",
+                    reporting_manager_name=r.reporting_manager_name or "",
                     current_year=r.current_year,
                     cy_start_date=str(r.cy_start_date) if r.cy_start_date else None,
                     cy_end_date=str(r.cy_end_date) if r.cy_end_date else None,
@@ -384,6 +428,9 @@ async def get_all_current_year_staff_metrics(
                     cy_file_types_list=r.cy_file_types_list or "",
                     cy_repositories_list=r.cy_repositories_list or "",
                     cy_project_keys_list=r.cy_project_keys_list or "",
+                    cy_monthly_commits=r.cy_monthly_commits or "",
+                    cy_monthly_prs=r.cy_monthly_prs or "",
+                    cy_monthly_approvals=r.cy_monthly_approvals or "",
                     last_calculated=str(r.last_calculated) if r.last_calculated else None,
                     calculation_version=r.calculation_version or ""
                 )
@@ -421,6 +468,12 @@ async def get_current_year_staff_metrics_by_id(bank_id: str):
                 staff_status=metric.staff_status or "",
                 staff_pc_code=metric.staff_pc_code or "",
                 default_role=metric.default_role or "",
+                work_location=metric.work_location or "",
+                staff_type=metric.staff_type or "",
+                rank=metric.rank or "",
+                job_function=metric.job_function or "",
+                sub_platform=metric.sub_platform or "",
+                reporting_manager_name=metric.reporting_manager_name or "",
                 current_year=metric.current_year,
                 cy_start_date=str(metric.cy_start_date) if metric.cy_start_date else None,
                 cy_end_date=str(metric.cy_end_date) if metric.cy_end_date else None,
@@ -446,6 +499,9 @@ async def get_current_year_staff_metrics_by_id(bank_id: str):
                 cy_file_types_list=metric.cy_file_types_list or "",
                 cy_repositories_list=metric.cy_repositories_list or "",
                 cy_project_keys_list=metric.cy_project_keys_list or "",
+                cy_monthly_commits=metric.cy_monthly_commits or "",
+                cy_monthly_prs=metric.cy_monthly_prs or "",
+                cy_monthly_approvals=metric.cy_monthly_approvals or "",
                 last_calculated=str(metric.last_calculated) if metric.last_calculated else None,
                 calculation_version=metric.calculation_version or ""
             )
@@ -457,6 +513,65 @@ async def get_current_year_staff_metrics_by_id(bank_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching current year staff metrics: {str(e)}")
+
+
+@router.get("/current-year/filter-options/unique-values")
+async def get_current_year_filter_options():
+    """Get unique values for all filter fields."""
+    try:
+        config = Config()
+        db_config = config.get_db_config()
+        engine = get_engine(db_config)
+        session = get_session(engine)
+
+        try:
+            # Get unique values for each filter field
+            from sqlalchemy import distinct
+
+            locations = [row[0] for row in session.query(distinct(CurrentYearStaffMetrics.work_location)).filter(
+                CurrentYearStaffMetrics.work_location.isnot(None),
+                CurrentYearStaffMetrics.work_location != ""
+            ).all()]
+
+            staff_types = [row[0] for row in session.query(distinct(CurrentYearStaffMetrics.staff_type)).filter(
+                CurrentYearStaffMetrics.staff_type.isnot(None),
+                CurrentYearStaffMetrics.staff_type != ""
+            ).all()]
+
+            ranks = [row[0] for row in session.query(distinct(CurrentYearStaffMetrics.rank)).filter(
+                CurrentYearStaffMetrics.rank.isnot(None),
+                CurrentYearStaffMetrics.rank != ""
+            ).all()]
+
+            job_functions = [row[0] for row in session.query(distinct(CurrentYearStaffMetrics.job_function)).filter(
+                CurrentYearStaffMetrics.job_function.isnot(None),
+                CurrentYearStaffMetrics.job_function != ""
+            ).all()]
+
+            sub_platforms = [row[0] for row in session.query(distinct(CurrentYearStaffMetrics.sub_platform)).filter(
+                CurrentYearStaffMetrics.sub_platform.isnot(None),
+                CurrentYearStaffMetrics.sub_platform != ""
+            ).all()]
+
+            managers = [row[0] for row in session.query(distinct(CurrentYearStaffMetrics.reporting_manager_name)).filter(
+                CurrentYearStaffMetrics.reporting_manager_name.isnot(None),
+                CurrentYearStaffMetrics.reporting_manager_name != ""
+            ).all()]
+
+            return {
+                "locations": sorted(locations),
+                "staff_types": sorted(staff_types),
+                "ranks": sorted(ranks),
+                "job_functions": sorted(job_functions),
+                "sub_platforms": sorted(sub_platforms),
+                "reporting_managers": sorted(managers)
+            }
+
+        finally:
+            session.close()
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching filter options: {str(e)}")
 
 
 @router.get("/{bank_id}", response_model=StaffMetricsResponse)

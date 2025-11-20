@@ -915,6 +915,13 @@ Generated on: ${new Date().toLocaleString()}
                         transformedData.push({ month: item.month, value: item.approvals, type: 'Approvals' })
                       })
 
+                      // Define distinct colors for each metric
+                      const colorMap = {
+                        'Commits': '#1890ff',    // Blue
+                        'PRs': '#52c41a',        // Green
+                        'Approvals': '#faad14'   // Orange
+                      }
+
                       const config = {
                         data: transformedData,
                         xField: 'month',
@@ -924,9 +931,16 @@ Generated on: ${new Date().toLocaleString()}
                         columnStyle: {
                           radius: [4, 4, 0, 0],
                         },
-                        color: ['#1890ff', '#52c41a', '#faad14'],
+                        color: (datum) => {
+                          return colorMap[datum.type] || '#1890ff'
+                        },
                         legend: {
-                          position: 'top'
+                          position: 'top',
+                          itemName: {
+                            style: {
+                              fill: '#000'
+                            }
+                          }
                         },
                         label: {
                           position: 'top',
@@ -955,35 +969,70 @@ Generated on: ${new Date().toLocaleString()}
                         },
                         tooltip: {
                           shared: true,
+                          showTitle: true,
+                          title: (title) => title,
                           customContent: (title, items) => {
-                            if (!items || items.length === 0) return null
+                            if (!title) return ''
 
-                            // Get all data for this month
+                            // Get all data for this month from chartData
                             const monthData = chartData.find(d => d.month === title)
-                            if (!monthData) return null
+                            if (!monthData) {
+                              // Fallback: use items data if available
+                              if (!items || items.length === 0) return ''
+
+                              const commits = items.find(i => i.data?.type === 'Commits')?.data?.value || 0
+                              const prs = items.find(i => i.data?.type === 'PRs')?.data?.value || 0
+                              const approvals = items.find(i => i.data?.type === 'Approvals')?.data?.value || 0
+
+                              return `
+                                <div style="padding: 12px; min-width: 200px;">
+                                  <div style="font-weight: bold; margin-bottom: 8px; font-size: 14px; color: #000;">${title}</div>
+                                  <div style="display: flex; align-items: center; margin: 6px 0;">
+                                    <span style="width: 12px; height: 12px; background: #1890ff; border-radius: 2px; display: inline-block; margin-right: 8px;"></span>
+                                    <span style="flex: 1; color: #595959;">Commits:</span>
+                                    <span style="font-weight: bold; margin-left: 8px; color: #000;">${commits}</span>
+                                  </div>
+                                  <div style="display: flex; align-items: center; margin: 6px 0;">
+                                    <span style="width: 12px; height: 12px; background: #52c41a; border-radius: 2px; display: inline-block; margin-right: 8px;"></span>
+                                    <span style="flex: 1; color: #595959;">PRs:</span>
+                                    <span style="font-weight: bold; margin-left: 8px; color: #000;">${prs}</span>
+                                  </div>
+                                  <div style="display: flex; align-items: center; margin: 6px 0;">
+                                    <span style="width: 12px; height: 12px; background: #faad14; border-radius: 2px; display: inline-block; margin-right: 8px;"></span>
+                                    <span style="flex: 1; color: #595959;">Approvals:</span>
+                                    <span style="font-weight: bold; margin-left: 8px; color: #000;">${approvals}</span>
+                                  </div>
+                                </div>
+                              `
+                            }
 
                             return `
-                              <div style="padding: 12px; background: white; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
-                                <div style="font-weight: bold; margin-bottom: 8px; font-size: 14px;">${title}</div>
-                                <div style="display: flex; align-items: center; margin: 4px 0;">
+                              <div style="padding: 12px; min-width: 200px;">
+                                <div style="font-weight: bold; margin-bottom: 8px; font-size: 14px; color: #000;">${title}</div>
+                                <div style="display: flex; align-items: center; margin: 6px 0;">
                                   <span style="width: 12px; height: 12px; background: #1890ff; border-radius: 2px; display: inline-block; margin-right: 8px;"></span>
-                                  <span style="flex: 1;">Commits:</span>
-                                  <span style="font-weight: bold; margin-left: 8px;">${monthData.commits}</span>
+                                  <span style="flex: 1; color: #595959;">Commits:</span>
+                                  <span style="font-weight: bold; margin-left: 8px; color: #000;">${monthData.commits}</span>
                                 </div>
-                                <div style="display: flex; align-items: center; margin: 4px 0;">
+                                <div style="display: flex; align-items: center; margin: 6px 0;">
                                   <span style="width: 12px; height: 12px; background: #52c41a; border-radius: 2px; display: inline-block; margin-right: 8px;"></span>
-                                  <span style="flex: 1;">PRs:</span>
-                                  <span style="font-weight: bold; margin-left: 8px;">${monthData.prs}</span>
+                                  <span style="flex: 1; color: #595959;">PRs:</span>
+                                  <span style="font-weight: bold; margin-left: 8px; color: #000;">${monthData.prs}</span>
                                 </div>
-                                <div style="display: flex; align-items: center; margin: 4px 0;">
+                                <div style="display: flex; align-items: center; margin: 6px 0;">
                                   <span style="width: 12px; height: 12px; background: #faad14; border-radius: 2px; display: inline-block; margin-right: 8px;"></span>
-                                  <span style="flex: 1;">Approvals:</span>
-                                  <span style="font-weight: bold; margin-left: 8px;">${monthData.approvals}</span>
+                                  <span style="flex: 1; color: #595959;">Approvals:</span>
+                                  <span style="font-weight: bold; margin-left: 8px; color: #000;">${monthData.approvals}</span>
                                 </div>
                               </div>
                             `
                           }
-                        }
+                        },
+                        interactions: [
+                          {
+                            type: 'active-region'
+                          }
+                        ]
                       }
 
                       return <Column {...config} height={300} />

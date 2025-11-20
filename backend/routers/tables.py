@@ -11,7 +11,7 @@ from cli.models import (
     get_engine, get_session,
     Repository, Commit, PullRequest, PRApproval,
     StaffDetails, AuthorStaffMapping,
-    StaffMetrics, CommitMetrics, PRMetrics,
+    StaffMetrics, CurrentYearStaffMetrics, CommitMetrics, PRMetrics,
     RepositoryMetrics, AuthorMetrics, TeamMetrics, DailyMetrics
 )
 
@@ -40,6 +40,7 @@ async def get_table_info():
 
                 # Metric tables (pre-calculated)
                 "staff_metrics": session.query(StaffMetrics).count(),
+                "current_year_staff_metrics": session.query(CurrentYearStaffMetrics).count(),
                 "commit_metrics": session.query(CommitMetrics).count(),
                 "pr_metrics": session.query(PRMetrics).count(),
                 "repository_metrics": session.query(RepositoryMetrics).count(),
@@ -80,6 +81,7 @@ async def get_table_data(
 
             # Metric tables (pre-calculated)
             "staff_metrics": StaffMetrics,
+            "current_year_staff_metrics": CurrentYearStaffMetrics,
             "commit_metrics": CommitMetrics,
             "pr_metrics": PRMetrics,
             "repository_metrics": RepositoryMetrics,

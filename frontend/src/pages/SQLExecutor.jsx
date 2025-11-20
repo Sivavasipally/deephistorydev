@@ -57,13 +57,15 @@ ORDER BY staff_count DESC;`,
 }
 
 const schemaInfo = `
+**Core Tables**
+
 **repositories**
 - id, project_key, slug_name, clone_url, created_at
 
 **commits**
 - id, repository_id, commit_hash, author_name, author_email
 - committer_name, committer_email, commit_date, message
-- lines_added, lines_deleted, files_changed, branch
+- lines_added, lines_deleted, files_changed, branch, file_types
 
 **pull_requests**
 - id, repository_id, pr_number, title, description
@@ -74,14 +76,63 @@ const schemaInfo = `
 **pr_approvals**
 - id, pull_request_id, approver_name, approver_email, approval_date
 
+**Staff Tables**
+
 **staff_details**
 - id, bank_id_1, staff_id, staff_name, email_address
-- staff_start_date, staff_end_date, tech_unit, platform_name
-- staff_type, staff_status, rank, department_id
+- staff_start_date, staff_end_date, staff_status, staff_type
+- tech_unit, platform_name, sub_platform, rank, job_function
+- work_location, reporting_manager_name, department_id
 
 **author_staff_mapping**
 - id, author_name, author_email, bank_id_1
 - staff_id, staff_name, mapped_date, notes
+
+**Metrics Tables (Pre-calculated)**
+
+**staff_metrics**
+- id, bank_id_1, staff_name, email_address, staff_status
+- total_commits, total_prs, total_approvals_given
+- total_repositories, total_files_changed, total_lines_changed
+- different_file_types, different_repositories
+- avg_commits_monthly, avg_prs_monthly
+
+**current_year_staff_metrics**
+- id, bank_id_1, staff_name, staff_email, staff_status
+- work_location, staff_type, rank, job_function, sub_platform
+- cy_total_commits, cy_total_prs, cy_total_approvals_given
+- cy_total_repositories, cy_total_files_changed
+- cy_pct_code, cy_pct_config, cy_pct_documentation, cy_pct_others
+- cy_monthly_commits, cy_monthly_prs, cy_monthly_approvals (JSON)
+
+**commit_metrics**
+- id, commit_date, repository_id, author_email, branch
+- commit_count, total_lines_added, total_lines_deleted
+- total_files_changed, file_types_json
+
+**pr_metrics**
+- id, pr_created_date, repository_id, author_email
+- pr_count, total_commits, total_lines_added, total_lines_deleted
+- avg_review_time, approvals_count
+
+**repository_metrics**
+- id, repository_id, metric_date, commit_count
+- total_lines_added, total_lines_deleted, active_authors
+- pr_count, avg_review_time
+
+**author_metrics**
+- id, author_email, author_name, metric_date
+- commit_count, pr_count, approvals_given
+- lines_added, lines_deleted, files_changed
+
+**team_metrics**
+- id, team_name, metric_date, team_size
+- total_commits, total_prs, total_approvals
+- avg_commits_per_member, avg_prs_per_member
+
+**daily_metrics**
+- id, metric_date, total_commits, total_prs
+- total_approvals, active_authors, active_repositories
 `
 
 const SQLExecutor = () => {

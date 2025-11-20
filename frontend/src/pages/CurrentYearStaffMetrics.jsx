@@ -507,9 +507,10 @@ Generated on: ${new Date().toLocaleString()}
           <Row gutter={[16, 16]}>
             <Col span={6}>
               <Select
-                placeholder="Staff Status"
+                placeholder="All Status"
                 style={{ width: '100%' }}
                 onChange={setStatusFilter}
+                value={statusFilter}
                 allowClear
               >
                 <Option value="">All Status</Option>
@@ -519,12 +520,14 @@ Generated on: ${new Date().toLocaleString()}
             </Col>
             <Col span={6}>
               <Select
-                placeholder="Location"
+                placeholder="All Locations"
                 style={{ width: '100%' }}
                 onChange={setLocationFilter}
+                value={locationFilter}
                 allowClear
                 showSearch
               >
+                <Option value="">All Locations</Option>
                 {filterOptions.locations?.map(loc => (
                   <Option key={loc} value={loc}>{loc}</Option>
                 ))}
@@ -532,12 +535,14 @@ Generated on: ${new Date().toLocaleString()}
             </Col>
             <Col span={6}>
               <Select
-                placeholder="Staff Type"
+                placeholder="All Staff Types"
                 style={{ width: '100%' }}
                 onChange={setStaffTypeFilter}
+                value={staffTypeFilter}
                 allowClear
                 showSearch
               >
+                <Option value="">All Staff Types</Option>
                 {filterOptions.staff_types?.map(type => (
                   <Option key={type} value={type}>{type}</Option>
                 ))}
@@ -545,12 +550,14 @@ Generated on: ${new Date().toLocaleString()}
             </Col>
             <Col span={6}>
               <Select
-                placeholder="Rank"
+                placeholder="All Ranks"
                 style={{ width: '100%' }}
                 onChange={setRankFilter}
+                value={rankFilter}
                 allowClear
                 showSearch
               >
+                <Option value="">All Ranks</Option>
                 {filterOptions.ranks?.map(rank => (
                   <Option key={rank} value={rank}>{rank}</Option>
                 ))}
@@ -558,12 +565,14 @@ Generated on: ${new Date().toLocaleString()}
             </Col>
             <Col span={6}>
               <Select
-                placeholder="Job Function"
+                placeholder="All Job Functions"
                 style={{ width: '100%' }}
                 onChange={setJobFunctionFilter}
+                value={jobFunctionFilter}
                 allowClear
                 showSearch
               >
+                <Option value="">All Job Functions</Option>
                 {filterOptions.job_functions?.map(jf => (
                   <Option key={jf} value={jf}>{jf}</Option>
                 ))}
@@ -571,12 +580,14 @@ Generated on: ${new Date().toLocaleString()}
             </Col>
             <Col span={6}>
               <Select
-                placeholder="Sub Platform"
+                placeholder="All Sub Platforms"
                 style={{ width: '100%' }}
                 onChange={setSubPlatformFilter}
+                value={subPlatformFilter}
                 allowClear
                 showSearch
               >
+                <Option value="">All Sub Platforms</Option>
                 {filterOptions.sub_platforms?.map(sp => (
                   <Option key={sp} value={sp}>{sp}</Option>
                 ))}
@@ -584,12 +595,14 @@ Generated on: ${new Date().toLocaleString()}
             </Col>
             <Col span={6}>
               <Select
-                placeholder="Reporting Manager"
+                placeholder="All Managers"
                 style={{ width: '100%' }}
                 onChange={setManagerFilter}
+                value={managerFilter}
                 allowClear
                 showSearch
               >
+                <Option value="">All Managers</Option>
                 {filterOptions.reporting_managers?.map(mgr => (
                   <Option key={mgr} value={mgr}>{mgr}</Option>
                 ))}
